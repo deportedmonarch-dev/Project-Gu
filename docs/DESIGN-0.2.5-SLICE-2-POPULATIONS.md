@@ -6,8 +6,8 @@
 
 ## Decision summary (proposed)
 
-1. **Persist wild populations inside their habitat owner**, beginning with each `CompGuSpiritSpring`, using **one owner and one authoritative collection**. Use `GuEcologyMapComponent` for a transient, reconstructed *index and notification dispatcher*, **not** a second persistent population store.
-2. The generic framework operates on `IGuPopulationHabitat` / `GuPopulationRecord` abstractions. Spirit springs are the first host, not the only future host. A species' suitability policy determines whether it belongs there; Hope Gu explicitly require `spirit_spring`.
+1. **Persist anchored wild populations with their habitat owner**, beginning with each `CompGuSpiritSpring`, using **one owner and one authoritative collection**. This is *one population mode*, not a requirement that all Gu need a habitat object. Free-roaming Gu, regional background populations, and special emergence events require independent support. Use `GuEcologyMapComponent` for a transient, reconstructed *index and notification dispatcher*, **not** a second persistent spring-population store.
+2. The generic framework operates on population/source abstractions that include `IGuPopulationHabitat` / `GuPopulationRecord` for *anchored* cohorts. Spirit springs are one host, not the only source of Gu. Species suitability is a weighted preference/eligibility policy, not necessarily a mandatory habitat lock; Hope Gu keep spring-local reproduction and awakening availability in our current implementation.
 3. A spring owns any number of records, indexed by stable Gu species Def name. Hope Gu's current counts stay exactly the same after migration; Water/Earth species and other spring residents are supported without creating them by default.
 4. Migration from v0.2.4 runs **once per spring**, only when a new authoritative list was absent in the saved data. It copies mature and juvenile Hope Gu counts, daily ecology schedule and existing production/reserve/habitat fields, without rerolling or regrowing.
 5. Slice 2 is **storage/behavior-preserving**. It will not spawn physical Gu, change economic yields or implement new species populations. Those require later slices and separate tests.
@@ -19,7 +19,7 @@ These are design recommendations, **not validated RimWorld 1.7 API contracts**. 
 
 A spring currently saves all ecology state in `CompGuSpiritSpring.PostExposeData`. Moving the record's source of truth to a GameComponent would create extra lifecycle concerns (spring destruction, map loading/unloading, save ordering, duplicate records and orphan cleanup). Instead, persistence follows the `Thing` owner and naturally survives its supported RimWorld save lifecycle. The map component provides fast lookups of live habitats without owning their data.
 
-This is **not** a rule that all Gu in the mod belong to a spring. Future Gu carried by pawns and unique Immortal Gu are individual Gu, with separate persistence rules from aggregated wild cohorts. Non-spring habitats can implement the same host interface and own their populations similarly.
+This is **not** a rule that all Gu in the mod belong to a spring or even a discrete habitat object. Free-roaming Gu, regionally distributed cohorts, creatures that host Gu, and special natural refinement events need their own sources and identity ownership. Future Gu carried by pawns and unique Immortal Gu are individual Gu with separate persistence rules from aggregated wild cohorts. Non-spring anchored habitats can implement the same host interface; regional populations must have an explicit persistent map/world-region owner, not be shoehorned into a fake spring.
 
 ### Proposed storage map
 
@@ -68,6 +68,60 @@ PopulationResult TryTransfer(...); // design only: not implemented until individ
 Use `DefDatabase<GuSpeciesDef>` to resolve species. If a save references a missing optional add-on species, do **not** silently delete its record or reassign it to another species. Retain its Def name and counts as **dormant/unknown** data where technically possible; disable simulation and report a diagnostic until the definition returns. Assess actual Scribe serialization and XML behavior.
 
 Tag strings in Slice 1 are descriptive metadata, **not** sufficient to implement habitat suitability by themselves. Add a future pluggable rule interface such as `IGuHabitatSuitabilityPolicy`, with a default spring affinity rule; no large hard-coded Gu-name switch in the generic engine.
+
+## Expanded ontology: Gu exist beyond named habitats (owner-approved)
+
+**Core correction:** *Gu are creatures of heaven and earth, not merely products of habitat buildings.* The engine must permit an individual Gu to exist and roam freely, even without a visible spring, mushroom patch or nest. Habitat and energy conditions provide weighted suitability, emergence rates and survival benefits; **hard requirements are optional species rules, never a universal restriction.**
+
+### Distinct coexistence modes
+
+| Mode | Example | Authoritative state | Planned simulation |
+|---|---|---|---|
+| Anchored ecological cohort | Hope Gu around a spring; a Gu-bearing Lingzhi forest | One named habitat/site owner | Aggregated counts with per-species lifecycle |
+| Regional/background wild cohort | Uncommon wild Gu in ordinary wilderness, higher density where dao conditions suit it | Map or persistent region owner (future, not a spring) | Sparse probability sampling, aggregate cohorts |
+| Individually roaming Gu | An independent Liquor Worm wandering a map | Single persistent Gu identity/Thing ownership | Lightweight movement/behavior, capture, feeding; later slice |
+| Specialized breeding site | Imperial Court Blessed Land-like towers acting as breeders/hives | Site structures plus explicit output and population ledgers | Capacity, resources, breeding cycles, dispersal |
+| Gu hosted by a living organism | Beast-associated Gu, parasite or symbiont | Host-linked Gu ownership or population record, never duplicative | Host lifecycle / transfer / death outcomes |
+| Event-derived Gu | Natural refinement, mutation/evolution, ascension-related Gu | Explicit genesis transaction creates identity or cohort delta | Trigger-driven, seeded and logged |
+
+**No single spawn formula** should be used for every one of these. A species may be eligible for more than one mode; the distribution engine chooses *which source* generated it and where its authoritative state resides. Creating visible entities from cohorts transfers counts rather than adding independent duplicates.
+
+### Generation versus reproduction versus migration
+
+Use an extensible **Gu genesis / appearance policy** with explicit provenance and conservation semantics:
+
+- **Breeding and reproduction:** existing organisms/Gu and a breeding habitat produce offspring under defined resource and suitability rules. Towers and concentrated habitats may amplify this process.
+- **Natural heaven-and-earth refinement:** defined environmental prerequisites and energy/resource budgets generate a Gu from a process that is *not parent-based reproduction*. Dense dao marks, qi/primeval-energy conditions, unique weather and landscape can influence it.
+- **Biological emergence:** parasitism, symbiosis, mutation or evolutionary development in beasts/flora can produce or host Gu, with host linkage and consequences.
+- **Special events:** an immortal ascension or world/story event may refine or grant a specific Gu (e.g. the owner's Tai Bai Yun Sheng / Landscape as Before example); treat this as a scoped event with preconditions and unique-result rules.
+- **Arrival / dispersal:** a wandering Gu can come from another population or map/region without *newly being created*. Record departure and arrival or defer a single individual identity across map transitions.
+- **Initial world generation:** seeded baseline populations or Gu placements may be created as an explicit starting allocation, distinct from ongoing births/refinement.
+
+Every appearance must specify **source**, **species eligibility**, **rank**, **destination**, **conservation ledger treatment**, and **failure handling**. Strong habitats bias rates and survival; not all species require any one feature.
+
+### Environmental fields, including dao-mark concentration
+
+Design a **sparse environmental influence layer** (future): fields such as qi/primeval-energy density, Water/Earth and other path-associated dao-mark concentrations, terrain, biome, season, flora, weather, ruins and blessed-land effects. Use a read-only environmental snapshot consumed by species/source policies; allow plugins to add influence providers. Avoid per-tick per-cell scans or recalculating each Gu's suitability continuously.
+
+Important: a high dao concentration does not automatically create Gu. It can alter eligibility, probability, potency, survival, mutation or natural-refinement opportunity depending on species and genesis mode. Exact dao-mark mechanics and balance remain unimplemented.
+
+### No exclusivity by default
+
+- **Soft preference:** a wild Gu may occur broadly but is substantially more common or more successful in optimal conditions.
+- **Hard prerequisite:** selected Gu truly require a spring, host, special dao marks, environment, or event to form/reproduce.
+- **Multiple pathways:** one Gu can be naturally refined, bred, discovered or otherwise appear through different sources without violating identity conservation.
+- **Uniqueness:** restricted Immortal Gu must respect the relevant unique scope across *all* genesis pathways.
+
+Hope Gu are anchored to springs for **the existing 0.2.4 reproduction/awakening rules**. This is a species-specific gameplay rule, **not a universal requirement** that future Hope Gu or all Gu must be permanently confined to one structure. A physical mature Hope Gu may eventually leave the spring via a conserved transfer; that must not grant a free replacement in the source population.
+
+### Architectural implications and staged scope
+
+The generic model needs two related but distinct layers:
+
+1. **Population custody:** anchored, regional, host-linked or individually owned state with precisely one authoritative persistence owner.
+2. **Appearance/genesis orchestration:** pluggable mechanisms for births, refinement, events, dispersion, world seeding and host-origin emergence. Each invokes the same checked creation/transfer gateway; it cannot directly increment counts and also instantiate physical Gu.
+
+Do **not** force this entire ecology simulator into 0.2.5. Slice 2 should preserve spring populations while defining contracts for non-spring custodians and genesis provenance; implement roaming individuals and environmental fields in subsequent testable slices. Testing must eventually prove (a) a species capable of spawning without any habitat object, (b) boosted incidence at a premium habitat, (c) transfer without duplication, and (d) a special genesis event that cannot fire twice after reload.
 
 ## Spring / Hope Gu ecology contract
 
@@ -138,7 +192,7 @@ Operations should return explicit `Success / MissingSpecies / MissingHabitat / I
 ### Exit gates
 
 - 0.2.4 old save and fresh game produce exactly the same Hope Gu counts and behavior as before.
-- Two distinct population species can share one habitat, and two separate springs do **not** share counts.
+- Two distinct population species can share one habitat, and two separate springs do **not** share counts. The schema does not preclude non-spring regional cohorts or free-roaming independent Gu.
 - Successful and failed consumption preserve conservation. Failed attempt with no Gu has no irreversible side effect.
 - All saved populations survive multiple reloads, including zero counts.
 - Flora notifications, fallback recount, finite reserve/stone yields and awakening all regress cleanly.
