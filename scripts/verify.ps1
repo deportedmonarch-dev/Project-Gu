@@ -54,6 +54,9 @@ $saveKeys = @('guNextProductionTick','guLifetimeProduced','guHopeGuAvailable','g
 foreach ($key in $saveKeys) { Assert-Gu ($source.Contains($key)) "Missing save field: $key" }
 Write-Host 'PASS: XML, file structure, 1.7 metadata, ecology definitions and save-key presence.' -ForegroundColor Green
 
+# Framework slice 1: species metadata checks (PowerShell only, no Python dependency).
+& (Join-Path $PSScriptRoot 'verify-gu-framework.ps1')
+
 & (Join-Path $PSScriptRoot 'build.ps1') -RimWorldPath $RimWorldPath
 if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Compilation failed.' }
 Write-Host 'Static checks + compilation passed. Proceed to the in-game test plan.' -ForegroundColor Green
