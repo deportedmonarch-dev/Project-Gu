@@ -24,10 +24,19 @@ The project owner reported **12/12 in-game checks passed** after the fully-quali
 5. Confirm neither Gu species spawns automatically; this is definition-only.
 6. Do **not** merge into `main` until player acceptance.
 
+## Slice 2: Species-keyed spring cohorts — implementation committed, validation pending
+
+The new save-backed `GuPopulationRecord` and `GuPopulationLedger` provide species-independent cohort storage and consumption. Spirit springs remain authoritative owners of their own cohorts, keyed by species Def name. The `guPopulationSchema025` marker prevents old legacy save fields from reinitializing a deliberately empty new cohort. Migration imports the mature count, juveniles and ecology tick, with old reserve/stone/habitat fields retained. Stable spring IDs are persisted and duplicate IDs are diagnosed in the map registry.
+
+A developer-only `GU_DevTestSpringGu` can be seeded once through a new spring dev gizmo to verify two species persist independently. It is not a spawnable Gu, does not auto-reproduce and cannot be used for awakening. Wild Gu are now allowed to omit habitat tags because habitats are preferential rather than universally mandatory.
+
+**Status:** GitHub source committed. Static inspection of changed source performed; **Windows 1.7 compilation, XML loading, Scribe migrations, save/load, multi-spring tests and the 0.2.4 regression suite remain unverified**. Do not merge into main. See `TEST-SLICE-0.2.5-2.md`.
+
+**Known issue deliberately deferred:** The existing awakening service still commits pawn state before attempting Gu consumption; a later transaction slice must address rollback and failure-safe coordination.
+
 ## Next slices (not implemented)
 
-- Determine canonical population store, spring/site identity and migration transaction ordering.
-- Move saved spring-specific Hope Gu cohorts into habitat+species keyed records, retaining all 0.2.4 save fields.
+- Verify Slice 2 population custody, spring/site identity and migration through real game testing.
 - Add persistent individual Gu identity and count-conserving materialization/capture.
 - Make awakening consumption failure-safe and atomic at a narrow coordinator.
 - Verify at least one **functioning** second species before claiming the framework is extensible.
