@@ -1,6 +1,6 @@
 # RFC-0002 — Individual Gu identity and custody
 
-**Status** — Proposed for owner and independent Claude Opus review
+**Status** — Proposed for owner approval. Independent Claude Opus review is optional.
 **Target** — RimWorld 1.7 / Waylith / .NET 10
 **Branch** — `feature/gu-framework-0.2.5`
 
@@ -117,4 +117,4 @@ Habitat suitability is a separate species policy and can express soft preference
 - Which Immortal Gu uniqueness scopes and post-death rules are intended? Which species may aggregate, and which individual properties forbid retirement into a cohort?
 - Does the underground plan expose a stable endpoint and a recoverable transfer protocol early enough for the acceptance gate?
 
-**Review request for Claude Opus** — Challenge the proposed record authority at the engine custody boundary. Identify any transition that can leave two actionable manifestations, lose an individual, or debit resources twice. Review aperture host-loss and underground teardown cases in particular, then judge whether the alternative storage probes and acceptance gates would distinguish the viable designs.
+**Suggested focus for independent review** — Challenge the proposed record authority at the engine custody boundary. Identify any transition that can leave two actionable manifestations, lose an individual, or debit resources twice. Review aperture host-loss and underground teardown cases in particular, then judge whether the alternative storage probes and acceptance gates would distinguish the viable designs.

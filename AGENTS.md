@@ -1,12 +1,8 @@
-# Project GU — Agent Instructions
+# Project GU — Engineering instructions
 
-- Target **RimWorld 1.7 Waylith/.NET 10 only**; do not substitute RimWorld 1.6 APIs or unverified `ThingComp` overrides.
-- The **0.2.4 compile-hotfix** is player-validated (10/10 in-game checks). Preserve behavior and save compatibility. Never claim automated validation implies gameplay validation.
-- Do **not** begin implementing the 0.2.5 Gu Framework until its architecture RFC is independently reviewed and approved.
-- Separate Gu **species definitions**, **persistent individuals**, and **wild population records**, with single-source-of-truth transitions and conservation across capture, unloading, save/load, and map travel.
-- Design reusable behavior extensions for extraordinary Gu rather than an ever-growing hard-coded species switch. Do not overengineer unimplemented mechanics.
-- In-depth Gu World requirements: potential future immortal Gu, ownership/refinement/activation, ecology, off-map simulation, clans/sects, and optional underground systems. Spirit springs must not be hardwired to only Moon Orchid or only Hope Gu.
-- Native underground maps, if introduced later, must support other sites: inheritances, refuges, mining, and abyssal depths. External mods should remain optional compatibility integrations.
-- Every update requires a Windows build against actual RimWorld 1.7 assemblies, focused in-game gameplay tests, save/load and regression tests. Log blockers and fix before advancing. Speed testing with dev controls rather than reducing coverage.
-- Avoid committing compiled DLLs, Steam/RimWorld game files, personal logs, saves, secrets, or unlicensed third-party assets.
-- Source-of-truth test results belong in versioned docs; don't invent passes.
+- The project owner approves gameplay vision, scope, and acceptance. Codex leads technical architecture, API investigation, implementation, integration, debugging, and automated verification. ChatGPT supports systems design, lore, progression, balance, requirements, and design evaluation. Claude is an optional independent reviewer for high-risk decisions.
+- Start with the relevant source, Defs, saves and documentation. Use [architecture](ARCHITECTURE.md), [vision](docs/PROJECT-VISION.md), and [roadmap](docs/ROADMAP.md) for orientation. Scale investigation to the change. For uncertain engine behavior, inspect the actual target assemblies or matching decompiled code and run focused probes. Use RFCs for substantial architectural decisions, and resolve scope or gameplay tradeoffs with the owner.
+- Target RimWorld 1.7 Waylith and .NET 10. Verify API signatures and lifecycle assumptions against that version. Keep proprietary assemblies, decompiled game source, compiled artifacts, private saves, logs, credentials, and unlicensed assets out of Git.
+- Preserve package IDs, Def names, Scribe keys, migration semantics, population conservation, and validated behavior. Keep species definitions, individual identity, and aggregate cohorts separate. Give each individual exactly one authoritative custody state. Prefer optional species behaviors and bounded simulation.
+- For C# or XML changes, run relevant structural checks and `scripts/verify.ps1` with actual 1.7 assemblies when available. Record the environment and blockers. Label static checks, stub-based tests, real compilation, player reports, and independently reproduced game tests separately. Exercise save/load and regression cases appropriate to the change.
+- Keep commits focused and state what changed and what was verified. Update affected status docs when evidence changes. Work on the designated development branch. Merge into main only with explicit owner authorization.

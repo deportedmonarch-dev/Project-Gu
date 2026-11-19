@@ -1,6 +1,7 @@
 # Slice 2 — Species-independent populations: implementation and player test plan
 
-**Status:** Committed on feature branch. **NOT YET COMPILED against user's RimWorld 1.7 game; NOT GAMEPLAY-VALIDATED.**  
+**Status:** Implemented on the feature branch. The owner reported 10/10 gameplay checks. Explicit build output and coverage of the full checklist below remain unconfirmed. See the [implementation journal](IMPLEMENTATION-0.2.5.md).
+
 **Base:** Slice 1 player-validated 12/12; main remains the 0.2.4 player-validated baseline.
 
 ## What was implemented

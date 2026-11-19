@@ -13,7 +13,7 @@
 
 ## Player acceptance results — 2026-11-19
 
-The project owner reported **12/12 in-game checks passed** after the fully-qualified GuSpeciesDef XML loading hotfix. The prior startup Def resolution error no longer appears. Regression checks covered clean loading, spring ecology, flora support, awakening, stones, save/reload, and absence of unintended physical Gu spawning. **Moonlight Gu being unspawnable is expected:** only a GuSpeciesDef exists, not a ThingDef/physical entity or ability. This is player-reported acceptance, not an independently captured automated runtime test. Slice 2 implementation is still pending.
+The project owner reported **12/12 in-game checks passed** after the fully-qualified GuSpeciesDef XML loading hotfix. The prior startup Def resolution error no longer appears. Regression checks covered clean loading, spring ecology, flora support, awakening, stones, save/reload, and absence of unintended physical Gu spawning. **Moonlight Gu being unspawnable is expected:** only a GuSpeciesDef exists, not a ThingDef/physical entity or ability. This is player-reported acceptance, not an independently captured automated runtime test.
 
 ## Tests
 
@@ -50,7 +50,9 @@ stopped at the missing RimWorld 1.7 `Assembly-CSharp.dll`. Windows compilation a
 gameplay remain pending, including save round-trips with explicitly empty lists, missing
 versioned lists, unresolved species, and old saves with zero adults and surviving juveniles.
 
-## Next slices (not implemented)
+## Follow-up work
+
+See the [roadmap](ROADMAP.md) for sequencing and current gates.
 
 - Verify Slice 2 population custody, spring/site identity and migration through real game testing.
 - Add persistent individual Gu identity and count-conserving materialization/capture.
