@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Species definitions only. No automatic spawning or gameplay migration. -->
+  <GuSpeciesDef>
+    <defName>GU_HopeGu</defName>
+    <label>Hope Gu</label>
+    <description>Human Path Gu that congregate around spirit springs. Mature Hope Gu are used in awakening ceremonies.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <pathTags><li>human</li></pathTags>
+    <habitatTags><li>spirit_spring</li></habitatTags>
+    <capabilityTags><li>awakening_consumable</li></capabilityTags>
+  </GuSpeciesDef>
+  <GuSpeciesDef>
+    <defName>GU_MoonlightGu</defName>
+    <label>Moonlight Gu</label>
+    <description>Rank one Moon Path Gu with a future primeval-essence-powered combat ability. Not currently spawned.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>false</wildPopulationEnabled>
+    <pathTags><li>moon</li></pathTags>
+    <capabilityTags><li>active_essence_ability</li></capabilityTags>
+  </GuSpeciesDef>
+</Defs>
