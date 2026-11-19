@@ -5,7 +5,8 @@ $sourcePath = Join-Path $root 'Source\ProjectGu\Domain\GuSpeciesDef.cs'
 if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw 'Missing GuSpeciesDef source.' }
 if (-not (Test-Path -LiteralPath $defsPath -PathType Leaf)) { throw 'Missing Gu species XML.' }
 [xml]$xml = Get-Content -LiteralPath $defsPath -Raw
-$defs = @($xml.Defs.GuSpeciesDef)
+$defs = @($xml.Defs.SelectNodes('ProjectGu.Domain.GuSpeciesDef'))
+if (@($xml.Defs.ChildNodes | Where-Object { $_.NodeType -eq 'Element' -and $_.Name -ne 'ProjectGu.Domain.GuSpeciesDef' }).Count -gt 0) { throw 'All Gu species declarations must use the fully qualified C# Def type.' }
 if ($defs.Count -lt 2) { throw 'Need two distinct species definitions for framework tests.' }
 $seen = @{}
 foreach ($def in $defs) {
