@@ -24,13 +24,13 @@ The project owner reported **12/12 in-game checks passed** after the fully-quali
 5. Confirm neither Gu species spawns automatically; this is definition-only.
 6. Do **not** merge into `main` until player acceptance.
 
-## Slice 2: Species-keyed spring cohorts — implementation committed, validation pending
+## Slice 2: Species-keyed spring cohorts — player-reported 10/10 gameplay tests passed
 
 The new save-backed `GuPopulationRecord` and `GuPopulationLedger` provide species-independent cohort storage and consumption. Spirit springs remain authoritative owners of their own cohorts, keyed by species Def name. The `guPopulationSchema025` marker prevents old legacy save fields from reinitializing a deliberately empty new cohort. Migration imports the mature count, juveniles and ecology tick, with old reserve/stone/habitat fields retained. Stable spring IDs are persisted and duplicate IDs are diagnosed in the map registry.
 
 A developer-only `GU_DevTestSpringGu` can be seeded once through a new spring dev gizmo to verify two species persist independently. It is not a spawnable Gu, does not auto-reproduce and cannot be used for awakening. Wild Gu are now allowed to omit habitat tags because habitats are preferential rather than universally mandatory.
 
-**Status:** GitHub source committed. Static inspection of changed source performed; **Windows 1.7 compilation, XML loading, Scribe migrations, save/load, multi-spring tests and the 0.2.4 regression suite remain unverified**. Do not merge into main. See `TEST-SLICE-0.2.5-2.md`.
+**Player acceptance (2026-11-19):** Project owner reports **10/10 tests passed** for Slice 2. This is player-reported runtime acceptance, not an independently reproduced CI run; the owner has not yet explicitly confirmed the output of `verify.ps1`/`dotnet build`, so **local compilation confirmation remains pending**. The normal `verify.ps1` invokes `build.ps1` using the user's RimWorld 1.7 assemblies. Do not merge into main until compilation is confirmed and pending review gates close. See `TEST-SLICE-0.2.5-2.md`.
 
 **Known issue deliberately deferred:** The existing awakening service still commits pawn state before attempting Gu consumption; a later transaction slice must address rollback and failure-safe coordination.
 
