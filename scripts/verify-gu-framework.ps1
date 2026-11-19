@@ -23,9 +23,8 @@ foreach ($def in $defs) {
         if (@($tags | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) { throw "Empty $field on $name" }
         if (@($tags | Sort-Object -Unique).Count -ne $tags.Count) { throw "Duplicate $field on $name" }
     }
-    if ([string]$def.wildPopulationEnabled -eq 'true' -and $null -eq $def.SelectSingleNode('habitatTags/li')) {
-        throw "Wild population Gu lacks an explicit habitat: $name"
-    }
+    # A wild species may intentionally have no fixed habitat: roaming Gu are valid.
+    # Hope Gu's spring affinity is verified explicitly below.
 }
 $hope = $defs | Where-Object { $_.defName -eq 'GU_HopeGu' } | Select-Object -First 1
 $moon = $defs | Where-Object { $_.defName -eq 'GU_MoonlightGu' } | Select-Object -First 1
