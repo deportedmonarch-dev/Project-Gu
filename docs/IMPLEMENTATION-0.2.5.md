@@ -1,6 +1,6 @@
 # Gu Framework 0.2.5 — implementation journal
 
-## Slice 1: Species catalog — committed, pending RimWorld compilation
+## Slice 1: Species catalog — player-validated (12/12 checks)
 
 **Scope:** Adds `GuSpeciesDef : Verse.Def` and two XML species (`GU_HopeGu`, `GU_MoonlightGu`). No ecology, awakening, existing save keys, jobs, or pre-existing gameplay behavior modified. `DefDatabase<GuSpeciesDef>` is the species catalog; no manually synchronized registry.
 
@@ -10,6 +10,10 @@
 - Hope Gu have an explicit `spirit_spring` affinity. Species-neutral machinery must preserve species-specific habitat rules.
 - Moonlight Gu is a contrasting, non-wild, ability-oriented declaration.
 - XML Def type resolution requires an actual RimWorld 1.7 smoke test.
+
+## Player acceptance results — 2026-11-19
+
+The project owner reported **12/12 in-game checks passed** after the fully-qualified GuSpeciesDef XML loading hotfix. The prior startup Def resolution error no longer appears. Regression checks covered clean loading, spring ecology, flora support, awakening, stones, save/reload, and absence of unintended physical Gu spawning. **Moonlight Gu being unspawnable is expected:** only a GuSpeciesDef exists, not a ThingDef/physical entity or ability. This is player-reported acceptance, not an independently captured automated runtime test. Slice 2 implementation is still pending.
 
 ## Tests
 
