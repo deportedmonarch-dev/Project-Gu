@@ -51,8 +51,8 @@ namespace ProjectGu.Springs
         public override void PostSpawnSetup(bool respawningAfterLoad)
         {
             base.PostSpawnSetup(respawningAfterLoad);
-            parent.Map?.GetComponent<GuEcologyMapComponent>()?.Register(this);
             EnsureInitialized();
+            parent.Map?.GetComponent<GuEcologyMapComponent>()?.Register(this);
             RefreshHabitat();
         }
         public override void PostDestroy(DestroyMode mode, Map previousMap)
