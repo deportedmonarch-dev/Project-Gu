@@ -34,6 +34,22 @@ A developer-only `GU_DevTestSpringGu` can be seeded once through a new spring de
 
 **Known issue deliberately deferred:** The existing awakening service still commits pawn state before attempting Gu consumption; a later transaction slice must address rollback and failure-safe coordination.
 
+## Slice 2 follow-up — population save integrity
+
+A versioned save with missing cohorts, an unsupported schema, duplicate keys, or negative
+cohort counts keeps the population fields that Scribe loaded and disables cohort mutations.
+An existing unversioned list is authoritative, including an empty list. Only an unversioned
+save without a list imports legacy scalars. Unresolved species retain their saved counts
+and cannot be consumed or simulated until their definition is available.
+
+Local verification on Debian with .NET SDK 10.0.404 passed both Python validators and
+the structural stages of `scripts/verify.ps1`. An isolated harness compiled the cohort
+and ledger source with Verse stubs and confirmed standard maturation and consumption,
+plus no birth above capacity when the total exceeds `int.MaxValue`. The full script
+stopped at the missing RimWorld 1.7 `Assembly-CSharp.dll`. Windows compilation and
+gameplay remain pending, including save round-trips with explicitly empty lists, missing
+versioned lists, unresolved species, and old saves with zero adults and surviving juveniles.
+
 ## Next slices (not implemented)
 
 - Verify Slice 2 population custody, spring/site identity and migration through real game testing.

@@ -18,7 +18,7 @@ namespace ProjectGu.Domain
         public string SpeciesDefName => speciesDefName;
         public int MatureCount => matureCount;
         public int JuvenileCount => juvenileCount;
-        public int TotalCount => matureCount + juvenileCount;
+        public long TotalCount => (long)matureCount + juvenileCount;
         public int NextEcologyTick => nextEcologyTick;
 
         // Parameterless constructor is required by RimWorld's deep Scribe loading.
@@ -51,8 +51,8 @@ namespace ProjectGu.Domain
 
             if (canReproduce && birthsPerDay > 0)
             {
-                int freeSpace = Math.Max(0, capacity - TotalCount);
-                juvenileCount += Math.Min(freeSpace, birthsPerDay);
+                long freeSpace = Math.Max(0, capacity - TotalCount);
+                juvenileCount += (int)Math.Min(freeSpace, birthsPerDay);
             }
         }
 
@@ -64,18 +64,6 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref matureCount, "mature", 0);
             Scribe_Values.Look(ref juvenileCount, "juveniles", 0);
             Scribe_Values.Look(ref nextEcologyTick, "nextEcologyTick", -1);
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            {
-                // Keep unknown species intact for disabled addons; reject corrupt counts
-                // without inventing a starter population.
-                if (speciesDefName == null) speciesDefName = "";
-                if (matureCount < 0 || juvenileCount < 0)
-                {
-                    Log.Warning("[Project GU] A negative Gu population was loaded; invalid counts were clamped to zero.");
-                    matureCount = Math.Max(0, matureCount);
-                    juvenileCount = Math.Max(0, juvenileCount);
-                }
-            }
         }
     }
 }

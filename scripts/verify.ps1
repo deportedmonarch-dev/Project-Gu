@@ -72,7 +72,8 @@ foreach ($key in @('guPopulationSchema025','guHabitatId025','guPopulationRecords
     Assert-Gu ($springSource.Contains($key)) "Population migration save key missing: $key"
 }
 Assert-Gu ($springSource.Contains('LookMode.Deep')) 'No deep Scribe serialization for cohorts'
-Assert-Gu ($springSource.Contains('populationSchema < 1')) 'Legacy migration guard missing'
+Assert-Gu ($springSource.Contains('populationSchema == 1 && populations == null')) 'Missing guard for a versioned save without cohorts'
+Assert-Gu ($springSource.Contains('if (!populationsReady) return;')) 'Legacy shadows are not guarded against invalid cohort data'
 Assert-Gu ($springSource.Contains('GuPopulationLedger.TryConsumeMature')) 'Consumption does not use generic population ledger'
 Assert-Gu ($popSource.Contains('IExposable')) 'Species population record is not saveable'
 Assert-Gu ($ledgerSource.Contains('TryAddCohort')) 'Species-neutral cohort insertion missing'

@@ -31,8 +31,9 @@ namespace ProjectGu.Springs
         private int nextEcologyTick = -1;
 
         // v0.2.5 authoritative species-keyed cohorts, owned by this specific spring.
-        // Schema marker distinguishes a legacy save from a valid empty collection.
-        private int populationSchema = 0;
+        // The schema marker and collection together determine whether legacy migration is safe.
+        private int populationSchema;
+        private bool populationsReady;
         private string habitatId = "";
         private List<GuPopulationRecord> populations;
         private const string HopeSpecies = "GU_HopeGu";
@@ -41,12 +42,14 @@ namespace ProjectGu.Springs
         private const int SafetyRecount = 10000;
         private const int ReservePerStone = 1;
         private CompProperties_GuSpiritSpring Props => (CompProperties_GuSpiritSpring)props;
-        public int HopeGuAvailable => GuPopulationLedger.Mature(populations, HopeSpecies);
+        public int HopeGuAvailable => DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) != null
+            ? MatureCountFor(HopeSpecies) : 0;
         public int HopeGuJuvenile => GuPopulationLedger.Find(populations, HopeSpecies)?.JuvenileCount ?? 0;
         public int HabitatSupport => floraSupport;
         public int Reserve => reserve;
         public string HabitatId => habitatId;
-        public int MatureCountFor(string speciesDefName) => GuPopulationLedger.Mature(populations, speciesDefName);
+        public int MatureCountFor(string speciesDefName) => populationsReady
+            ? GuPopulationLedger.Mature(populations, speciesDefName) : 0;
 
         public override void PostSpawnSetup(bool respawningAfterLoad)
         {
@@ -87,37 +90,57 @@ namespace ProjectGu.Springs
         {
             if (reserve < 0) reserve = Math.Max(1, Props.initialReserve);
             if (string.IsNullOrEmpty(habitatId)) habitatId = "gu-habitat-" + Guid.NewGuid().ToString("N");
-            if (populations == null) populations = new List<GuPopulationRecord>();
-
-            if (populationSchema < 1)
+            populationsReady = false;
+            if (populationSchema < 0 || populationSchema > 1 ||
+                (populationSchema == 1 && populations == null) ||
+                GuPopulationLedger.HasDuplicateSpecies(populations) ||
+                (populations != null && populations.Exists(record =>
+                    record.MatureCount < 0 || record.JuvenileCount < 0)))
             {
-                // EXACTLY ONCE: migrate the existing saved count, including zero.
-                // v0.2.4 uses -1 to indicate that matureHopeGu was absent.
-                int adults = matureHopeGu >= 0 ? matureHopeGu : hopeGuAvailable;
-                adults = Math.Max(0, adults);
-                int juveniles = Math.Max(0, juvenileHopeGu);
+                Log.ErrorOnce("[Project GU] Invalid spring population data; cohort changes disabled: " +
+                    habitatId, habitatId.GetHashCode());
+                return;
+            }
+
+            if (populations == null)
+            {
+                // A missing list in an unversioned save is the legacy format.
+                // An existing list, including an empty one, already owns the counts.
+                if (matureHopeGu < -1 || juvenileHopeGu < 0 ||
+                    (matureHopeGu == -1 && hopeGuAvailable < 0) ||
+                    DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) == null)
+                {
+                    Log.ErrorOnce("[Project GU] Cannot migrate legacy spring population: " +
+                        habitatId, habitatId.GetHashCode());
+                    return;
+                }
+                int adults = matureHopeGu >= 0 ? matureHopeGu : Math.Min(hopeGuAvailable, Props.maxHopeGu);
                 int tick = nextEcologyTick;
                 if (tick < 0 && Find.TickManager != null)
                 {
                     int now = Find.TickManager.TicksGame;
                     tick = nextHopeRecoveryTick > now ? nextHopeRecoveryTick : now + EcologyDay;
                 }
-                if (GuPopulationLedger.Find(populations, HopeSpecies) == null)
-                    GuPopulationLedger.TryAddCohort(populations,
-                        new GuPopulationRecord(HopeSpecies, adults, juveniles, tick));
-                populationSchema = 1;
+                populations = new List<GuPopulationRecord>
+                {
+                    new GuPopulationRecord(HopeSpecies, Math.Max(0, adults), juvenileHopeGu, tick)
+                };
             }
 
-            // Never recreate starter Hope Gu in a v0.2.5 save with an empty list.
-            if (GuPopulationLedger.HasDuplicateSpecies(populations))
-                Log.ErrorOnce("[Project GU] Invalid duplicate/empty species key in spring population: " + habitatId,
-                    habitatId.GetHashCode());
+            populationSchema = 1;
+            populationsReady = true;
+            foreach (GuPopulationRecord record in populations)
+            {
+                if (DefDatabase<GuSpeciesDef>.GetNamedSilentFail(record.SpeciesDefName) == null)
+                    Log.Warning("[Project GU] Dormant spring cohort " + record.SpeciesDefName +
+                        " has no species definition: " + habitatId);
+            }
             SyncLegacyShadows();
         }
 
         private void SyncLegacyShadows()
         {
-            if (populationSchema < 1 || populations == null) return;
+            if (!populationsReady) return;
             GuPopulationRecord hope = GuPopulationLedger.Find(populations, HopeSpecies);
             // Shadows are compatibility diagnostics, not a second mutable authority.
             matureHopeGu = hope?.MatureCount ?? 0;
@@ -128,8 +151,9 @@ namespace ProjectGu.Springs
 
         public bool TryConsumePopulation(string speciesDefName, int matureCount)
         {
-            EnsureInitialized();
-            if (!parent.Spawned || matureCount <= 0) return false;
+            if (!populationsReady || !parent.Spawned || matureCount <= 0 ||
+                string.IsNullOrWhiteSpace(speciesDefName) ||
+                DefDatabase<GuSpeciesDef>.GetNamedSilentFail(speciesDefName) == null) return false;
             if (!GuPopulationLedger.TryConsumeMature(populations, speciesDefName, matureCount))
                 return false;
             SyncLegacyShadows();
@@ -143,8 +167,7 @@ namespace ProjectGu.Springs
         // It never runs automatically and is not a real lore Gu species.
         public void DebugSeedSecondaryCohort()
         {
-            if (!Prefs.DevMode || !parent.Spawned) return;
-            EnsureInitialized();
+            if (!populationsReady || !Prefs.DevMode || !parent.Spawned) return;
             if (DefDatabase<GuSpeciesDef>.GetNamedSilentFail(TestSpecies) == null) return;
             if (GuPopulationLedger.TryAddCohort(populations,
                 new GuPopulationRecord(TestSpecies, 2, 1, -1)))
@@ -185,6 +208,7 @@ namespace ProjectGu.Springs
         }
         private void EcologyDayStep()
         {
+            if (!populationsReady || DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) == null) return;
             GuPopulationRecord hope = GuPopulationLedger.Find(populations, HopeSpecies);
             if (hope == null) return;
             // Same 0.2.4 rule: mature juveniles first, one birth only with flora + reserve.
@@ -200,14 +224,14 @@ namespace ProjectGu.Springs
         public override IEnumerable<Gizmo> CompGetGizmosExtra()
         {
             foreach (Gizmo g in base.CompGetGizmosExtra()) yield return g;
-            if (Prefs.DevMode && parent.Spawned)
+            if (populationsReady && Prefs.DevMode && parent.Spawned)
                 yield return new Command_Action
                 {
                     defaultLabel = "GU: simulate ecology day",
                     defaultDesc = "Advance Hope Gu maturation and reproduction by one daily step, without advancing global time or generating stones. TEST ONLY.",
                     action = DebugSimulateEcologyDay
                 };
-            if (Prefs.DevMode && parent.Spawned)
+            if (populationsReady && Prefs.DevMode && parent.Spawned)
                 yield return new Command_Action
                 {
                     defaultLabel = "GU: seed secondary test cohort",
@@ -219,11 +243,11 @@ namespace ProjectGu.Springs
         {
             base.CompTickRare();
             if (!parent.Spawned || parent.Map == null || Find.TickManager == null) return;
-            EnsureInitialized();
             int now = Find.TickManager.TicksGame;
             if (nextHabitatTick < 0 || now >= nextHabitatTick) RefreshHabitat();
             GuPopulationRecord hope = GuPopulationLedger.Find(populations, HopeSpecies);
-            if (hope != null)
+            if (populationsReady && hope != null &&
+                DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) != null)
             {
                 if (hope.NextEcologyTick < 0) hope.SetNextEcologyTick(now + EcologyDay);
                 if (now >= hope.NextEcologyTick)
@@ -285,8 +309,10 @@ namespace ProjectGu.Springs
                 "\nPurity: " + Props.purityPercent + "%" +
                 "\nPrimeval stones produced: " + lifetimeProduced + "; next: " + next +
                 "\nSpirit flora: " + currentHabitatPatches + " patches (support " + floraSupport + ")" +
-                "\nHope Gu: " + HopeGuAvailable + " mature + " + juvenileHopeGu +
-                " juvenile / " + carryingCapacity + " capacity" +
+                (populationsReady
+                    ? "\nHope Gu: " + HopeGuAvailable + " mature + " + juvenileHopeGu +
+                        " juvenile / " + carryingCapacity + " capacity"
+                    : "\nGu population unavailable. See the game log.") +
                 (extra != null ? "\nDev test Gu: " + extra.MatureCount + " mature + " + extra.JuvenileCount + " juvenile" : "") +
                 (floraSupport > 0 ? "\nHabitat supports Hope Gu reproduction" : "\nNo habitat: reproduction suspended");
         }
