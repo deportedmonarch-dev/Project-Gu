@@ -37,8 +37,9 @@ namespace ProjectGu.Domain
             foreach (string error in ValidateTags(pathTags, "pathTags")) yield return error;
             foreach (string error in ValidateTags(habitatTags, "habitatTags")) yield return error;
             foreach (string error in ValidateTags(capabilityTags, "capabilityTags")) yield return error;
-            if (wildPopulationEnabled && (habitatTags == null || habitatTags.Count == 0))
-                yield return $"{defName}: wild population species must declare a habitat tag";
+            // Habitat tags are *preferences*, not universal prerequisites.
+            // Wild Gu may exist freely on maps or in regional populations.
+            // Specific hard prerequisites belong to pluggable species suitability policies.
         }
 
         private IEnumerable<string> ValidateTags(List<string> tags, string field)
