@@ -11,7 +11,7 @@ Project GU must enable developers to add *ordinary and extraordinary* Gu species
 
 **Universal means extensible, not universal behavior:** Gu may be immobile, individually unique, swarming, consumable, owned, unowned, parasitic, environmental, or require specialized world effects. Do not force all Gu to use pawn AI, reproduction, essence costs, feeding, ownership or a physical Thing. XML defines common data; isolated C# behaviors implement irreducibly exceptional effects.
 
-**Invariant:** No creation, disappearance, or duplication of individual Gu, except explicitly modeled birth, synthesis, destruction and consumption.
+**Invariant:** No creation, disappearance, or duplication of individual Gu except explicitly modeled birth, natural refinement, initial world generation, special creation, destruction, consumption or transfers with conservation. Every origin is attributable; no load-time resurrection or double-generation.
 
 ## Concrete findings from source review
 
@@ -57,9 +57,22 @@ Location supports ground, conventional holder, aperture, special container, worl
 
 ### Wild population and habitat
 
-Use a habitat-keyed, species-keyed persisted population record for aggregate cohorts (mature/juvenile initially). Population counts are *not* individual Gu IDs. Species can decline aggregation altogether (e.g. unique Gu). A habitat can host many species with different caps and requirements.
+Use habitat-keyed, species-keyed persisted population records for **anchored** cohorts (mature/juvenile initially), but do not require every wild Gu to have a named habitat. Support a future regional/background cohort owner and fully individual roaming Gu. Population counts are *not* individual Gu IDs. Species can decline aggregation altogether (e.g. unique Gu). A habitat can host many species with different caps and requirements.
 
 The existing spring contributes resources and habitat quality, but species lifecycle logic belongs to the ecology/Gu services. Avoid per-tick scanning of every map Thing or off-map Gu. Favor notifications, scheduled simulation and bounded catch-up policy.
+
+### Free-roaming Gu and diverse emergence pathways (design requirement)
+
+Wild Gu are independent creatures of heaven and earth. **Specific habitats should usually make appearance and reproduction more likely, not categorically lock a Gu to an object.** A Liquor Worm may exist on an ordinary map. Lingzhi forests, specialized Gu-breeding towers in Imperial Court Blessed Land, spirit springs, and regions of concentrated dao marks may be *premium* locations for selected species.
+
+Separate **where Gu are stored/owned** from **why or how Gu came into existence**:
+- anchored habitat populations; regional/background populations; individually roaming Gu; Gu hosted by beasts/flora;
+- births/breeding; natural heaven-and-earth refinement; parasitism/symbiosis; mutation/evolution; seeded generation; arrival/migration; special creation events such as immortal ascension;
+- optional environmental influences (qi density, path-specific dao-mark concentration, terrain, weather, vegetation, site structures, blessed-land properties) influence eligibility and weights, not universal absolutes;
+- explicitly model emergence provenance and resource/energy costs, no spontaneous duplicates from reloading or repeated event triggers;
+- specialized geneses can yield unique Immortal Gu, requiring uniqueness checks across *all* pathways.
+
+The framework must eventually support Gu without any spring, nest, plant or other distinct habitat object. Hope Gu keep their spring-centered baseline ecology and local awakening behavior. See `DESIGN-0.2.5-SLICE-2-POPULATIONS.md` for custody models, generation taxonomy and staged implementation limits.
 
 ### Abilities and specialized effects
 
