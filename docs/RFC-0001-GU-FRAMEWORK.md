@@ -15,7 +15,7 @@ Project GU must enable developers to add *ordinary and extraordinary* Gu species
 
 ## Concrete findings from source review
 
-1. `CompGuSpiritSpring` owns Hope-Gu-only `matureHopeGu`, `juvenileHopeGu`, `carryingCapacity` and `TryConsumeHopeGu`. The ecology model is not yet species-general.
+1. `CompGuSpiritSpring` owns Hope-Gu-only `matureHopeGu`, `juvenileHopeGu`, `carryingCapacity` and `TryConsumeHopeGu`. **Hope Gu's strong association with spirit springs is intentional lore and must remain**; the issue is hardcoded population machinery, not that Hope Gu inhabit springs. The ecology model must become species-general without removing species-specific habitat preferences.
 2. Spring save keys include `guHopeGuAvailable`, `guMatureHope024`, `guJuvenileHope024`, `guHopeCapacity024`, `guFloraSupport024`, `guNextEcology024`, `guReserve024`, production and legacy recovery fields. Maintain migration compatibility.
 3. `GuEcologyMapComponent` maintains a transient spring registry; `CompGuSpiritFlora` sends event notifications with a periodic safety recount. This is appropriate for loaded-map ecology, not an off-map world simulator.
 4. `GuWorldComponent` persists `guPawnRecords`. That is a cultivator/awakening registry, **not** a registry of Gu instances. Do not conflate them.
@@ -30,6 +30,22 @@ Project GU must enable developers to add *ordinary and extraordinary* Gu species
 `GuSpeciesDef : Verse.Def` (name preliminary) contains immutable species identity, rank constraints, tags/paths, presentation hints and optional behavior configuration. Species definitions refer to reusable specialized behaviors, e.g. activation, feeding, ecological lifecycle, ambient influence. Validate unknown/missing behavior types and conflicting capabilities at Def resolution.
 
 A species may exist at more than one rank, but **rank is not assumed to equal species identity**. Do not model every unusual Gu as an enum variant. All cross-mod references use stable Def names and optional dependencies.
+
+### Spirit-spring ecology and lore fidelity (approved design constraint)
+
+**Separate the generic population engine from species-specific habitat rules.** Generic storage, migration, reproduction and transitions must support any species, but this does **not** mean all Gu species spawn everywhere. A spring is a habitat and energy resource whose properties affect *which* Gu appear and persist. Hope Gu must remain strongly associated with spirit springs and must be available to local awakening ceremonies only when a spring's actual mature population supports it.
+
+- **Hope Gu:** Human Path Gu naturally congregate around spirit springs. Preserve the clan awakening use-case and spring-local availability. The relevant Hope Gu population is a species-keyed cohort associated with a concrete spring habitat, not a global generic pool.
+- **Water Path / Earth Path wild Gu:** Allow multiple species simultaneously in a spring environment. Habitat suitability can consider water, terrain, primeval energy, region, flora and future dao-mark-like environmental signals. Do not automatically imply every Water/Earth Gu reproduces there.
+- **Heavenly Essence Treasure Lotus:** Design a *future* Gu-to-resource-site interaction, potentially influencing spring energy/reserve/lifespan. An individual Gu modifies a particular habitat/resource site; it is not a hardcoded spring boolean and does not produce energy from nothing without specified balancing rules.
+- **Spring Egg Gu:** Design a *future* consumable world/site-creation behavior, creating a new small spring in a valid underground location. This is a site/world action, **not** reproduction of Hope Gu or a population-spawning shortcut. Actual site creation depends on the future underground framework and explicit resource costs.
+- **Regional clusters:** Multiple springs may coexist and support overlapping or distinct populations. Future Gushing Spring Forest-like regions must be expressible without a single-spring-per-map or single-species-per-spring constraint.
+- **Identity:** Each population cohort belongs to a stable habitat/site ID. Removing or exhausting a spring triggers explicit ecological consequences (migration, survival, decline or death, as designed), never silent transfer or duplication.
+- **Balance:** Baseline prototype 0.2.4 reproduction and awakening behavior must remain unchanged until a dedicated, tested balance milestone intentionally changes it.
+
+Proposed contract is **species + habitat context -> suitability and lifecycle policy**, while one **shared authoritative population service** persists counts and transitions. Host-specific behaviors live in extension components or Def metadata rather than species-name conditionals inside the population engine.
+
+**Source note:** These lore requirements were supplied by the project owner, citing the *Reverend Insanity* Wiki pages for Spirit Spring, Hope Gu, Heavenly Essence Treasure Lotus Gu, Spring Egg Gu and Gushing Spring Forest. The linked wiki pages could not be directly retrieved during this review, so specific mechanics are documented as **design requirements to verify against canon before detailed implementation**, not newly verified quotations.
 
 ### Individual identity and containment
 
