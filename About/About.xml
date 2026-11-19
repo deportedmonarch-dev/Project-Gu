@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Project GU: Living Cultivation</name>
+  <author>Project GU</author>
+  <packageId>projectgu.livingcultivation</packageId>
+  <supportedVersions><li>1.7</li></supportedVersions>
+  <description>RimWorld 1.7 (Waylith) only. Prototype 0.2.3: mortals, physical primeval stones, spirit springs with renewable local Hope Gu, and an ordered pawn awakening ceremony. No underground maps or off-map spring production yet.</description>
+</ModMetaData>

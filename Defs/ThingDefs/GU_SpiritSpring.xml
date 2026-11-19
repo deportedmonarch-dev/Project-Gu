@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- These are prototype resources. The spring is placed through the dev spawn menu.
+       No random spring spawning or off-map simulation in 0.2.1. -->
+  <ThingDef>
+    <defName>GU_PrimevalStone</defName>
+    <label>primeval stone</label>
+    <description>Concentrated primeval energy produced by a spirit spring. Currently a physical resource for future cultivation and trade systems.</description>
+    <thingClass>ThingWithComps</thingClass>
+    <category>Item</category>
+    <selectable>true</selectable>
+    <alwaysHaulable>true</alwaysHaulable>
+    <graphicData>
+      <texPath>ProjectGU/PrimevalStone</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+    </graphicData>
+    <stackLimit>75</stackLimit>
+    <drawGUIOverlay>true</drawGUIOverlay>
+    <statBases>
+      <MaxHitPoints>100</MaxHitPoints>
+      <Mass>0.1</Mass>
+      <MarketValue>30</MarketValue>
+      <Flammability>0</Flammability>
+    </statBases>
+    <thingCategories>
+      <li>ResourcesRaw</li>
+    </thingCategories>
+  </ThingDef>
+  <ThingDef ParentName="BuildingBase">
+    <defName>GU_SpiritSpring</defName>
+    <label>spirit spring (prototype)</label>
+    <description>An exposed concentration of primeval energy. Produces one primeval stone per day while its map is active. For testing, place it with Development Mode's spawn-thing action. Awakening ceremonies function in the prototype; underground caverns are planned.</description>
+    <thingClass>Building</thingClass>
+    <graphicData>
+      <texPath>ProjectGU/SpiritSpring</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(2,2)</drawSize>
+    </graphicData>
+    <size>(2,2)</size>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.1</fillPercent>
+    <tickerType>Rare</tickerType>
+    <comps>
+      <li Class="ProjectGu.Springs.CompProperties_GuSpiritSpring">
+        <productionIntervalTicks>60000</productionIntervalTicks>
+        <stonesPerCycle>1</stonesPerCycle>
+        <stoneDefName>GU_PrimevalStone</stoneDefName>
+        <regionProfile>SouthernBorder</regionProfile>
+        <initialReserve>100000</initialReserve>
+        <purityPercent>75</purityPercent>
+        <habitatRadius>5</habitatRadius>
+        <maxHopeGu>30</maxHopeGu>
+      </li>
+    </comps>
+  </ThingDef>
+</Defs>

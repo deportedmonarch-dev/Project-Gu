@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef>
+    <defName>GU_MortalUnawakened</defName>
+    <label>mortal</label>
+    <description>This person has not undergone a cultivation awakening. Their innate aptitude, if any, remains unknown.</description>
+    <hediffClass>Verse.Hediff</hediffClass>
+    <isBad>false</isBad>
+    <stages><li><label>unawakened</label></li></stages>
+  </HediffDef>
+  <HediffDef>
+    <defName>GU_MortalNoAptitude</defName>
+    <label>mortal</label>
+    <description>This person attempted natural awakening but no aperture formed. Their lack of natural cultivation aptitude is now known.</description>
+    <hediffClass>Verse.Hediff</hediffClass>
+    <isBad>false</isBad>
+    <stages><li><label>no aptitude</label></li></stages>
+  </HediffDef>
+</Defs>

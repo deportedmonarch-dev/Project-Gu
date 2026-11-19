@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BuildingBase">
+    <defName>GU_MoonOrchidHabitat</defName>
+    <label>moon orchid habitat</label>
+    <description>A patch of moon orchids growing around concentrated primeval energy. Its flowers support wild Hope Gu. This first ecological prototype represents a habitat patch rather than individually growing plants.</description>
+    <thingClass>Building</thingClass>
+    <graphicData>
+      <texPath>ProjectGU/MoonOrchidHabitat</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(1,1)</drawSize>
+    </graphicData>
+    <comps>
+      <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">
+        <support>1</support>
+        <ecologyProfile>moon</ecologyProfile>
+      </li>
+    </comps>
+    <size>(1,1)</size>
+    <passability>Standable</passability>
+    <fillPercent>0</fillPercent>
+    <statBases>
+      <MaxHitPoints>60</MaxHitPoints>
+      <Flammability>0.25</Flammability>
+    </statBases>
+  </ThingDef>
+</Defs>

@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+1.7/Assemblies/
+*.user
+*.suo
+*.log
+
+# Local developer state
+.vscode/
+*.csproj.user
+*.rsav
+*.rws
+*.rws.old
+.DS_Store
+Thumbs.db

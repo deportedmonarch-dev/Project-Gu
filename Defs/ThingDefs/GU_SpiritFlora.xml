@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Generic support flora. Artwork reuses the prototype orchid texture until dedicated assets exist. -->
+  <ThingDef ParentName="BuildingBase">
+    <defName>GU_SpiritGrassHabitat</defName>
+    <label>spirit grass habitat (prototype)</label>
+    <description>Nondescript spirit-fed growth. Supports local Gu ecology independently of clan-specific species.</description>
+    <thingClass>Building</thingClass>
+    <graphicData><texPath>ProjectGU/MoonOrchidHabitat</texPath><graphicClass>Graphic_Single</graphicClass><drawSize>(1,1)</drawSize></graphicData>
+    <size>(1,1)</size><passability>Standable</passability><fillPercent>0</fillPercent>
+    <statBases><MaxHitPoints>60</MaxHitPoints><Flammability>0.2</Flammability></statBases>
+    <comps><li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora"><support>2</support><ecologyProfile>generic</ecologyProfile></li></comps>
+  </ThingDef>
+</Defs>

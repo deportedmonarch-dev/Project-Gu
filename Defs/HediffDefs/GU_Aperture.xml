@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef>
+    <defName>GU_Aperture</defName>
+    <label>cultivation aperture</label>
+    <description>A cultivator's internal reservoir of primeval essence. Hover over this condition in the Health tab to inspect the aptitude, rank and essence.</description>
+    <hediffClass>ProjectGu.Hediff_Aperture</hediffClass>
+    <isBad>false</isBad>
+    <stages><li><label>open</label></li></stages>
+  </HediffDef>
+</Defs>
