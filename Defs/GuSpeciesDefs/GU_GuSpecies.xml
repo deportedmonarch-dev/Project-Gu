@@ -22,4 +22,16 @@
     <pathTags><li>moon</li></pathTags>
     <capabilityTags><li>active_essence_ability</li></capabilityTags>
   </ProjectGu.Domain.GuSpeciesDef>
+  <!-- Development-only population serialization fixture. This is not a lore species,
+       is not spawned by the world, and has no ThingDef or ability. -->
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_DevTestSpringGu</defName>
+    <label>test spring Gu (developer only)</label>
+    <description>Developer-only test species for verifying multiple Gu cohorts in one habitat. Not part of the world simulation.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <habitatTags><li>spirit_spring</li></habitatTags>
+    <capabilityTags><li>development_test</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
 </Defs>
