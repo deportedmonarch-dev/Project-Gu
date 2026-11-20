@@ -11,10 +11,11 @@
     <selectable>true</selectable>
     <alwaysHaulable>true</alwaysHaulable>
     <graphicData>
-      <texPath>ProjectGU/PrimevalStone</texPath>
-      <graphicClass>Graphic_Single</graphicClass>
+      <texPath>Things/Item/Resource/Silver</texPath>
+      <graphicClass>Graphic_StackCount</graphicClass>
+      <color>(255,235,211)</color>
     </graphicData>
-    <stackLimit>75</stackLimit>
+    <stackLimit>200</stackLimit>
     <drawGUIOverlay>true</drawGUIOverlay>
     <statBases>
       <MaxHitPoints>100</MaxHitPoints>

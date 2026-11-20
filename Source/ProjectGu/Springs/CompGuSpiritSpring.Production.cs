@@ -100,7 +100,7 @@ namespace ProjectGu.Springs
                         return "Production failed: there is no live passage to the basin.";
                     foreach (var candidate in CavernOutputs())
                     {
-                        switch (CavernOutputStatus(map, stoneDef, arrival, candidate.Cell, candidate.Water))
+                        switch (CavernOutputStatus(map, stone, arrival, candidate.Cell, candidate.Water))
                         {
                             case OutputStatus.Ready:
                                 GenPlace.TryPlaceThing(stone, candidate.Cell, map, ThingPlaceMode.Direct, RecordPlacement);
@@ -173,18 +173,22 @@ namespace ProjectGu.Springs
 
         private enum OutputStatus { Ready, Blocked, Inaccessible, WrongTerrain }
 
-        private static OutputStatus CavernOutputStatus(Map map, ThingDef stone, IntVec3 arrival, IntVec3 cell, bool water)
+        internal static bool CanMergeProductionBatch(Thing existing, Thing batch) =>
+            existing.CanStackWith(batch) && existing.def.stackLimit - existing.stackCount >= batch.stackCount;
+
+        private static OutputStatus CavernOutputStatus(Map map, Thing stone, IntVec3 arrival, IntVec3 cell, bool water)
         {
             if (!cell.InBounds(map))
                 return OutputStatus.Inaccessible;
             TerrainDef terrain = cell.GetTerrain(map);
             if (water ? terrain.defName != "WaterShallow" : terrain.IsWater)
                 return OutputStatus.WrongTerrain;
-            if (!cell.Standable(map) || !GenSpawn.CanSpawnAt(stone, cell, map) || cell.GetMaxItemsAllowedInCell(map) < 1)
+            if (!cell.Standable(map) || !GenSpawn.CanSpawnAt(stone.def, cell, map) || cell.GetMaxItemsAllowedInCell(map) < 1)
                 return OutputStatus.Blocked;
             foreach (Thing thing in cell.GetThingList(map))
-                if (thing.def.category is ThingCategory.Pawn or ThingCategory.Item or ThingCategory.Building
-                    || thing is Blueprint or Frame or Fire)
+                if (thing.def.category is ThingCategory.Pawn or ThingCategory.Building
+                    || thing is Blueprint or Frame or Fire
+                    || (thing.def.category == ThingCategory.Item && !CanMergeProductionBatch(thing, stone)))
                     return OutputStatus.Blocked;
             return arrival.IsValid && !cell.Fogged(map)
                 && map.reachability.CanReach(arrival, cell, PathEndMode.OnCell, TraverseMode.PassDoors)
@@ -219,19 +223,20 @@ namespace ProjectGu.Springs
             if (!parent.Spawned || StoneDef() is not ThingDef def)
                 return;
             Map map = parent.Map;
+            Thing sample = ThingMaker.MakeThing(def);
+            sample.stackCount = BatchSize(def);
             if (GuPocketSiteDef.IsSpringCavern(map))
             {
                 GuPocketProbeComponent.TryGetCavernArrival(map, out IntVec3 arrival);
                 foreach (var candidate in CavernOutputs())
                     if (candidate.Cell.InBounds(map))
-                        FlashOutput(map, candidate.Cell, CavernOutputStatus(map, def, arrival, candidate.Cell, candidate.Water),
+                        FlashOutput(map, candidate.Cell, CavernOutputStatus(map, sample, arrival, candidate.Cell, candidate.Water),
                             candidate.Water ? "Water" : "Shore");
+                sample.Destroy();
                 Messages.Message("The spring tries ready water outputs first, then the dry shore.", MessageTypeDefOf.NeutralEvent, false);
                 return;
             }
 
-            Thing sample = ThingMaker.MakeThing(def);
-            sample.stackCount = BatchSize(def);
             foreach (IntVec3 cell in GenRadial.RadialCellsAround(parent.Position, 6f, true))
                 if (cell.InBounds(map))
                     FlashOutput(map, cell, SurfaceOutputStatus(map, cell, sample), "Nearby");
