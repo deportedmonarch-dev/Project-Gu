@@ -33,7 +33,9 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static Action NewCheck => EmptyCavernReset ? ExerciseEmptyCavernReset
         : AwakeningSafety ? ExerciseAwakening : Botanical ? ExerciseBotanical
         : CargoPrototype ? ExerciseCargoPrototype : AutomaticHauling ? ExerciseAutomaticHauling : GenerateAndExercise;
-    private static Action ReloadCheck => EmptyCavernReset ? VerifyEmptyCavernResetReload
+    private static Action ReloadCheck => GenCommandLine.CommandLineArgPassed("gulegacy31") ? () => VerifyHistoricalSpring(31)
+        : GenCommandLine.CommandLineArgPassed("gulegacy39") ? () => VerifyHistoricalSpring(39)
+        : EmptyCavernReset ? VerifyEmptyCavernResetReload
         : AwakeningSafety ? VerifyAwakeningReload : Botanical ? VerifyBotanicalReload
         : CargoPrototype ? VerifyCargoPrototypeReload : AutomaticHauling ? VerifyAutomaticHaulingReload : VerifyReload;
     private Action pending;

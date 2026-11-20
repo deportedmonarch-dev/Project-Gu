@@ -63,3 +63,27 @@ See the [roadmap](ROADMAP.md) for sequencing and current gates.
 The installed RimWorld 1.7.5014 rev1195 assembly shows `HediffSet.AddDirect` inserting the Hediff before invoking `PostAdd`. `Pawn_HealthTracker.AddHediff` then checks health state and invokes Hediff givers. The service keeps the exact aperture reference, blocks a second attempt on the same Pawn during those callbacks, and requires a successful spring debit before committing the Pawn record. It removes the provisional aperture through native health APIs if insertion fails or the debit is no longer available. A zero-aptitude attempt commits the same debit and its failed state. The existing record, Hediff, and cohort save keys remain in use.
 
 `scripts/verify.ps1` passed structural checks, .NET 10 compilation against the installed assemblies, and isolated managed engine fixtures. The headless native `scripts/verify-priority0-live.ps1 -Profile Awakening` fixture uses Core, Harmony 3.0.4 and Project GU. It verifies unavailable aperture creation, an injected exception after native insertion, loss of the last adult during a callback, insufficient adults for either outcome, same-Pawn reentry through both entry points, one debit for each completed outcome, and repeated attempts before and after a fresh-process save reload. The injected exception produces one expected test error message. The fixture calls the ceremony service directly. Player-driven cancellation during the waiting toil and historical save backups remain separate regression checks.
+
+## Phase E automatic hauling
+
+`16fce54` adds a player-controlled Hauling assignment for the opened independent surface-to-spring passage. It uses three map-local jobs and real Pawn inventory. The live fixture conserved 66 shipment stones through pickup, a blocked return, fresh-process reload, interrupted delivery, partial storage and successive trips. [Controls, custody and failure cases](UNDERGROUND-SPIRIT-SPRING.md#automatic-hauling).
+
+## Phase F focused regression
+
+Windows RimWorld 1.7.5014 rev1195, .NET SDK 10.0.401 and Workshop Harmony 3.0.4. `scripts/verify.ps1 -Focused` passed structural checks, game-linked compilation and isolated managed engine fixtures on the Phase E checkpoint. It sampled 64 seeds across the standard 5,760-seed range. The standard suite ran once during Phase E.
+
+`scripts/verify-priority0-live.ps1 -Profile Regression` runs the checks below in disposable native games. Pass `-Legacy31Save` and `-Legacy39Save` with the two reference saves to include historical loading. The runner verifies the original SHA-256 hashes after loading disposable copies. It removes only the empty historical generator component node from the 31×31 test copy.
+
+All 14 headless native stages passed across two runs. The first botanical attempt found no matching standard-soil cell in the random surface start. The fixture now supplies standard soil in its disposable map and the selective rerun passed the remaining profiles. Both historical source hashes matched. The awakening fixture logged its expected injected `PostAdd` failure and verified the rollback.
+
+| Native profile | Check |
+|---|---|
+| `IdeologyOdyssey` | Independent address and map persistence, existing Pawn and inventory travel, emergency return, legacy pocket protection, removal guards, and Ideology reset preflight. |
+| `IdeologyReset` | Native empty-cavern reset, sealed map and the original 137-stone stack after reload. |
+| `Awakening` | Native callback failure, reentry, cohort depletion, one mature debit per completed outcome, and saved Pawn and cohort state. |
+| `Botanical` | Native crop sowing, growth and regrowth, wet and dry output conservation, and restored flora, 202 stones and Hope Gu after reload. |
+| `CargoPrototype` | Original 37-stone stack through the passage and into a filtered surface stockpile using vanilla hauling after reload. |
+| `AutomaticHauling` | Normal Work dispatch, two shipments, full and filtered storage, reservations, carrying mass, cancellation, invalid targets, packed cargo after reload, and ordered Pawn travel. |
+| `Legacy31`, `Legacy39` | Reference saves retain their owner, terrain, Building flora, reserve, Hope Gu and 19 or 24 stones. |
+
+Owner acceptance remains separate. Exercise the new assignment, pause and Work priority controls in a rendered colony, and try cancellation while a colonist is waiting to awaken. The full Archonexus quest flow remains an interface check.

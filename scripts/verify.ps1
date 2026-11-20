@@ -1,4 +1,8 @@
-param([string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld', [string]$HarmonyPath = '')
+param(
+    [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
+    [string]$HarmonyPath = '',
+    [switch]$Focused
+)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 
@@ -115,6 +119,8 @@ if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Compilation failed.' }
 $verification = Join-Path $root 'tests\ProjectGu.Verification\ProjectGu.Verification.csproj'
 $verificationReferences = @("-p:RimWorldPath=$RimWorldPath")
 if ($HarmonyPath) { $verificationReferences += "-p:HarmonyPath=$HarmonyPath" }
-dotnet run --project $verification -c Release @verificationReferences -- $root $RimWorldPath
+$testArguments = @($root, $RimWorldPath)
+if ($Focused) { $testArguments += '--focused' }
+dotnet run --project $verification -c Release @verificationReferences -- @testArguments
 if ($LASTEXITCODE -ne 0) { throw 'Isolated cavern and spring verification failed.' }
 Write-Host 'Static checks, game-linked compilation, and isolated managed tests passed. Live acceptance is separate.' -ForegroundColor Green

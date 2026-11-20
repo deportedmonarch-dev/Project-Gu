@@ -62,7 +62,8 @@ public sealed partial class LiveLifecycleChecks
         VerifyNativeGrowth(replacement, sown);
 
         IntVec3 surfaceCell = CellRect.CenteredOn(home.Center, 12).Cells.First(candidate => candidate.Standable(home)
-            && candidate.GetTerrain(home) == TerrainDefOf.Soil && candidate.GetThingList(home).Count == 0);
+            && candidate.GetThingList(home).Count == 0);
+        home.terrainGrid.SetTerrain(surfaceCell, TerrainDefOf.Soil);
         Check(!PlantUtility.CanNowPlantAt(NativeOrchid, surfaceCell, home, false),
             "The same empty surface cell rejects Moon Orchid on standard soil");
         home.terrainGrid.SetTerrain(surfaceCell, QiSoil);

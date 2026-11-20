@@ -3,7 +3,8 @@ using ProjectGu.Underground;
 using Verse;
 using System.Xml.Linq;
 
-const int samples = 5760;
+const int seedRange = 5760;
+int samples = args.Contains("--focused") ? 64 : seedRange;
 var root = args[0];
 var springDef = XDocument.Load(Path.Combine(root, "Defs/ThingDefs/GU_SpiritSpring.xml"));
 var springSettings = springDef.Descendants("li")
@@ -99,8 +100,9 @@ var basinCounts = new List<int>();
 var proportions = new List<double>();
 var poolCounts = new List<int>();
 var fertileCounts = new List<int>();
-for (int seed = 0; seed < samples; seed++)
+for (int sample = 0; sample < samples; sample++)
 {
+    int seed = sample * seedRange / samples;
     var layout = new GuSpringCavernLayout(size, new IntVec2(2, 2), seed);
     var open = bounds.Cells.Where(cell => layout.GroundAt(cell) != GuCavernGround.Wall).ToHashSet();
     var water = open.Where(cell => layout.GroundAt(cell) == GuCavernGround.ShallowWater).ToHashSet();

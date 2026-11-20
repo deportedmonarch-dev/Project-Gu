@@ -1,11 +1,17 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Both')][string]$Profile = 'Both',
-    [switch]$Rendered
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [switch]$Rendered,
+    [string]$Legacy31Save = '',
+    [string]$Legacy39Save = ''
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$historical = @{ Legacy31 = $Legacy31Save; Legacy39 = $Legacy39Save }
+foreach ($path in $historical.Values) {
+    if ($path -and !(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Historical save not found: $path" }
+}
 if (!$HarmonyPath) {
     $HarmonyPath = Join-Path $RimWorldPath '../../workshop/content/294100/2009463077/1.7/Assemblies/0Harmony.dll'
 }
@@ -67,8 +73,15 @@ function Invoke-LiveStage([string]$SaveData, [string]$Stage, [bool]$Fresh, [bool
 $originalLayerSetting = $env:VK_LOADER_LAYERS_DISABLE
 try {
     $env:VK_LOADER_LAYERS_DISABLE = '~implicit~'
-    $profiles = if ($Profile -eq 'Both') { @('Core', 'IdeologyOdyssey') } else { @($Profile) }
-    foreach ($name in $profiles) {
+    $profiles = @(switch ($Profile) {
+        'Both' { 'Core', 'IdeologyOdyssey' }
+        'Regression' { 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling' }
+        default { $_ }
+    })
+    foreach ($legacy in @('Legacy31', 'Legacy39')) {
+        if ($historical[$legacy]) { $profiles += $legacy }
+    }
+    foreach ($name in ($profiles | Select-Object -Unique)) {
         $saveData = Join-Path $testRoot $name
         $config = Join-Path $saveData 'Config'
         New-Item -ItemType Directory -Path $config -Force | Out-Null
@@ -81,6 +94,8 @@ try {
             'Botanical' { '-gubotanical' }
             'CargoPrototype' { '-gucargoprototype' }
             'AutomaticHauling' { '-guautomatichauling' }
+            'Legacy31' { '-gulegacy31' }
+            'Legacy39' { '-gulegacy39' }
             default { '' }
         }
         $configXml = @"
@@ -93,6 +108,24 @@ try {
         $configXml | Set-Content -Encoding UTF8 -LiteralPath (Join-Path $config 'ModsConfig.xml')
         '<PrefsData><devMode>true</devMode><runInBackground>true</runInBackground></PrefsData>' |
             Set-Content -Encoding UTF8 -LiteralPath (Join-Path $config 'Prefs.xml')
+        if ($historical[$name]) {
+            $original = (Resolve-Path -LiteralPath $historical[$name]).Path
+            $hash = (Get-FileHash -LiteralPath $original).Hash
+            $saves = Join-Path $saveData 'Saves'
+            New-Item -ItemType Directory -Path $saves | Out-Null
+            $copy = Join-Path $saves 'autostart.rws'
+            Copy-Item -LiteralPath $original -Destination $copy
+            if ($name -eq 'Legacy31') {
+                # The historical generator left an empty test-only component in this fixture.
+                $xml = [IO.File]::ReadAllText($copy)
+                [IO.File]::WriteAllText($copy, $xml.Replace('<li Class="Legacy31" />', ''))
+            }
+            Invoke-LiveStage $saveData 'reload' $false $Rendered.IsPresent $probe
+            if ((Get-FileHash -LiteralPath $original).Hash -ne $hash) { throw "Historical source file changed: $original" }
+            Write-Host "PASS $name historical copy loaded. The original SHA-256 is unchanged. Evidence in $saveData"
+            Get-Content -LiteralPath (Join-Path $saveData 'priority0-result.txt')
+            continue
+        }
         if ($Rendered) {
             # Stock graphical quick-start can stall in the entry scene. Load a seeded disposable colony.
             Invoke-LiveStage $saveData 'bootstrap' $true $false '-gupriority0bootstrap'
