@@ -54,13 +54,13 @@ namespace ProjectGu.Underground
             return true;
         }
 
-        private static bool TryTravel(Pawn pawn, Building_GuPocketProbeEndpoint endpoint, out string reason)
+        internal static bool TryTravel(Pawn pawn, Building_GuPocketProbeEndpoint endpoint, out string reason)
         {
             if (!CanTravel(pawn, endpoint, out reason))
                 return false;
 
             var registry = Current.Game.GetComponent<GuPocketProbeComponent>();
-            if (registry.OperationInProgress || !GuPocketProbeComponent.TryGetSite(endpoint, out GuPocketSiteRecord site))
+            if (registry.OperationInProgress)
             {
                 reason = "The pocket probe route is unavailable.";
                 return false;
@@ -69,19 +69,34 @@ namespace ProjectGu.Underground
             registry.OperationInProgress = true;
             try
             {
-                if (site.Entrance == endpoint && !site.GenerationStarted
-                    && !GuPocketProbeComponent.TryGenerate(site, out reason))
-                    return false;
-
-                if (!CanTravel(pawn, endpoint, out reason))
-                    return false;
-                if (!GuPocketProbeComponent.HasValidRoute(site))
+                Building_GuPocketProbeEndpoint destination;
+                Func<bool> validateRoute;
+                if (GuPocketProbeComponent.TryGetIndependentEndpoint(endpoint, out var independent, out var from))
                 {
-                    reason = "The pocket probe route is closed.";
+                    if (!registry.TryResolveIndependentTravel(independent, from, out var to, out reason))
+                        return false;
+                    destination = to.Anchor;
+                    validateRoute = () => GuPocketProbeComponent.ValidateIndependentEndpoints(independent, from, to);
+                }
+                else if (GuPocketProbeComponent.TryGetSite(endpoint, out GuPocketSiteRecord site))
+                {
+                    if (site.Entrance == endpoint && !site.GenerationStarted && !GuPocketProbeComponent.TryGenerate(site, out reason))
+                        return false;
+                    destination = site.Entrance == endpoint ? site.Exit : site.Entrance;
+                    validateRoute = () => GuPocketProbeComponent.HasValidRoute(site);
+                }
+                else
+                {
+                    reason = "The underground route is unavailable.";
                     return false;
                 }
 
-                Building_GuPocketProbeEndpoint destination = site.Entrance == endpoint ? site.Exit : site.Entrance;
+                if (!CanTravel(pawn, endpoint, out reason)) return false;
+                if (!validateRoute())
+                {
+                    reason = "The underground route is closed.";
+                    return false;
+                }
                 if (!CanLand(destination.Map, destination.Position, pawn)
                     || !CanLand(pawn.Map, endpoint.Position, pawn) || !CanLand(pawn.Map, pawn.Position, pawn))
                 {
@@ -89,7 +104,10 @@ namespace ProjectGu.Underground
                     return false;
                 }
 
-                if (!TryMove(pawn, site, destination, out reason))
+                Map target = destination.Map;
+                IntVec3 arrival = destination.Position;
+                if (!TryMove(pawn, target, arrival, () => validateRoute()
+                    && destination.Map == target && destination.Position == arrival, out reason))
                     return false;
             }
             finally
@@ -101,23 +119,19 @@ namespace ProjectGu.Underground
             return true;
         }
 
-        private static bool TryMove(Pawn pawn, GuPocketSiteRecord site, Building_GuPocketProbeEndpoint destination,
-            out string reason)
+        internal static bool TryMove(Pawn pawn, Map target, IntVec3 arrival, Func<bool> validateRoute, out string reason)
         {
             Map source = pawn.Map;
             IntVec3 origin = pawn.Position;
             Rot4 rotation = pawn.Rotation;
-            Map target = destination.Map;
-            IntVec3 arrival = destination.Position;
             try
             {
                 pawn.DeSpawnOrDeselect(DestroyMode.Vanish);
-                if (CanRestoreUnheld(pawn) && GuPocketProbeComponent.HasValidRoute(site)
-                    && destination.Map == target && destination.Position == arrival && CanLand(target, arrival, pawn))
+                if (CanRestoreUnheld(pawn) && validateRoute() && CanLand(target, arrival, pawn))
                 {
                     GenSpawn.Spawn(pawn, arrival, target, rotation);
                     if (pawn.Spawned && pawn.Map == target && pawn.Position == arrival
-                        && GuPocketProbeComponent.HasValidRoute(site))
+                        && validateRoute())
                     {
                         reason = null;
                         return true;
@@ -133,16 +147,7 @@ namespace ProjectGu.Underground
             {
                 if (pawn.Spawned && pawn.Map == target)
                     pawn.DeSpawnOrDeselect(DestroyMode.Vanish);
-                if (CanRestoreUnheld(pawn))
-                {
-                    foreach (IntVec3 cell in GenRadial.RadialCellsAround(origin, 4f, true))
-                    {
-                        if (!CanLand(source, cell, pawn))
-                            continue;
-                        GenSpawn.Spawn(pawn, cell, source, rotation);
-                        break;
-                    }
-                }
+                TryRestorePawn(pawn, source, origin, rotation);
             }
             catch (Exception exception)
             {
@@ -170,7 +175,18 @@ namespace ProjectGu.Underground
             return false;
         }
 
-        private static bool CanRestoreUnheld(Pawn pawn) =>
+        internal static void TryRestorePawn(Pawn pawn, Map map, IntVec3 origin, Rot4 rotation)
+        {
+            if (!CanRestoreUnheld(pawn) || !GuPocketProbeComponent.IsLive(map)) return;
+            foreach (IntVec3 cell in GenRadial.RadialCellsAround(origin, 4f, true))
+            {
+                if (!CanLand(map, cell, pawn)) continue;
+                GenSpawn.Spawn(pawn, cell, map, rotation);
+                return;
+            }
+        }
+
+        internal static bool CanRestoreUnheld(Pawn pawn) =>
             !pawn.Spawned && !pawn.Destroyed && !pawn.Dead && pawn.holdingOwner == null;
     }
 }

@@ -10,6 +10,7 @@ namespace ProjectGu.Underground
         public ThingDef returnEndpoint;
         public int entranceClearance;
         public int mapSize = 31;
+        public bool independentOwner;
 
         internal ThingDef ExitDef => returnEndpoint ?? endpoint;
 
@@ -19,7 +20,7 @@ namespace ProjectGu.Underground
         internal static GuPocketSiteDef SpiritSpring =>
             DefDatabase<GuPocketSiteDef>.GetNamedSilentFail("GU_SpiritSpringCavern");
 
-        internal static bool IsSpringCavern(Map map) => map?.IsPocketMap == true
+        internal static bool IsSpringCavern(Map map) => map != null && (map.IsPocketMap || map.Parent is GuUndergroundLevelParent)
             && SpiritSpring?.generator is MapGeneratorDef generator && map.generatorDef == generator;
 
         internal bool IsConfigured => generator?.pocketMapProperties?.biome != null

@@ -35,7 +35,7 @@ namespace ProjectGu.Underground
         }
     }
 
-    public sealed class GuPocketProbeComponent : GameComponent
+    public sealed partial class GuPocketProbeComponent : GameComponent
     {
         private List<GuPocketSiteRecord> sites = new();
         private readonly HashSet<GuPocketSiteRecord> reportedInvalidSites = new();
@@ -49,11 +49,14 @@ namespace ProjectGu.Underground
             base.ExposeData();
             Scribe_Collections.Look(ref sites, "guPocketProbeSitesV1", LookMode.Deep);
             sites ??= new List<GuPocketSiteRecord>();
+            Scribe_Collections.Look(ref independentSites, "guIndependentUndergroundSitesV1", LookMode.Deep);
+            independentSites ??= new();
         }
 
         public override void LoadedGame()
         {
             base.LoadedGame();
+            ReportMissingIndependentLevels();
             foreach (GuPocketSiteRecord site in sites)
                 if (site?.Cavern != null && (!HasLiveSourceSettlement(site.Source) || !IsRegisteredPocket(site, site.Cavern)))
                     ReportInvalidSite(site);
@@ -61,10 +64,28 @@ namespace ProjectGu.Underground
 
         internal void NotifyMapRemoved(Map removedMap)
         {
+            NotifyIndependentMapRemoved(removedMap);
             foreach (GuPocketSiteRecord site in sites)
+            {
+                if (site?.Source == removedMap && !site.GenerationStarted)
+                {
+                    site.Source = null;
+                    site.Entrance = null;
+                }
                 if (site?.Cavern != null
-                    && (site.Source == removedMap || (site.Cavern == removedMap && site.Exit != null)))
+                    && (site.Source == removedMap || (site.Cavern == removedMap && !GuUndergroundLifecycleGuards.IsRejectedPocket(removedMap))))
                     ReportInvalidSite(site);
+            }
+        }
+
+        internal void NotifyEndpointRemoved(Building_GuPocketProbeEndpoint anchor)
+        {
+            if (TryGetIndependentEndpoint(anchor, out _, out var end)) end.Anchor = null;
+            if (TryGetSite(anchor, out var legacy))
+            {
+                if (legacy.Entrance == anchor) legacy.Entrance = null;
+                if (legacy.Exit == anchor) legacy.Exit = null;
+            }
         }
 
         private void ReportInvalidSite(GuPocketSiteRecord site)
@@ -95,13 +116,23 @@ namespace ProjectGu.Underground
 
         internal static bool IsLive(Map map) => map != null && !map.Disposed && Find.Maps.Contains(map);
 
+        internal bool ProtectsLegacyLevel(Map map) => map != null && sites.Any(site => site?.Cavern == map);
+
+        internal bool ProtectsLegacySource(Map map) => map != null && sites.Any(site =>
+            site != null && (site.Cavern != null || site.GenerationStarted)
+            && (site.Source == map || site.Cavern?.PocketMapParent?.sourceMap == map));
+
+        internal bool HasLegacyDependents => sites.Any(site =>
+            site != null && (site.Cavern != null || site.GenerationStarted));
+
         internal static bool TryGetCavernArrival(Map map, out IntVec3 arrival)
         {
-            var site = Current.Game?.GetComponent<GuPocketProbeComponent>()?.sites.Find(candidate =>
+            var registry = Current.Game?.GetComponent<GuPocketProbeComponent>();
+            var site = registry?.sites.Find(candidate =>
                 candidate != null && candidate.Cavern == map && candidate.Exit?.Spawned == true
                 && candidate.Exit.Map == map);
             arrival = site?.Exit.Position ?? IntVec3.Invalid;
-            return arrival.IsValid;
+            return arrival.IsValid || registry?.TryGetIndependentArrival(map, out arrival) == true;
         }
 
         private static bool HasLiveSourceSettlement(Map map) => IsLive(map) && !map.IsPocketMap
@@ -139,6 +170,11 @@ namespace ProjectGu.Underground
             reason = "The probe generator is unavailable or the source is invalid.";
             if (site.GenerationStarted || site.Cavern != null || site.Kind?.IsConfigured != true || !HasValidSource(site))
                 return false;
+            if (!GuUndergroundLifecycleGuards.Installed)
+            {
+                reason = "Underground lifecycle protections are unavailable.";
+                return false;
+            }
 
             if (site.Kind == GuPocketSiteDef.SpiritSpring && !GuSpringCavernIncidents.GuardsInstalled())
             {
@@ -177,7 +213,7 @@ namespace ProjectGu.Underground
                         return false;
                     }
                     PocketMapParent parent = map.PocketMapParent;
-                    PocketMapUtility.DestroyPocketMap(map);
+                    GuUndergroundLifecycleGuards.CleanupRejectedPocket(map);
                     if (!Find.Maps.Contains(map) && !Find.World.pocketMaps.Contains(parent) && map.Disposed)
                     {
                         site.Cavern = null;

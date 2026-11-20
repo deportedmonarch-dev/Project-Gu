@@ -8,6 +8,7 @@
     <returnEndpoint>GU_SpringRopeExit</returnEndpoint>
     <entranceClearance>1</entranceClearance>
     <mapSize>39</mapSize>
+    <independentOwner>true</independentOwner>
   </ProjectGu.Underground.GuPocketSiteDef>
   <MapGeneratorDef>
     <defName>GU_SpiritSpringCavern</defName>

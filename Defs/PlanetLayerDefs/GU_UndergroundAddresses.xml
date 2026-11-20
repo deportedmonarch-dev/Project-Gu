@@ -5,6 +5,7 @@
     <label>underground addresses</label>
     <layerType>ProjectGu.Underground.GuUndergroundAddressLayer</layerType>
     <tileType>ProjectGu.Underground.GuUndergroundAddressTile</tileType>
+    <viewGizmoTexPath>PlaceholderImage</viewGizmoTexPath>
     <defaultBiome>Underground</defaultBiome>
     <alwaysRaycastable>false</alwaysRaycastable>
     <obstructsExpandingIcons>false</obstructsExpandingIcons>

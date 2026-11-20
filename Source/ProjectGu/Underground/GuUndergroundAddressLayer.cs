@@ -50,7 +50,8 @@ namespace ProjectGu.Underground
         private bool IsReady => LayerID > 0 && TilesCount > 1 && Tiles.Count == TilesCount;
 
         internal bool Owns(PlanetTile address) => address.Valid && InBounds(address)
-            && ReferenceEquals(address.Layer, this) && this[address] != null;
+            // PlanetTile.Equals can dereference both layers. A broken saved address may name a missing layer.
+            && address.ToString() == PlanetTileForID(address.tileId).ToString() && this[address] != null;
 
         internal PlanetTile AvailableAddress()
         {

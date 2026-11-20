@@ -11,21 +11,33 @@ namespace ProjectGu.Underground
         internal bool RejectNextGeneration { get; private set; }
 
         public override string LabelNoCount => Spawned
-            ? Map.IsPocketMap ? "return passage to surface" : "underground entrance"
+            ? Map.IsPocketMap ? "return passage to surface"
+                : Map.Parent is GuUndergroundLevelParent ? "underground passage" : "underground entrance"
             : base.LabelNoCount;
+
+        public override void DeSpawn(DestroyMode mode = DestroyMode.Vanish)
+        {
+            base.DeSpawn(mode);
+            Current.Game?.GetComponent<GuPocketProbeComponent>()?.NotifyEndpointRemoved(this);
+        }
 
         public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
         {
             foreach (FloatMenuOption option in base.GetFloatMenuOptions(selPawn))
                 yield return option;
-            if (!Prefs.DevMode || !GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site))
+            if (!Prefs.DevMode)
+                yield break;
+            bool independent = GuPocketProbeComponent.TryGetIndependentEndpoint(this, out _, out var endpoint);
+            if (!GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site) && !independent)
                 yield break;
 
             if (JobDriver_GuPocketProbeTravel.CanTravel(selPawn, this, out string reason))
             {
                 JobDef travel = DefDatabase<JobDef>.GetNamed("GU_PocketProbeTravel");
-                string enter = site.Kind == GuPocketSiteDef.SpiritSpring ? "Enter spirit spring cavern" : "Enter probe cavern";
-                yield return new FloatMenuOption(site.Entrance == this ? enter : "Return to surface",
+                string label = independent ? endpoint.IsSurface ? "Enter underground level" : "Use underground passage"
+                    : site.Entrance == this ? site.Kind == GuPocketSiteDef.SpiritSpring
+                        ? "Enter spirit spring cavern" : "Enter probe cavern" : "Return to surface";
+                yield return new FloatMenuOption(label,
                     () => selPawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(travel, this), JobTag.Misc));
             }
             else
@@ -38,8 +50,10 @@ namespace ProjectGu.Underground
         {
             foreach (Gizmo gizmo in base.GetGizmos())
                 yield return gizmo;
-            if (Prefs.DevMode && GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site)
-                && site.Entrance == this && !site.GenerationStarted)
+            if (Prefs.DevMode && (GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site)
+                && site.Entrance == this && !site.GenerationStarted
+                || GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var independent, out var end)
+                && end.IsSurface && independent.Levels.Exists(level => !level.GenerationStarted)))
             {
                 yield return new Command_Toggle
                 {
@@ -53,6 +67,10 @@ namespace ProjectGu.Underground
 
         public override string GetInspectString()
         {
+            if (GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var independent, out var end))
+                return $"{independent.Kind.label}\nSite {independent.SiteId}\nEndpoint {end.EndpointId}"
+                    + (end.LevelId == null ? "" : $"\nLevel {end.LevelId}");
+
             if (!GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site))
                 return base.GetInspectString();
 
@@ -81,7 +99,9 @@ namespace ProjectGu.Underground
         {
             Map map = Find.CurrentMap;
             IntVec3 cell = UI.MouseCell();
-            if (!Prefs.DevMode || !GuPocketProbeComponent.IsSurfaceSettlement(map)
+            bool independent = kind?.independentOwner == true;
+            if (!Prefs.DevMode || (independent && !GuUndergroundLifecycleGuards.Installed)
+                || !GuPocketProbeComponent.IsSurfaceSettlement(map)
                 || !cell.InBounds(map) || cell.Fogged(map)
                 || !cell.Standable(map) || cell.GetThingList(map).Count != 0 || kind?.IsConfigured != true
                 || !HasEntranceClearance(map, cell, kind.entranceClearance))
@@ -93,7 +113,11 @@ namespace ProjectGu.Underground
 
             var entrance = GenSpawn.Spawn(kind.endpoint, cell, map) as Building_GuPocketProbeEndpoint;
             if (entrance?.Spawned == true && entrance.Map == map)
-                Current.Game.GetComponent<GuPocketProbeComponent>().AddSite(kind, entrance);
+            {
+                var registry = Current.Game.GetComponent<GuPocketProbeComponent>();
+                if (independent) registry.AddIndependentSite(kind, entrance);
+                else registry.AddSite(kind, entrance);
+            }
         }
 
         private static bool HasEntranceClearance(Map map, IntVec3 center, int clearance)
