@@ -35,6 +35,12 @@ The global stack limit is 200. The spring tries the two original shallow-water o
 
 The stone Def references Core's native `Graphic_StackCount` silver at `Things/Item/Resource/Silver` with a warm `(255,235,211)` tint. The texture path, graphic class and tint are configurable in XML. Check zoom-level legibility and the champagne tint in game. A dedicated original pebble sprite can replace it if the stock silver silhouette is too angular. [Stone Def](../Defs/ThingDefs/GU_SpiritSpring.xml).
 
+## Cross-map cargo prototype
+
+The Core `scripts/verify-priority0-live.ps1 -Profile CargoPrototype` fixture runs on RimWorld 1.7.5014 rev1195. A colonist picks up a 37-stone stack underground using the native carry tracker. Ordinary passage rejects the loaded hands. Native `ThingOwner.TryTransferToContainer` moves the same stack into the colonist's inventory, which accompanies the Pawn through the existing route. A fresh-process reload restores the held stack. The fixture puts that physical stack down on the surface and starts the vanilla haul job, which delivers it to a stockpile filtered for primeval stones. The final map counts total exactly 37.
+
+The native pickup clamp uses carrying capacity divided by the item's volume per unit, bounded by the Def's stack limit. The pack step also needs to respect inventory mass. `Pawn.DeSpawn` stops the current job and clears queued work during transfer. The automated implementation should use map-local jobs and queue each destination leg after successful arrival. Save active job targets and cargo through their native owners. Before dispatch, check the existing route, source item availability and surface storage. Revalidate each leg locally. Interruption must release reservations and leave the cargo recoverable with the Pawn or on the same map. Automatic discovery, full and filtered storage during dispatch, blocked and lost passages, cancellation, and several-stack automation remain the completion gates for Phase E.
+
 ## Production developer controls
 
 Select a spawned spring in Development Mode:

@@ -16,10 +16,13 @@ Target RimWorld 1.7 Waylith / .NET 10. See [project vision](PROJECT-VISION.md) f
 | 0.2.5 Phase B | Completed natural awakening consumes one mature Hope Gu. The service rolls back provisional aperture creation on abort and guards against reentry. | A focused Core native game fixture verified both outcomes, callback failure, depletion, repeat attempts, and fresh-process reload. See the [awakening verification](IMPLEMENTATION-0.2.5.md#phase-b-awakening-conservation). |
 | 0.2.5 Phase C | Select native Plant Defs for new flora, retain saved Building Defs, and use terrain tags for Qi-rich ground sowing. | The [botanical decision](BOTANICAL-FOUNDATION.md) records the installed 1.7 assembly and Anima Grass Def evidence. Live growth, sowing, and appearance belong to Phase D. |
 | 0.2.5 Phase D | New caverns grow native Spirit Grass fields and Moon Orchids on primeval qi-rich soil. The spring credits the botanical field at seven support and capacity 17. | Core native sowing, damage recovery, generation retry and reload passed. Both profiles passed 5,760 seeded layouts. See [botanical verification and owner checks](UNDERGROUND-SPIRIT-SPRING.md#verification-and-release-limits). |
+| 0.2.5 Phase E cargo prototype | One physical primeval-stone stack travels in Pawn inventory and uses native hauling after reaching the surface. | The disposable Core fixture verifies cargo, fresh-process reload, and delivery into a filtered stockpile. [Prototype and automation gates](UNDERGROUND-SPIRIT-SPRING.md#cross-map-cargo-prototype). |
 
 Evidence and test plans are recorded in the [0.2.4 release](RELEASE-0.2.4.md), [0.2.5 journal](IMPLEMENTATION-0.2.5.md), and [Slice 2 test plan](TEST-SLICE-0.2.5-2.md).
 
 ## Priorities and dependencies
+
+Complete Phase E automatic hauling and its failure matrix before the 0.2.5 final regression pass. Use the [cargo prototype](UNDERGROUND-SPIRIT-SPRING.md#cross-map-cargo-prototype) for the custody and job handoff baseline.
 
 1. **Complete the live save baseline.** The current spring branch builds and passes isolated fixtures against actual RimWorld 1.7 assemblies. Verify intentionally empty lists, unresolved species, old-save migration and repeated reloads in a full colony. Native awakening verification covers a depleted Hope Gu cohort after reload.
 2. **Retain the Priority 0 lifecycle baseline.** Use the [lifecycle matrix](UNDERGROUND-INDEPENDENT-LEVELS.md) when extending the independent map and route model to future site kinds. Generated independent levels stay loaded, with an eight-level cap. Map dormancy is deferred.

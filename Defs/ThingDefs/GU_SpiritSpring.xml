@@ -30,7 +30,7 @@
   <ThingDef ParentName="BuildingBase">
     <defName>GU_SpiritSpring</defName>
     <label>spirit spring (prototype)</label>
-    <description>An exposed concentration of primeval energy. Produces one primeval stone per day while its map is active. For testing, place it with Development Mode's spawn-thing action. Awakening ceremonies function in the prototype; underground caverns are planned.</description>
+    <description>A concentration of primeval energy found in spirit spring caverns. An active spring spends its reserve to produce physical primeval stones. Its local Hope Gu can support natural awakening ceremonies.</description>
     <thingClass>Building</thingClass>
     <graphicData>
       <texPath>ProjectGU/SpiritSpring</texPath>
