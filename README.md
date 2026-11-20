@@ -4,7 +4,7 @@ An experimental *Reverend Insanity*-inspired Gu cultivation framework for **RimW
 
 ## Current validated baseline: Prototype 0.2.4
 
-The 0.2.4 **compile-hotfix** source is the stable prototype baseline. The project maintainer reported **10/10 in-game tests passing** on this version. The underground spring development branch adds 0.2.5 species and cohorts, developer-only pocket maps and spring-fed flora. Its game-linked build and isolated checks passed against RimWorld 1.7.5014 rev1195. Live acceptance is tracked in the [underground spring test plan](docs/UNDERGROUND-SPIRIT-SPRING.md).
+The 0.2.4 **compile-hotfix** source is the stable prototype baseline. The project maintainer reported **10/10 in-game tests passing** on this version. The development branch adds 0.2.5 species and cohorts, independent developer-only spring caverns, and compatibility for legacy pocket maps. Lifecycle verification targets RimWorld 1.7.5014 rev1195. [Priority 0 report](docs/UNDERGROUND-INDEPENDENT-LEVELS.md).
 
 Working prototype systems include:
 - Mortal/unawakened/failed statuses, hidden aptitude and persistent Gu Master apertures
@@ -13,12 +13,13 @@ Working prototype systems include:
 - Spirit flora support, mature/juvenile Hope Gu populations and ecological capacity
 - Save migration and development testing controls
 
-**Known limitations** include unresolved source settlement abandonment for native underground maps. Roaming physical Gu, regional simulation and an Ideology ritual adapter remain proposed.
+Roaming physical Gu, regional simulation and an Ideology ritual adapter remain proposed. The underground map lifecycle report separates verified transitions from remaining gameplay acceptance.
 
 ## Requirements
 
 - Windows RimWorld **1.7** installation, with `Assembly-CSharp.dll`, `Waylith.dll`, `UnityStubs.dll` in the game root
 - **.NET SDK 10**
+- **Harmony for RimWorld 1.7**, loaded before Project GU
 - Windows PowerShell
 
 ## Build and install

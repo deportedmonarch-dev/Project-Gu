@@ -1,6 +1,8 @@
 # Persistent underground map safety
 
-**Decision for this branch.** A settlement with dependent persistent Project GU sites must be retained until a verified lifecycle operation can preserve those sites. Native pockets remain developer-only. This branch detects invalid bindings and closes travel after unexpected removal. Ordinary abandonment protection remains an integration gate.
+This audit records the native pocket removal call chains. The current implementation adds independent ownership for new spring levels and pre-mutation guards for legacy pocket dependencies. [Priority 0 implementation and acceptance](UNDERGROUND-INDEPENDENT-LEVELS.md).
+
+**Legacy prototype decision.** Retain a settlement with dependent native pockets until a verified operation can preserve those sites. The original probe detects invalid bindings and closes travel after unexpected removal. Priority 0 adds the pre-mutation protection described in the implementation report.
 
 ## Installed call chains
 

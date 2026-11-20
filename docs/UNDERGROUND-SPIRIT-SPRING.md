@@ -1,6 +1,6 @@
 # Underground spirit spring ecology and visuals
 
-The owner reported successful live generation, visible flora and working travel on the preceding 31×31 prototype, with 15 of 20 acceptance checks complete. The overhaul keeps the same pocket-map registry, site links and travel job. The new layout and growth schedule apply to newly generated caverns. Existing caverns keep their terrain, fixtures and IDs, and their flora use the new graphics.
+The owner reported successful live generation, visible flora and working travel on the preceding 31×31 prototype, with 15 of 20 acceptance checks complete. Priority 0 gives newly placed spring entrances independent map ownership and keeps saved native pocket bindings. The new layout and growth schedule apply to newly generated caverns. Existing caverns keep their terrain, fixtures and IDs, and their flora use the new graphics. [Lifecycle policies and testing](UNDERGROUND-INDEPENDENT-LEVELS.md).
 
 ## Terrain and layout
 
@@ -49,7 +49,7 @@ Both callers use the same checked operation. Reserve and lifetime production cha
 
 ## Infestation exclusion
 
-The inspected Core `Underground` biome supplies underground weather and ecology. Its biome data does not veto infestations. Project GU conditionally replaces the three stock IncidentDef worker classes through XML. Each derived worker rejects the exact spring pocket generator before native eligibility work and before direct execution. All other targets delegate to the vanilla workers. New spring generation closes if the expected guard classes are missing. Core and Project GU are sufficient. The wastepack guard is loaded into the IncidentDef only when that Def exists.
+The inspected Core `Underground` biome supplies underground weather and ecology. Project GU conditionally replaces three stock IncidentDef worker classes through XML. Each derived worker rejects the exact spring cavern profile, including either ownership provider, before native eligibility work and before direct execution. Other targets delegate to the vanilla workers. New spring generation closes if the expected guard classes are missing. The wastepack guard loads when that Def exists. Independent addresses also use the native layer’s incident and quest whitelists.
 
 | Spawn path | Verified against installed 1.7.5014 rev1195 | Live check |
 |---|---|---|
@@ -63,7 +63,7 @@ Only the current synchronous generation attempt can discard a rejected cavern. C
 
 ## Owner acceptance
 
-Use the [isolated setup for the original probe](UNDERGROUND-POCKET-PROBE.md#manual-test-setup), including the `Patches` directory when staging the mod. Start with **Core + Project GU** in Development Mode and a disposable save. Keep the source settlement intact throughout the test.
+Use the [isolated Priority 0 setup](UNDERGROUND-INDEPENDENT-LEVELS.md) with **Harmony + Core + Project GU** in Development Mode and a disposable save. Keep the source settlement intact during the ecology and visual checks.
 
 - [ ] **Generate and inspect.** In **Debug actions → Project GU**, choose **Place spirit spring cavern entrance**. Click clear, unfogged ground on the surface. Enter with a colonist, then inspect both passages and their labels at normal zoom. Check that the spring gives the strongest glow, flora produce smaller pools of light, and the perimeter stays dark. Confirm a surface spring and habitat still have their usual lighting.
 - [ ] **Layout and access.** Start at the southwestern passage and order the pawn along the dry route. Check **Attempt awakening** using an eligible unawakened colonist, then **Return to surface** and re-enter. The pawn should never have to cross a pool to reach the spring.
@@ -80,9 +80,9 @@ On Windows, `scripts/verify.ps1` passed against the installed RimWorld 1.7.5014 
 - **Structural checks** parse Defs and patches and check identifiers, save keys, graphic references, and the generic probe footprint.
 - **Seeded production code checks** exercise 5,760 layouts and initial flora placements. The test rebuilds occupancy from fixture entries to verify full capacity, blocked regrowth, and one-patch recovery when a vacancy exists.
 - **Isolated tests using real game code** exercise direct stack placement callbacks, native absorption and the 200 limit, Scribe fixture persistence of reserve, cohorts, growth timing, physical flora and stacks, old-schema cohort migration, failed-production accounting for an unspawned spring, and physical support attribution and invalidation across isolated map grids.
-- **Live acceptance** remains pending for rendering, Def loading with a running game, real pawn navigation, native travel, infestation dispatch, failed-generation teardown, hauling and storage, and complete old and new save round-trips. The owner results above apply to the preceding prototype.
+- **Live headless acceptance** for map travel, ownership and save/load is reported in the [Priority 0 test matrix](UNDERGROUND-INDEPENDENT-LEVELS.md). Rendered navigation, lighting, infestation dispatch, hauling and storage are separate ecology and visual acceptance checks. The owner results above apply to the preceding prototype.
 
-Source settlement removal remains an unresolved release blocker. See the [local call-chain investigation and isolated removal matrix](UNDERGROUND-MAP-SAFETY.md).
+The [Priority 0 test matrix](UNDERGROUND-INDEPENDENT-LEVELS.md) records the results for source settlement removal and legacy protections.
 
 ## Future botanical update
 

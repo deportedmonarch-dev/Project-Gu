@@ -4,6 +4,8 @@
 **Target** — RimWorld 1.7 Waylith / .NET 10
 **First playable target** — A surface entrance, a persistent spirit spring cavern, and safe travel in both directions.
 
+Priority 0 replaces native pocket ownership for new spirit spring entrances with independent level parents. The native pocket design below is the legacy compatibility baseline. [Current architecture and verification](UNDERGROUND-INDEPENDENT-LEVELS.md).
+
 The [1.7 removal audit](UNDERGROUND-MAP-SAFETY.md) records the pre-mutation coverage required for release. The developer prototype detects forced removal and closes broken routes. Ordinary removal prevention requires further review.
 
 ## Engine evidence

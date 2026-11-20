@@ -63,6 +63,7 @@ Assert-Gu ($null -ne $grass.SelectSingleNode('//li[@Class="ProjectGu.Springs.Com
 Assert-Gu ($null -ne $spring.SelectSingleNode('//li[@Class="ProjectGu.Springs.CompProperties_GuSpiritSpring"]')) 'Spring ecology component missing'
 Assert-Gu ($null -ne $spring.SelectSingleNode('//ThingDef[defName="GU_PrimevalStone" and stackLimit="200"]')) 'Global primeval-stone stack limit'
 Assert-Gu ($null -ne $cavern.SelectSingleNode('//ProjectGu.Underground.GuPocketSiteDef[mapSize="39" and endpoint="GU_SpringPitEntrance" and returnEndpoint="GU_SpringRopeExit"]')) 'Spring cavern dimensions or passage Defs'
+Assert-Gu ($null -ne $cavern.SelectSingleNode('//ProjectGu.Underground.GuPocketSiteDef[independentOwner="true"]')) 'New spirit spring owner is not configured'
 Assert-Gu ($null -ne $cavern.SelectSingleNode('//genStep[exit="GU_SpringRopeExit"]')) 'Spring generator exit mismatch'
 Assert-Gu ($null -ne $probe.SelectSingleNode('//ProjectGu.Underground.GuPocketSiteDef[mapSize="31" and endpoint="GU_PocketProbeEndpoint"]')) 'Generic probe dimensions or endpoint changed'
 Assert-Gu ($null -ne $passages.SelectSingleNode('//ThingDef[defName="GU_SpringPitEntrance" and graphicData/texPath="ProjectGU/SpringPitEntrance"]')) 'Pit sprite reference missing'
