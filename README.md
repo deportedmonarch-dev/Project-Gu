@@ -4,7 +4,7 @@ An experimental *Reverend Insanity*-inspired Gu cultivation framework for **RimW
 
 ## Current validated baseline: Prototype 0.2.4
 
-The 0.2.4 **compile-hotfix** source is the stable prototype baseline. The project maintainer reported **10/10 in-game tests passing** on this version. The development branch adds 0.2.5 species definitions and spring cohorts. Its current game-linked build remains pending and requires the RimWorld 1.7 assemblies.
+The 0.2.4 **compile-hotfix** source is the stable prototype baseline. The project maintainer reported **10/10 in-game tests passing** on this version. The underground spring development branch adds 0.2.5 species and cohorts, developer-only pocket maps and spring-fed flora. Its game-linked build and isolated checks passed against RimWorld 1.7.5014 rev1195. Live acceptance is tracked in the [underground spring test plan](docs/UNDERGROUND-SPIRIT-SPRING.md).
 
 Working prototype systems include:
 - Mortal/unawakened/failed statuses, hidden aptitude and persistent Gu Master apertures
@@ -13,7 +13,7 @@ Working prototype systems include:
 - Spirit flora support, mature/juvenile Hope Gu populations and ecological capacity
 - Save migration and development testing controls
 
-**Known limitations:** Roaming physical Gu and underground pocket maps are proposed. Spontaneous flora propagation, regional simulation, and an Ideology ritual adapter are future directions. Current test parameters are provisional and not always canon-calibrated.
+**Known limitations** include unresolved source settlement abandonment for native underground maps. Roaming physical Gu, regional simulation and an Ideology ritual adapter remain proposed.
 
 ## Requirements
 
@@ -31,7 +31,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\install.ps1
 ```
 
-`verify.ps1` runs PowerShell structural checks then builds. Only install after a successful build. Build outputs in `1.7/Assemblies/` are **intentionally excluded from Git**. Do not commit game binaries, SDK files, compiled DLLs, game logs, saves, or private data.
+`verify.ps1` runs PowerShell structural checks, compiles against the local game and runs isolated tests against the installed assemblies. Only install after a successful build. Build outputs in `1.7/Assemblies/` are **intentionally excluded from Git**. Do not commit game binaries, SDK files, compiled DLLs, game logs, saves, or private data.
 
 For focused gameplay testing, enable **Core + Project GU** and follow `docs/RELEASE-0.2.4.md`, plus earlier release test plans.
 

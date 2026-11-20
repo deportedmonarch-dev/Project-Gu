@@ -31,7 +31,14 @@ $requiredFiles = @(
     'Source\ProjectGu\Springs\GuEcologyMapComponent.cs',
     'Source\ProjectGu\Springs\CompGuSpiritFlora.cs',
     'Source\ProjectGu\Springs\CompProperties_GuSpiritFlora.cs',
-    'Textures\ProjectGU\MoonOrchidHabitat.png',
+    'Textures\ProjectGU\MoonOrchid\ColonyA.png',
+    'Textures\ProjectGU\MoonOrchid\ColonyB.png',
+    'Textures\ProjectGU\SpiritGrass\PatchA.png',
+    'Textures\ProjectGU\SpiritGrass\PatchB.png',
+    'Textures\ProjectGU\SpiritGrass\PatchC.png',
+    'Textures\ProjectGU\SpiritGrass\PatchD.png',
+    'Textures\ProjectGU\SpringPitEntrance.png',
+    'Textures\ProjectGU\SpringRopeExit.png',
     'Textures\ProjectGU\StonePassage.png',
     'docs\TEST-PLAN-0.2.0.md',
     'docs\TEST-PLAN-0.2.1.md'
@@ -48,11 +55,22 @@ Get-ChildItem -Path $xmlFolders -Filter '*.xml' -Recurse -File | ForEach-Object 
 $orchid = Read-GuXml 'Defs\ThingDefs\GU_MoonOrchidHabitat.xml'
 $grass = Read-GuXml 'Defs\ThingDefs\GU_SpiritFlora.xml'
 $spring = Read-GuXml 'Defs\ThingDefs\GU_SpiritSpring.xml'
+$cavern = Read-GuXml 'Defs\MapGeneration\GU_SpiritSpringCavern.xml'
+$probe = Read-GuXml 'Defs\MapGeneration\GU_PocketProbe.xml'
+$passages = Read-GuXml 'Defs\ThingDefs\GU_SpringPassages.xml'
 Assert-Gu ($null -ne $orchid.SelectSingleNode('//li[@Class="ProjectGu.Springs.CompProperties_GuSpiritFlora"]')) 'Moon orchid ecology component missing'
 Assert-Gu ($null -ne $grass.SelectSingleNode('//li[@Class="ProjectGu.Springs.CompProperties_GuSpiritFlora"]')) 'Spirit grass ecology component missing'
 Assert-Gu ($null -ne $spring.SelectSingleNode('//li[@Class="ProjectGu.Springs.CompProperties_GuSpiritSpring"]')) 'Spring ecology component missing'
+Assert-Gu ($null -ne $spring.SelectSingleNode('//ThingDef[defName="GU_PrimevalStone" and stackLimit="200"]')) 'Global primeval-stone stack limit'
+Assert-Gu ($null -ne $cavern.SelectSingleNode('//ProjectGu.Underground.GuPocketSiteDef[mapSize="39" and endpoint="GU_SpringPitEntrance" and returnEndpoint="GU_SpringRopeExit"]')) 'Spring cavern dimensions or passage Defs'
+Assert-Gu ($null -ne $cavern.SelectSingleNode('//genStep[exit="GU_SpringRopeExit"]')) 'Spring generator exit mismatch'
+Assert-Gu ($null -ne $probe.SelectSingleNode('//ProjectGu.Underground.GuPocketSiteDef[mapSize="31" and endpoint="GU_PocketProbeEndpoint"]')) 'Generic probe dimensions or endpoint changed'
+Assert-Gu ($null -ne $passages.SelectSingleNode('//ThingDef[defName="GU_SpringPitEntrance" and graphicData/texPath="ProjectGU/SpringPitEntrance"]')) 'Pit sprite reference missing'
+Assert-Gu ($null -ne $passages.SelectSingleNode('//ThingDef[defName="GU_SpringRopeExit" and graphicData/texPath="ProjectGU/SpringRopeExit"]')) 'Rope sprite reference missing'
+Assert-Gu ($null -ne $grass.SelectSingleNode('//graphicData[texPath="ProjectGU/SpiritGrass" and graphicClass="Graphic_Random"]')) 'Grass variants missing'
+Assert-Gu ($null -ne $orchid.SelectSingleNode('//graphicData[texPath="ProjectGU/MoonOrchid" and graphicClass="Graphic_Random"]')) 'Orchid variants missing'
 $source = Get-Content -LiteralPath (Join-Path $root 'Source\ProjectGu\Springs\CompGuSpiritSpring.cs') -Raw
-$saveKeys = @('guNextProductionTick','guLifetimeProduced','guHopeGuAvailable','guNextHopeRecoveryTick','guHabitatPatches','guReserve024','guMatureHope024','guJuvenileHope024','guNextEcology024')
+$saveKeys = @('guNextProductionTick','guLifetimeProduced','guHopeGuAvailable','guNextHopeRecoveryTick','guHabitatPatches','guReserve024','guMatureHope024','guJuvenileHope024','guNextEcology024','guNextFloraGrowthTick')
 foreach ($key in $saveKeys) { Assert-Gu ($source.Contains($key)) "Missing save field: $key" }
 Write-Host 'PASS: XML, file structure, 1.7 metadata, ecology definitions and save-key presence.' -ForegroundColor Green
 
@@ -83,4 +101,7 @@ Write-Host 'PASS: Slice 2 cohort schema, legacy keys and migration guards struct
 
 & (Join-Path $PSScriptRoot 'build.ps1') -RimWorldPath $RimWorldPath
 if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Compilation failed.' }
-Write-Host 'Static checks + compilation passed. Proceed to the in-game test plan.' -ForegroundColor Green
+$verification = Join-Path $root 'tests\ProjectGu.Verification\ProjectGu.Verification.csproj'
+dotnet run --project $verification -c Release "-p:RimWorldPath=$RimWorldPath" -- $root $RimWorldPath
+if ($LASTEXITCODE -ne 0) { throw 'Isolated cavern and spring verification failed.' }
+Write-Host 'Static checks, game-linked compilation, and isolated managed tests passed. Live acceptance is separate.' -ForegroundColor Green
