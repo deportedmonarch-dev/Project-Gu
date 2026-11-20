@@ -41,6 +41,10 @@
     <fillPercent>0.1</fillPercent>
     <tickerType>Rare</tickerType>
     <comps>
+      <li Class="ProjectGu.Underground.CompProperties_GuCavernGlower">
+        <glowRadius>6.4</glowRadius>
+        <glowColor>(47,126,115,0)</glowColor>
+      </li>
       <li Class="ProjectGu.Springs.CompProperties_GuSpiritSpring">
         <productionIntervalTicks>60000</productionIntervalTicks>
         <stonesPerCycle>1</stonesPerCycle>

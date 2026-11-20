@@ -10,6 +10,10 @@ namespace ProjectGu.Underground
     {
         internal bool RejectNextGeneration { get; private set; }
 
+        public override string LabelNoCount => Spawned
+            ? Map.IsPocketMap ? "return passage to surface" : "underground entrance"
+            : base.LabelNoCount;
+
         public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
         {
             foreach (FloatMenuOption option in base.GetFloatMenuOptions(selPawn))
@@ -49,9 +53,13 @@ namespace ProjectGu.Underground
 
         public override string GetInspectString()
         {
-            if (Prefs.DevMode && GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site))
-                return $"Probe site {site.SiteId}\nLevel {site.LevelId}\n{site.Status}";
-            return base.GetInspectString();
+            if (!GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site))
+                return base.GetInspectString();
+
+            string destination = site.Entrance == this ? site.Kind?.label ?? "Underground cavern" : "Surface settlement";
+            return Prefs.DevMode
+                ? $"{destination} · {site.Status}\nSite {site.SiteId}\nLevel {site.LevelId}"
+                : $"{destination} · {site.Status}";
         }
 
         internal bool ConsumeGenerationRejection()

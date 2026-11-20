@@ -9,6 +9,15 @@
     <graphicData><texPath>ProjectGU/MoonOrchidHabitat</texPath><graphicClass>Graphic_Single</graphicClass><drawSize>(1,1)</drawSize></graphicData>
     <size>(1,1)</size><passability>Standable</passability><fillPercent>0</fillPercent>
     <statBases><MaxHitPoints>60</MaxHitPoints><Flammability>0.2</Flammability></statBases>
-    <comps><li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora"><support>2</support><ecologyProfile>generic</ecologyProfile></li></comps>
+    <comps>
+      <li Class="ProjectGu.Underground.CompProperties_GuCavernGlower">
+        <glowRadius>2.2</glowRadius>
+        <glowColor>(18,42,32,0)</glowColor>
+      </li>
+      <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">
+        <support>2</support>
+        <ecologyProfile>generic</ecologyProfile>
+      </li>
+    </comps>
   </ThingDef>
 </Defs>

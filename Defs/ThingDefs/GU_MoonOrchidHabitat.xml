@@ -11,6 +11,10 @@
       <drawSize>(1,1)</drawSize>
     </graphicData>
     <comps>
+      <li Class="ProjectGu.Underground.CompProperties_GuCavernGlower">
+        <glowRadius>3.5</glowRadius>
+        <glowColor>(26,61,74,0)</glowColor>
+      </li>
       <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">
         <support>1</support>
         <ecologyProfile>moon</ecologyProfile>
