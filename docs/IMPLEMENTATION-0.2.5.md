@@ -87,3 +87,17 @@ All 14 headless native stages passed across two runs. The first botanical attemp
 | `Legacy31`, `Legacy39` | Reference saves retain their owner, terrain, Building flora, reserve, Hope Gu and 19 or 24 stones. |
 
 Owner acceptance remains separate. Exercise the new assignment, pause and Work priority controls in a rendered colony, and try cancellation while a colonist is waiting to awaken. The full Archonexus quest flow remains an interface check.
+
+## Slice 3A checkpoint — native engine probes
+
+The three probes are complete in the disposable verification mod. `scripts/verify.ps1 -Focused` passed structural checks, actual 1.7 assembly compilation and the isolated managed suite. The `Slice3A` profile passed both native stages on Windows RimWorld 1.7.5014 rev1195, Core, Harmony 3.0.4 and .NET SDK 10.0.401.
+
+| Probe | Result |
+|---|---|
+| Wild Pawn retirement | Despawn and explicit native discard cleared the wild Hare's job and reservation. Observed zero kill calls, zero corpse creations and one discard cleanup callback. The retired ID stayed absent from world Pawns, map Pawns and corpses after reload. |
+| Unstackable Thing | Two distinct unit stacks survived merge-enabled inventory operations. Rejected placement preserved the held Thing. Fresh-process reload resolved the same Thing references under the native map and inventory owners, and return travel and drop preserved the held instance. The fixture was corrected to account for the map owning spawned Things. |
+| Exact aperture binding | The saved Pawn and Hediff reference pair resolved across passage travel and reload. A same-Def replacement and host death invalidated their original bindings. |
+
+The follow-up `Awakening` and `CargoPrototype` regression profiles were interrupted before completion and remain unverified for this checkpoint. Native discard can invoke cleanup on held assets and Hediffs, so the result applies to the tested empty, unowned Core Pawn. Other Pawn configurations and DLC callback behavior remain open.
+
+To resume, run `scripts/verify-priority0-live.ps1` with `-Profile @('Awakening','CargoPrototype')` from PowerShell and record both fresh-process results. Review the discard callback limits and exact native holder rules before proposing production custody transitions.

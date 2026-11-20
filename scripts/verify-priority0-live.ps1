@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = ''
@@ -39,6 +39,7 @@ foreach ($entry in @('About','1.7','LoadFolders.xml')) {
     Copy-Item -LiteralPath (Join-Path $harmonyMod $entry) -Destination $harmony -Recurse
 }
 Copy-Item -LiteralPath (Join-Path $source 'About.xml') -Destination (Join-Path $test 'About')
+Copy-Item -LiteralPath (Join-Path $source 'Defs') -Destination $test -Recurse
 Copy-Item -LiteralPath (Join-Path $source 'bin/Release/net10.0/ProjectGu.Verification.dll') -Destination (Join-Path $test 'Assemblies')
 
 function Invoke-LiveStage([string]$SaveData, [string]$Stage, [bool]$Fresh, [bool]$UseRenderer, [string]$Extra = '') {
@@ -94,6 +95,7 @@ try {
             'Botanical' { '-gubotanical' }
             'CargoPrototype' { '-gucargoprototype' }
             'AutomaticHauling' { '-guautomatichauling' }
+            'Slice3A' { '-guslice3a' }
             'Legacy31' { '-gulegacy31' }
             'Legacy39' { '-gulegacy39' }
             default { '' }
