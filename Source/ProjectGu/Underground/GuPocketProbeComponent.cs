@@ -38,6 +38,7 @@ namespace ProjectGu.Underground
     public sealed class GuPocketProbeComponent : GameComponent
     {
         private List<GuPocketSiteRecord> sites = new();
+        private readonly HashSet<GuPocketSiteRecord> reportedInvalidSites = new();
         [ThreadStatic] private static HashSet<Thing> generationFixtures;
         internal bool OperationInProgress { get; set; }
 
@@ -48,6 +49,29 @@ namespace ProjectGu.Underground
             base.ExposeData();
             Scribe_Collections.Look(ref sites, "guPocketProbeSitesV1", LookMode.Deep);
             sites ??= new List<GuPocketSiteRecord>();
+        }
+
+        public override void LoadedGame()
+        {
+            base.LoadedGame();
+            foreach (GuPocketSiteRecord site in sites)
+                if (site?.Cavern != null && (!HasLiveSourceSettlement(site.Source) || !IsRegisteredPocket(site, site.Cavern)))
+                    ReportInvalidSite(site);
+        }
+
+        internal void NotifyMapRemoved(Map removedMap)
+        {
+            foreach (GuPocketSiteRecord site in sites)
+                if (site?.Cavern != null
+                    && (site.Source == removedMap || (site.Cavern == removedMap && site.Exit != null)))
+                    ReportInvalidSite(site);
+        }
+
+        private void ReportInvalidSite(GuPocketSiteRecord site)
+        {
+            if (reportedInvalidSites.Add(site))
+                Log.Error($"[Project GU] Persistent underground route closed for site {site.SiteId}, level {site.LevelId}. "
+                    + "Its source or cavern map binding became invalid. Reload a save from before the removal.");
         }
 
         internal void AddSite(GuPocketSiteDef kind, Building_GuPocketProbeEndpoint entrance)
@@ -80,9 +104,11 @@ namespace ProjectGu.Underground
             return arrival.IsValid;
         }
 
-        internal static bool IsSurfaceSettlement(Map map) => IsLive(map) && !map.IsPocketMap
-            && map.Parent is Settlement && map.Tile.Valid && map.Tile.LayerDef == PlanetLayerDefOf.Surface
-            && map.IsPlayerHome;
+        private static bool HasLiveSourceSettlement(Map map) => IsLive(map) && !map.IsPocketMap
+            && map.Parent is Settlement { Spawned: true, Destroyed: false };
+
+        internal static bool IsSurfaceSettlement(Map map) => HasLiveSourceSettlement(map)
+            && map.Tile.Valid && map.Tile.LayerDef == PlanetLayerDefOf.Surface && map.IsPlayerHome;
 
         internal static bool HasValidSource(GuPocketSiteRecord site) =>
             IsSurfaceSettlement(site.Source) && site.Entrance?.Spawned == true && site.Entrance.Map == site.Source;
@@ -177,5 +203,13 @@ namespace ProjectGu.Underground
                 generationFixtures = null;
             }
         }
+    }
+
+    public sealed class GuPocketMapLifecycleObserver : MapComponent
+    {
+        public GuPocketMapLifecycleObserver(Map map) : base(map) { }
+
+        public override void MapRemoved() =>
+            Current.Game?.GetComponent<GuPocketProbeComponent>()?.NotifyMapRemoved(map);
     }
 }

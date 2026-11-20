@@ -1,6 +1,6 @@
 # Project GU architecture
 
-This document describes the implementation on `feature/gu-framework-0.2.5`. See the [roadmap](docs/ROADMAP.md) for verification and sequencing and the [project vision](docs/PROJECT-VISION.md) for design requirements.
+This document describes the framework and the developer-only implementation on `feature/underground-spirit-spring`. See the [roadmap](docs/ROADMAP.md) for verification and sequencing and the [project vision](docs/PROJECT-VISION.md) for design requirements.
 
 ## Implemented subsystems and save ownership
 
@@ -11,6 +11,7 @@ This document describes the implementation on `feature/gu-framework-0.2.5`. See 
 | Species definitions | [GuSpeciesDef](Source/ProjectGu/Domain/GuSpeciesDef.cs) and [XML Defs](Defs/GuSpeciesDefs/GU_GuSpecies.xml) supply rank ranges and descriptive tags through `DefDatabase`. The catalog contains Hope Gu, Moonlight Gu, and a developer test species. |
 | Spring ecology and production | Each [spring ThingComp](Source/ProjectGu/Springs/CompGuSpiritSpring.cs) owns reserve, production and habitat fields, a persistent habitat ID, and the deep-saved `guPopulationRecords025` list. The [ledger](Source/ProjectGu/Springs/GuPopulationLedger.cs) operates on the spring's list. Legacy population scalars are migration inputs or derived shadows. Species keys preserve unresolved add-on counts. Current gameplay updates the Hope Gu cohort only. The spring produces haulable stones from its own reserve. |
 | Map ecology | The [map component](Source/ProjectGu/Springs/GuEcologyMapComponent.cs) holds transient spring subscriptions. Flora spawn/destruction notifications and periodic local recounts refresh support. The map component owns no saved populations. |
+| Underground prototype | The [pocket registry](Source/ProjectGu/Underground/GuPocketProbeComponent.cs) saves site IDs, level IDs and engine map and passage references under `guPocketProbeSitesV1`. RimWorld owns maps and pawns. The [spring production operation](Source/ProjectGu/Springs/CompGuSpiritSpring.Production.cs) handles scheduled and debug production from the existing spring's saved reserve. The [source removal audit](docs/UNDERGROUND-MAP-SAFETY.md) describes the open gameplay integration gate. |
 
 The save-integrity follow-up preserves recoverable cohort data and disables mutation for ambiguous or invalid versioned lists. Its real save round-trips remain pending. See the [implementation journal](docs/IMPLEMENTATION-0.2.5.md).
 
@@ -23,4 +24,4 @@ The save-integrity follow-up preserves recoverable cohort data and disables muta
 
 ## Proposed boundaries
 
-[RFC-0002](docs/RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md) compares record-, Pawn-, and Thing-owned persistence. Record-backed identity with physical projections is a candidate. Scribe, world Pawn retention, ThingOwner, projection replacement, aperture loss, and map transfer probes must establish a viable authority model. Individual Gu, aperture and host custody, ability orchestration, and underground maps have no implementation on this branch.
+[RFC-0002](docs/RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md) compares record-, Pawn-, and Thing-owned persistence. Record-backed identity with physical projections is a candidate. Scribe, world Pawn retention, ThingOwner, projection replacement, aperture loss, and map transfer probes must establish a viable authority model. Individual Gu, aperture and host custody, and ability orchestration remain proposed.

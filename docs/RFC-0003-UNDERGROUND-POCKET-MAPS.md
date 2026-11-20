@@ -4,6 +4,8 @@
 **Target** — RimWorld 1.7 Waylith / .NET 10
 **First playable target** — A surface entrance, a persistent spirit spring cavern, and safe travel in both directions.
 
+The [1.7 removal audit](UNDERGROUND-MAP-SAFETY.md) records the pre-mutation coverage required for release. The developer prototype detects forced removal and closes broken routes. Ordinary removal prevention requires further review.
+
 ## Engine evidence
 
 The table records the references used in the initial proposal. The [local probe report](UNDERGROUND-POCKET-PROBE.md) supersedes its provisional API and lifecycle findings for the installed build, RimWorld 1.7.5014 rev1195. Core-only generation and the runtime cases still require an in-game test. The [Ludeon 1.7 announcement](https://ludeon.com/blog/2026/10/announcing-the-waylith-engine-and-update-1-7/) and [1.7 modding notes](https://rimworldwiki.com/wiki/Modding_Tutorials/RimWorld_1.7_Mod_Updates) establish the engine and build target.
