@@ -9,6 +9,9 @@
     <entranceClearance>1</entranceClearance>
     <mapSize>39</mapSize>
     <independentOwner>true</independentOwner>
+    <haulingCargo>
+      <li>GU_PrimevalStone</li>
+    </haulingCargo>
   </ProjectGu.Underground.GuPocketSiteDef>
   <MapGeneratorDef>
     <defName>GU_SpiritSpringCavern</defName>

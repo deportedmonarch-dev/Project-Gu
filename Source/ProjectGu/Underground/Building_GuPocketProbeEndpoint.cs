@@ -25,9 +25,14 @@ namespace ProjectGu.Underground
         {
             foreach (FloatMenuOption option in base.GetFloatMenuOptions(selPawn))
                 yield return option;
+            bool independent = GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var haulSite, out var endpoint);
+            if (independent && GuPassageHauling.Supports(haulSite) && GuPassageHauling.CanAssign(haulSite, selPawn))
+            {
+                yield return new FloatMenuOption("Assign to underground hauling",
+                    () => GuPassageHauling.Assign(haulSite, selPawn));
+            }
             if (!Prefs.DevMode)
                 yield break;
-            bool independent = GuPocketProbeComponent.TryGetIndependentEndpoint(this, out _, out var endpoint);
             if (!GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site) && !independent)
                 yield break;
 
@@ -50,6 +55,18 @@ namespace ProjectGu.Underground
         {
             foreach (Gizmo gizmo in base.GetGizmos())
                 yield return gizmo;
+            if (GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var haulSite, out _)
+                && haulSite.Hauling is { Worker: { Dead: false } worker } hauling)
+            {
+                yield return new Command_Toggle
+                {
+                    defaultLabel = "Underground hauling",
+                    defaultDesc = $"Allow {worker.LabelShort} to collect underground cargo using their Hauling work priority. "
+                        + "Pausing keeps any packed cargo in the colonist's inventory.",
+                    isActive = () => hauling.Enabled,
+                    toggleAction = () => GuPassageHauling.SetEnabled(hauling, !hauling.Enabled)
+                };
+            }
             if (Prefs.DevMode && (GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site)
                 && site.Entrance == this && !site.GenerationStarted
                 || GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var independent, out var end)

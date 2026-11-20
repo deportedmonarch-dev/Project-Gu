@@ -16,20 +16,30 @@ namespace ProjectGu.Underground
         protected override IEnumerable<Toil> MakeNewToils()
         {
             this.FailOnDespawnedNullOrForbidden(TargetIndex.A);
+            if (job.def == GuPassageHaulDefOf.GU_PassageHaulTravel)
+                this.FailOn(() => GuPassageHauling.ActiveSite(pawn) == null);
             yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
             Toil travel = new Toil { defaultCompleteMode = ToilCompleteMode.Instant };
             travel.initAction = () =>
             {
                 var endpoint = job.targetA.Thing as Building_GuPocketProbeEndpoint;
-                if (!TryTravel(pawn, endpoint, out string reason))
+                if (job.def == GuPassageHaulDefOf.GU_PassageHaulTravel)
+                {
+                    if (!GuPassageHauling.TryTravel(pawn, endpoint)) EndJobWith(JobCondition.Incompletable);
+                }
+                else if (!TryTravel(pawn, endpoint, out string reason))
                     Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
             };
             yield return travel;
         }
 
-        internal static bool CanTravel(Pawn pawn, Building_GuPocketProbeEndpoint endpoint, out string reason)
+        internal static bool CanTravel(Pawn pawn, Building_GuPocketProbeEndpoint endpoint, out string reason) =>
+            CanUsePassage(pawn, endpoint, out reason, requireDevMode: true);
+
+        internal static bool CanUsePassage(Pawn pawn, Building_GuPocketProbeEndpoint endpoint, out string reason,
+            bool requireDevMode = false)
         {
-            if (!Prefs.DevMode || endpoint?.Spawned != true || pawn?.Spawned != true || pawn.Map != endpoint.Map
+            if ((requireDevMode && !Prefs.DevMode) || endpoint?.Spawned != true || pawn?.Spawned != true || pawn.Map != endpoint.Map
                 || !pawn.IsColonistPlayerControlled || pawn.Downed || pawn.GetLord() != null)
             {
                 reason = "The probe requires a standing player-controlled colonist on this map.";
@@ -97,17 +107,7 @@ namespace ProjectGu.Underground
                     reason = "The underground route is closed.";
                     return false;
                 }
-                if (!CanLand(destination.Map, destination.Position, pawn)
-                    || !CanLand(pawn.Map, endpoint.Position, pawn) || !CanLand(pawn.Map, pawn.Position, pawn))
-                {
-                    reason = "Clear the passage and its landing cell before traveling.";
-                    return false;
-                }
-
-                Map target = destination.Map;
-                IntVec3 arrival = destination.Position;
-                if (!TryMove(pawn, target, arrival, () => validateRoute()
-                    && destination.Map == target && destination.Position == arrival, out reason))
+                if (!TryCross(pawn, endpoint, destination, validateRoute, out reason))
                     return false;
             }
             finally
@@ -117,6 +117,21 @@ namespace ProjectGu.Underground
 
             CameraJumper.TryJumpAndSelect(pawn);
             return true;
+        }
+
+        internal static bool TryCross(Pawn pawn, Building_GuPocketProbeEndpoint origin,
+            Building_GuPocketProbeEndpoint destination, Func<bool> validateRoute, out string reason)
+        {
+            Map target = destination.Map;
+            IntVec3 arrival = destination.Position;
+            if (!CanLand(target, arrival, pawn) || !CanLand(pawn.Map, origin.Position, pawn)
+                || !CanLand(pawn.Map, pawn.Position, pawn))
+            {
+                reason = "Clear the passage and its landing cell before traveling.";
+                return false;
+            }
+            return TryMove(pawn, target, arrival, () => validateRoute()
+                && destination.Map == target && destination.Position == arrival, out reason);
         }
 
         internal static bool TryMove(Pawn pawn, Map target, IntVec3 arrival, Func<bool> validateRoute, out string reason)

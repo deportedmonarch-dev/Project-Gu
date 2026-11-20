@@ -29,12 +29,13 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static bool AwakeningSafety => GenCommandLine.CommandLineArgPassed("guawakeningsafety");
     private static bool Botanical => GenCommandLine.CommandLineArgPassed("gubotanical");
     private static bool CargoPrototype => GenCommandLine.CommandLineArgPassed("gucargoprototype");
+    private static bool AutomaticHauling => GenCommandLine.CommandLineArgPassed("guautomatichauling");
     private static Action NewCheck => EmptyCavernReset ? ExerciseEmptyCavernReset
         : AwakeningSafety ? ExerciseAwakening : Botanical ? ExerciseBotanical
-        : CargoPrototype ? ExerciseCargoPrototype : GenerateAndExercise;
+        : CargoPrototype ? ExerciseCargoPrototype : AutomaticHauling ? ExerciseAutomaticHauling : GenerateAndExercise;
     private static Action ReloadCheck => EmptyCavernReset ? VerifyEmptyCavernResetReload
         : AwakeningSafety ? VerifyAwakeningReload : Botanical ? VerifyBotanicalReload
-        : CargoPrototype ? VerifyCargoPrototypeReload : VerifyReload;
+        : CargoPrototype ? VerifyCargoPrototypeReload : AutomaticHauling ? VerifyAutomaticHaulingReload : VerifyReload;
     private Action pending;
 
     public LiveLifecycleChecks(Game game) { }

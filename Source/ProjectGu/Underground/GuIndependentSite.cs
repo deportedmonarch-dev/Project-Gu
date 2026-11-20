@@ -14,6 +14,7 @@ namespace ProjectGu.Underground
         internal List<GuIndependentLevel> Levels = new();
         internal List<GuIndependentEndpoint> Endpoints = new();
         internal List<GuIndependentRoute> Routes = new();
+        internal GuPassageHaul Hauling;
 
         internal GuIndependentLevel Level(string id) => string.IsNullOrEmpty(id) ? null : Levels.Find(level => level?.LevelId == id);
         internal GuIndependentEndpoint Endpoint(string id) => string.IsNullOrEmpty(id) ? null : Endpoints.Find(end => end?.EndpointId == id);
@@ -67,6 +68,7 @@ namespace ProjectGu.Underground
             Scribe_Collections.Look(ref Levels, "levels", LookMode.Deep);
             Scribe_Collections.Look(ref Endpoints, "endpoints", LookMode.Deep);
             Scribe_Collections.Look(ref Routes, "routes", LookMode.Deep);
+            Scribe_Deep.Look(ref Hauling, "passageHauling");
             Levels ??= new();
             Endpoints ??= new();
             Routes ??= new();

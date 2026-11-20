@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Verse;
 
 namespace ProjectGu.Underground
@@ -11,6 +12,7 @@ namespace ProjectGu.Underground
         public int entranceClearance;
         public int mapSize = 31;
         public bool independentOwner;
+        public List<ThingDef> haulingCargo = new();
 
         internal ThingDef ExitDef => returnEndpoint ?? endpoint;
 

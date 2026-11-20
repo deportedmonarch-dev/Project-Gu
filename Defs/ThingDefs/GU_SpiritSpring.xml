@@ -26,6 +26,9 @@
     <thingCategories>
       <li>ResourcesRaw</li>
     </thingCategories>
+    <comps>
+      <li Class="CompProperties_Forbiddable" />
+    </comps>
   </ThingDef>
   <ThingDef ParentName="BuildingBase">
     <defName>GU_SpiritSpring</defName>

@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'Both')][string]$Profile = 'Both',
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Both')][string]$Profile = 'Both',
     [switch]$Rendered
 )
 $ErrorActionPreference = 'Stop'
@@ -80,6 +80,7 @@ try {
             'Awakening' { '-guawakeningsafety' }
             'Botanical' { '-gubotanical' }
             'CargoPrototype' { '-gucargoprototype' }
+            'AutomaticHauling' { '-guautomatichauling' }
             default { '' }
         }
         $configXml = @"

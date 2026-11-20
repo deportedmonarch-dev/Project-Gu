@@ -14,6 +14,8 @@ namespace ProjectGu.Underground
         internal void AddIndependentSite(GuPocketSiteDef kind, Building_GuPocketProbeEndpoint entrance) =>
             independentSites.Add(GuIndependentSite.FirstLevel(kind, entrance.Map, entrance));
 
+        internal GuIndependentSite HaulingSiteFor(Pawn pawn) => independentSites.Find(site => site.Hauling?.Worker == pawn);
+
         internal static bool TryGetIndependentEndpoint(Building_GuPocketProbeEndpoint anchor,
             out GuIndependentSite site, out GuIndependentEndpoint endpoint)
         {
