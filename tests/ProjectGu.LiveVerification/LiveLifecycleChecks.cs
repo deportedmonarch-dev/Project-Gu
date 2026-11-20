@@ -25,6 +25,7 @@ public sealed class LiveLifecycleChecks : GameComponent
     private static readonly IntVec3 East = new(1, 0, 0);
     private static GuPocketProbeComponent Registry => Current.Game.GetComponent<GuPocketProbeComponent>();
     private static ThingDef StoneDef => DefDatabase<ThingDef>.GetNamed("GU_PrimevalStone");
+    private static bool EmptyCavernReset => GenCommandLine.CommandLineArgPassed("guemptycavernreset");
     private Action pending;
 
     public LiveLifecycleChecks(Game game) { }
@@ -33,12 +34,17 @@ public sealed class LiveLifecycleChecks : GameComponent
     {
         if (GenCommandLine.CommandLineArgPassed("gupriority0bootstrap"))
             Run(() => GameDataSaveLoader.SaveGame(SaveName), "bootstrap");
-        else Run(GenerateAndExercise, "new");
+        else Run(EmptyCavernReset ? ExerciseEmptyCavernReset : GenerateAndExercise, "new");
     };
 
     public override void LoadedGame() => pending = () =>
     {
-        if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(GenerateAndExercise, "new");
+        if (EmptyCavernReset)
+        {
+            if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(ExerciseEmptyCavernReset, "new");
+            else Run(VerifyEmptyCavernResetReload, "reload");
+        }
+        else if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(GenerateAndExercise, "new");
         else Run(VerifyReload, "reload");
     };
 
@@ -66,6 +72,66 @@ public sealed class LiveLifecycleChecks : GameComponent
             Report($"FAIL {stage} {error}");
         }
         UnityEngine.Application.Quit();
+    }
+
+    private const int ResetMarkerCount = 137;
+
+    private static void ExerciseEmptyCavernReset()
+    {
+        Check(ModsConfig.IdeologyActive && !ModsConfig.OdysseyActive, "Run the empty cavern reset with Ideology alone");
+        Map home = Find.CurrentMap;
+        var colonists = home.mapPawns.FreeColonistsSpawned.ToArray();
+        Pawn pawn = colonists.First();
+        var site = OpenIndependentSite(pawn, home);
+        var level = site.Levels.Single();
+        Map cave = level.LiveMap;
+        var exit = site.Endpoints.Single(end => !end.IsSurface);
+        Thing marker = GenSpawn.Spawn(MakeStack(ResetMarkerCount), exit.Cell + East, cave);
+        Check(!cave.IsPlayerHome && !cave.mapPawns.AllPawns.Any(person =>
+                person.Faction == Faction.OfPlayer || person.IsPrisonerOfColony)
+            && !Registry.HasLegacyDependents && !Find.World.pocketMaps.Any(),
+            "Cavern is unoccupied by the colony, with no legacy dependency");
+        var destination = Find.WorldGrid.Surface.Tiles.Select(tile => tile.tile).First(tile =>
+            !Find.WorldObjects.AnyWorldObjectAt(tile) && Find.WorldPathGrid.Passable(tile));
+        var oldParent = home.Parent;
+
+        var newSettlement = MoveColonyUtility.MoveColonyAndReset(destination, colonists, Faction.OfPlayer);
+
+        Map newHome = newSettlement.Map;
+        Check(newSettlement.Spawned && newSettlement.Tile == destination && newHome?.IsPlayerHome == true,
+            "Reset created a native player settlement at the selected tile");
+        Check(colonists.All(person => person.MapHeld == newHome && !Find.WorldPawns.Contains(person)),
+            "The new colony owns all selected colonists, including arrivals still in native drop pods");
+        Check(!GuPocketProbeComponent.IsLive(home) && !oldParent.Spawned,
+            "The original colony map and parent were removed");
+        Check(level.LiveMap == cave && marker.Spawned && marker.Map == cave && marker.stackCount == ResetMarkerCount,
+            "Reset retained the same cavern and physical stack");
+        AssertSealedResetCavern(cave);
+        Current.Game.CurrentMap = newHome;
+        GameDataSaveLoader.SaveGame(SaveName);
+        Report("Ideology reset completed and sealed the independent cavern with its original 137-stone stack.");
+    }
+
+    private static void VerifyEmptyCavernResetReload()
+    {
+        Map cave = Find.WorldObjects.MapParents.OfType<GuUndergroundLevelParent>().Single().Map;
+        AssertSealedResetCavern(cave);
+        Map newHome = Find.Maps.Single(map => map.IsPlayerHome);
+        Check(newHome.mapPawns.AllPawns.Any(person => person.IsFreeColonist && person.MapHeld == newHome),
+            "New colony and its colonists survived a fresh-process reload");
+    }
+
+    private static void AssertSealedResetCavern(Map cave)
+    {
+        AssertNativeAddress(cave);
+        var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef)
+            .OfType<Building_GuPocketProbeEndpoint>().Single();
+        Check(GuPocketProbeComponent.TryGetIndependentEndpoint(exit, out var site, out var endpoint)
+            && site.Levels.Single().LiveMap == cave
+            && site.DestinationFor(endpoint.EndpointId) is { IsSurface: true, Surface: null, Anchor: null },
+            "The original site and exit resolve with a closed surface binding");
+        Check(cave.listerThings.ThingsOfDef(StoneDef).Single().stackCount == ResetMarkerCount,
+            "One physical stack remains underground with the exact original count");
     }
 
     private static void GenerateAndExercise()

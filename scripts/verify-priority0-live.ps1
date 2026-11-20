@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'Both')][string]$Profile = 'Both',
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Both')][string]$Profile = 'Both',
     [switch]$Rendered
 )
 $ErrorActionPreference = 'Stop'
@@ -73,7 +73,9 @@ try {
         $config = Join-Path $saveData 'Config'
         New-Item -ItemType Directory -Path $config -Force | Out-Null
         $dlc = ''
-        if ($name -eq 'IdeologyOdyssey') { $dlc = '<li>ludeon.rimworld.ideology</li><li>ludeon.rimworld.odyssey</li>' }
+        if ($name -in @('IdeologyOdyssey', 'IdeologyReset')) { $dlc = '<li>ludeon.rimworld.ideology</li>' }
+        if ($name -eq 'IdeologyOdyssey') { $dlc += '<li>ludeon.rimworld.odyssey</li>' }
+        $probe = if ($name -eq 'IdeologyReset') { '-guemptycavernreset' } else { '' }
         $configXml = @"
 <ModsConfigData>
   <version>1.7.5014 rev1195</version>
@@ -87,11 +89,11 @@ try {
         if ($Rendered) {
             # Stock graphical quick-start can stall in the entry scene. Load a seeded disposable colony.
             Invoke-LiveStage $saveData 'bootstrap' $true $false '-gupriority0bootstrap'
-            Invoke-LiveStage $saveData 'new' $false $true '-gupriority0fixture'
+            Invoke-LiveStage $saveData 'new' $false $true "-gupriority0fixture $probe"
         } else {
-            Invoke-LiveStage $saveData 'new' $true $false
+            Invoke-LiveStage $saveData 'new' $true $false $probe
         }
-        Invoke-LiveStage $saveData 'reload' $false $Rendered.IsPresent
+        Invoke-LiveStage $saveData 'reload' $false $Rendered.IsPresent $probe
         Write-Host "PASS $name disposable generation and fresh-process reload. Evidence in $saveData"
         Get-Content -LiteralPath (Join-Path $saveData 'priority0-result.txt')
     }
