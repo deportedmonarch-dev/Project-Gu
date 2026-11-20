@@ -20,7 +20,8 @@ namespace ProjectGu.Underground
             if (JobDriver_GuPocketProbeTravel.CanTravel(selPawn, this, out string reason))
             {
                 JobDef travel = DefDatabase<JobDef>.GetNamed("GU_PocketProbeTravel");
-                yield return new FloatMenuOption(site.Entrance == this ? "Enter probe cavern" : "Return to surface",
+                string enter = site.Kind == GuPocketSiteDef.SpiritSpring ? "Enter spirit spring cavern" : "Enter probe cavern";
+                yield return new FloatMenuOption(site.Entrance == this ? enter : "Return to surface",
                     () => selPawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(travel, this), JobTag.Misc));
             }
             else
@@ -39,7 +40,7 @@ namespace ProjectGu.Underground
                 yield return new Command_Toggle
                 {
                     defaultLabel = "Reject next generation",
-                    defaultDesc = "Reject the next empty cavern after native generation, to test failure cleanup.",
+                    defaultDesc = "Reject the next newly generated cavern to test failure cleanup.",
                     isActive = () => RejectNextGeneration,
                     toggleAction = () => RejectNextGeneration = !RejectNextGeneration
                 };
@@ -62,11 +63,16 @@ namespace ProjectGu.Underground
 
         [DebugAction("Project GU", "Place pocket probe entrance", actionType = DebugActionType.ToolMap,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
-        private static void PlaceEntrance()
+        private static void PlaceProbeEntrance() => PlaceEntrance(GuPocketSiteDef.Probe);
+
+        [DebugAction("Project GU", "Place spirit spring cavern entrance", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void PlaceSpringEntrance() => PlaceEntrance(GuPocketSiteDef.SpiritSpring);
+
+        private static void PlaceEntrance(GuPocketSiteDef kind)
         {
             Map map = Find.CurrentMap;
             IntVec3 cell = UI.MouseCell();
-            GuPocketSiteDef kind = GuPocketSiteDef.Probe;
             if (!Prefs.DevMode || !GuPocketProbeComponent.IsSurfaceSettlement(map)
                 || !cell.InBounds(map) || cell.Fogged(map)
                 || !cell.Standable(map) || cell.GetThingList(map).Count != 0 || kind?.IsConfigured != true)

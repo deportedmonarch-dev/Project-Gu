@@ -12,6 +12,12 @@ namespace ProjectGu.Underground
         internal static GuPocketSiteDef Probe =>
             DefDatabase<GuPocketSiteDef>.GetNamedSilentFail("GU_PocketProbe");
 
+        internal static GuPocketSiteDef SpiritSpring =>
+            DefDatabase<GuPocketSiteDef>.GetNamedSilentFail("GU_SpiritSpringCavern");
+
+        internal static bool IsSpringCavern(Map map) => map?.IsPocketMap == true
+            && SpiritSpring?.generator is MapGeneratorDef generator && map.generatorDef == generator;
+
         internal bool IsConfigured => generator?.pocketMapProperties?.biome != null
             && !generator.pocketMapProperties.destroyOnParentMapAbandoned
             && endpoint?.thingClass == typeof(Building_GuPocketProbeEndpoint)
@@ -36,12 +42,10 @@ namespace ProjectGu.Underground
                 map.terrainGrid.SetTerrain(cell, floor);
                 if (cell.x != 0 && cell.z != 0 && cell.x != map.Size.x - 1 && cell.z != map.Size.z - 1)
                     continue;
-                Thing rock = GenSpawn.Spawn(boundaryRock, cell, map);
-                if (rock?.Spawned != true || rock.Map != map || rock.Position != cell)
-                    throw new InvalidOperationException($"The probe boundary failed to spawn at {cell}.");
+                GuPocketProbeComponent.SpawnFixture(boundaryRock, cell, map);
             }
             // Spawn the exit last. Its presence is required to commit the generated level.
-            GenSpawn.Spawn(exit, map.Center, map);
+            GuPocketProbeComponent.SpawnFixture(exit, map.Center, map);
         }
     }
 }

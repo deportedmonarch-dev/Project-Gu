@@ -4,6 +4,7 @@ using RimWorld;
 using Verse;
 using Verse.AI;
 using ProjectGu.Domain;
+using ProjectGu.Underground;
 
 namespace ProjectGu.Springs
 {
@@ -269,12 +270,43 @@ namespace ProjectGu.Springs
             int count = Math.Max(1, Math.Min(Props.stonesPerCycle, Math.Min(stoneDef.stackLimit, reserve / ReservePerStone)));
             Thing stone = ThingMaker.MakeThing(stoneDef);
             stone.stackCount = count;
-            if (GenPlace.TryPlaceThing(stone, parent.Position, parent.Map, ThingPlaceMode.Near))
+            bool placed = GuPocketSiteDef.IsSpringCavern(parent.Map)
+                ? TryPlaceCavernStone(stone)
+                : GenPlace.TryPlaceThing(stone, parent.Position, parent.Map, ThingPlaceMode.Near);
+            if (placed)
             {
                 lifetimeProduced += count;
                 reserve -= count * ReservePerStone;
             }
             else if (!stone.Destroyed) stone.Destroy();
+        }
+
+        private bool TryPlaceCavernStone(Thing stone)
+        {
+            Map map = parent.Map;
+            if (!GuPocketProbeComponent.TryGetCavernArrival(map, out IntVec3 arrival))
+                return false;
+
+            CellRect footprint = parent.OccupiedRect();
+            for (int x = footprint.minX - 1; x <= footprint.maxX + 1; x++)
+            {
+                var cell = new IntVec3(x, 0, footprint.minZ - 1);
+                if (!cell.InBounds(map) || !cell.Standable(map) || cell.Fogged(map) || cell.GetTerrain(map).IsWater
+                    || !map.reachability.CanReach(arrival, cell, PathEndMode.OnCell, TraverseMode.PassDoors))
+                    continue;
+
+                bool blocked = false;
+                foreach (Thing thing in cell.GetThingList(map))
+                    if (thing.def.category is ThingCategory.Pawn or ThingCategory.Item or ThingCategory.Building
+                        || thing is Blueprint or Frame or Fire)
+                    {
+                        blocked = true;
+                        break;
+                    }
+                if (!blocked && GenPlace.TryPlaceThing(stone, cell, map, ThingPlaceMode.Direct))
+                    return true;
+            }
+            return false;
         }
         public override IEnumerable<FloatMenuOption> CompFloatMenuOptions(Pawn selPawn)
         {

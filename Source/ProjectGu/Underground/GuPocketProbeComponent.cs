@@ -38,6 +38,7 @@ namespace ProjectGu.Underground
     public sealed class GuPocketProbeComponent : GameComponent
     {
         private List<GuPocketSiteRecord> sites = new();
+        [ThreadStatic] private static HashSet<Thing> generationFixtures;
         internal bool OperationInProgress { get; set; }
 
         public GuPocketProbeComponent(Game game) { }
@@ -70,6 +71,15 @@ namespace ProjectGu.Underground
 
         internal static bool IsLive(Map map) => map != null && !map.Disposed && Find.Maps.Contains(map);
 
+        internal static bool TryGetCavernArrival(Map map, out IntVec3 arrival)
+        {
+            var site = Current.Game?.GetComponent<GuPocketProbeComponent>()?.sites.Find(candidate =>
+                candidate != null && candidate.Cavern == map && candidate.Exit?.Spawned == true
+                && candidate.Exit.Map == map);
+            arrival = site?.Exit.Position ?? IntVec3.Invalid;
+            return arrival.IsValid;
+        }
+
         internal static bool IsSurfaceSettlement(Map map) => IsLive(map) && !map.IsPocketMap
             && map.Parent is Settlement && map.Tile.Valid && map.Tile.LayerDef == PlanetLayerDefOf.Surface
             && map.IsPlayerHome;
@@ -88,16 +98,33 @@ namespace ProjectGu.Underground
             && map.generatorDef == site.Kind.generator
             && Find.World.pocketMaps.Contains(parent);
 
+        internal static void SpawnFixture(ThingDef def, IntVec3 cell, Map map)
+        {
+            Thing fixture = ThingMaker.MakeThing(def);
+            Thing spawned = GenSpawn.Spawn(fixture, cell, map, Rot4.North);
+            if (spawned != fixture || !fixture.Spawned || fixture.Map != map || fixture.Position != cell)
+                throw new InvalidOperationException($"Could not place {def.defName} at {cell}.");
+            generationFixtures?.Add(fixture);
+        }
+
         internal static bool TryGenerate(GuPocketSiteRecord site, out string reason)
         {
             reason = "The probe generator is unavailable or the source is invalid.";
             if (site.GenerationStarted || site.Cavern != null || site.Kind?.IsConfigured != true || !HasValidSource(site))
                 return false;
 
+            if (site.Kind == GuPocketSiteDef.SpiritSpring && !GuSpringCavernIncidents.GuardsInstalled())
+            {
+                reason = "The spirit spring cavern requires its infestation guards to be active.";
+                return false;
+            }
+
             var oldMaps = new HashSet<Map>(Find.Maps);
             site.GenerationStarted = true;
             int size = site.Kind.mapSize;
             bool reject = site.Entrance.ConsumeGenerationRejection();
+            var fixtures = new HashSet<Thing>();
+            generationFixtures = fixtures;
             try
             {
                 Map map = PocketMapUtility.GeneratePocketMap(new IntVec3(size, 1, size),
@@ -115,8 +142,8 @@ namespace ProjectGu.Underground
                     || !JobDriver_GuPocketProbeTravel.CanLand(map, exit.Position, null))
                 {
                     string failure = reject ? "Probe generation rejected deliberately." : "The cavern exit failed validation.";
-                    // Only discard a fresh chamber containing its exit and natural rock.
-                    if (!map.listerThings.AllThings.All(thing => thing == exit || thing.def.building?.isNaturalRock == true)
+                    // This operation can only discard its newly generated map and its exact fixture instances.
+                    if (!map.listerThings.AllThings.All(fixtures.Contains)
                         || map.mapPawns.AllPawns.Any() || map.ChildPocketMaps.Any())
                     {
                         reason = failure + " The cavern contains additional Things. The probe route is closed.";
@@ -128,7 +155,7 @@ namespace ProjectGu.Underground
                     {
                         site.Cavern = null;
                         site.GenerationStarted = false;
-                        reason = failure + " The empty cavern was removed; retry is available.";
+                        reason = failure + " The fresh cavern was removed; retry is available.";
                         return false;
                     }
                     reason = "Probe cleanup did not complete. The route is closed.";
@@ -144,6 +171,10 @@ namespace ProjectGu.Underground
                 reason = "Pocket generation or cleanup failed. The traveler stayed on the surface; the route is closed.";
                 Log.Error($"[Project GU] {reason} Probe site {site.SiteId}. {exception}");
                 return false;
+            }
+            finally
+            {
+                generationFixtures = null;
             }
         }
     }

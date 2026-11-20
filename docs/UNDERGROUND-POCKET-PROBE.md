@@ -2,6 +2,8 @@
 
 This branch exercises native pocket generation, a single cavern per site, and a two-way route for one player-controlled colonist at a time. The chamber is empty apart from its boundary rock and return passage. Development Mode controls placement and travel. The [RFC](RFC-0003-UNDERGROUND-POCKET-MAPS.md) describes the larger framework.
 
+The owner reported successful live generation of the original probe cavern. See the [spirit spring cavern test plan](UNDERGROUND-SPIRIT-SPRING.md) for the separate natural cavern profile.
+
 ## Verification
 
 - **Automated structural checks and real compilation.** `scripts/verify.ps1` passed against RimWorld Waylith `1.7.5014 rev1195` (Steam build `26793372`) using .NET SDK `10.0.401`, with zero warnings and errors. A focused XML check resolved the probe's Def links and its terrain, rock and biome against installed Core XML.
@@ -33,7 +35,8 @@ if ($LASTEXITCODE -ge 8) { throw 'Game copy failed' }
 
 $probeMod = Join-Path $testGame 'Mods\ProjectGU-PocketProbe'
 New-Item -ItemType Directory -Path $probeMod -Force | Out-Null
-foreach ($folder in @('About', 'Defs', 'Textures', '1.7')) {
+foreach ($folder in @('About', 'Defs', 'Patches', 'Textures', '1.7')) {
+    if (!(Test-Path -LiteralPath (Join-Path $PWD $folder))) { continue }
     Copy-Item -LiteralPath (Join-Path $PWD $folder) -Destination $probeMod -Recurse
 }
 
@@ -53,7 +56,7 @@ Start-Process -FilePath (Join-Path $testGame 'RimWorld.exe') -WorkingDirectory $
 - [ ] **Round trip.** The camera follows the successful arrival both ways. The same colonist returns with their injury or scar, aperture aptitude and rank, and ordinary inventory stack. No extra pawn or item stack appears. The route still works after cancelling an approach before reaching the passage.
 - [ ] **Save and load.** Save after placing an unused entrance and reload before first entry. Once inside, drop a distinctive item away from the exit, save as `GU-Probe-Inside`, reload, and return. Save with the cavern empty as `GU-Probe-Outside`, reload twice, and enter again. Verify the IDs and the item persist. Also reload `GU-Probe-Baseline` to check a save without probe records.
 - [ ] **Independent sites.** Place and enter a second passage on the same surface map. Verify distinct IDs and a separate cavern with none of the first cavern's marker items. Return from both to their corresponding surface entrances.
-- [ ] **Failures.** On a third unused entrance, select **Reject next generation** and order entry. Expect the pawn to stay above ground, a message that the empty cavern was removed, and **Cavern pending** with the original IDs. Order entry again and expect success. For a blocked destination, send one pawn into a cavern, draft them and stand them on its exit cell. Order a second pawn to enter above ground. Expect rejection and the second pawn and their inventory to remain on the surface. Clear the exit and retry.
+- [ ] **Failures.** On a third unused entrance, select **Reject next generation** and order entry. Expect the pawn to stay above ground, a message that the fresh cavern was removed, and **Cavern pending** with the original IDs. Order entry again and expect success. For a blocked destination, send one pawn into a cavern, draft them and stand them on its exit cell. Order a second pawn to enter above ground. Expect rejection and the second pawn and their inventory to remain on the surface. Clear the exit and retry.
 
 ## Source-map removal recommendation
 

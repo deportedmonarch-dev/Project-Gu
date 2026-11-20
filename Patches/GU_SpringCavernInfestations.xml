@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/IncidentDef[defName="Infestation"]/workerClass[text()="IncidentWorker_Infestation"]</xpath>
+    <match Class="PatchOperationReplace">
+      <xpath>Defs/IncidentDef[defName="Infestation"]/workerClass</xpath>
+      <value><workerClass>ProjectGu.Underground.IncidentWorker_GuInfestation</workerClass></value>
+    </match>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/IncidentDef[defName="DeepDrillInfestation"]/workerClass[text()="IncidentWorker_DeepDrillInfestation"]</xpath>
+    <match Class="PatchOperationReplace">
+      <xpath>Defs/IncidentDef[defName="DeepDrillInfestation"]/workerClass</xpath>
+      <value><workerClass>ProjectGu.Underground.IncidentWorker_GuDeepDrillInfestation</workerClass></value>
+    </match>
+  </Operation>
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/IncidentDef[defName="WastepackInfestation"]/workerClass[text()="IncidentWorker_WastepackInfestation"]</xpath>
+    <match Class="PatchOperationReplace">
+      <xpath>Defs/IncidentDef[defName="WastepackInfestation"]/workerClass</xpath>
+      <value><workerClass>ProjectGu.Underground.IncidentWorker_GuWastepackInfestation</workerClass></value>
+    </match>
+  </Operation>
+</Patch>

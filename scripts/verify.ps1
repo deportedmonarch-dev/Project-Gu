@@ -38,8 +38,9 @@ $requiredFiles = @(
 foreach ($f in $requiredFiles) { Assert-Gu (Test-Path -LiteralPath (Join-Path $root $f) -PathType Leaf) "Missing file: $f" }
 Assert-Gu (-not (Test-Path -LiteralPath (Join-Path $root 'Assemblies\ProjectGu.dll'))) 'Unexpected root assembly'
 
-# Parse every gameplay XML definition, not just the three ecology defs.
-Get-ChildItem -Path (Join-Path $root 'Defs') -Filter '*.xml' -Recurse -File | ForEach-Object {
+# Parse every gameplay definition and patch.
+$xmlFolders = @((Join-Path $root 'Defs'), (Join-Path $root 'Patches'))
+Get-ChildItem -Path $xmlFolders -Filter '*.xml' -Recurse -File | ForEach-Object {
     $relative = $_.FullName.Substring($root.Length + 1)
     $null = Read-GuXml $relative
 }
