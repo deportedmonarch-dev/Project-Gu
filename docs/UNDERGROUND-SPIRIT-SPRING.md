@@ -84,9 +84,9 @@ On Windows, `scripts/verify.ps1` passed against the installed RimWorld 1.7.5014 
 
 The [Priority 0 test matrix](UNDERGROUND-INDEPENDENT-LEVELS.md) records the results for source settlement removal and legacy protections.
 
-## Future botanical update
+## Botanical foundation decision
 
-Role Set C can build on the physical flora Things. The ThingDef and `EcologyProfile` identify the species. If maturity, harvest eligibility, yield, quality, or transplanted state become necessary, the flora comp is the place to own and serialize that per-patch state. A later harvest job can create an ordinary ingredient Thing and notify ecology when it removes a patch or changes its contribution. Cultivated plants can supply separate rules for soil and recovery while sharing species metadata. Spring capacity can consume a species-specific assessment of flora and other habitat conditions. Gu feeding can reference botanical ingredient Defs, including Moon Orchid products, while the spring continues to own its aggregate Gu cohorts.
+The [0.2.5 botanical decision](BOTANICAL-FOUNDATION.md) records how new caverns will use native Plants and Qi-rich soil while existing caverns keep their physical flora, terrain and saved spring state.
 
 ## Changed files
 
