@@ -80,7 +80,7 @@ On Windows, `scripts/verify.ps1` passed against the installed RimWorld 1.7.5014 
 - **Structural checks** parse Defs and patches and check identifiers, save keys, graphic references, and the generic probe footprint.
 - **Seeded production code checks** exercise 5,760 layouts and initial flora placements. The test rebuilds occupancy from fixture entries to verify full capacity, blocked regrowth, and one-patch recovery when a vacancy exists.
 - **Isolated tests using real game code** exercise direct stack placement callbacks, native absorption and the 200 limit, Scribe fixture persistence of reserve, cohorts, growth timing, physical flora and stacks, old-schema cohort migration, failed-production accounting for an unspawned spring, and physical support attribution and invalidation across isolated map grids.
-- **Live headless acceptance** for map travel, ownership and save/load is reported in the [Priority 0 test matrix](UNDERGROUND-INDEPENDENT-LEVELS.md). Rendered navigation, lighting, infestation dispatch, hauling and storage are separate ecology and visual acceptance checks. The owner results above apply to the preceding prototype.
+- **Live lifecycle acceptance** covers ordinary rendered passage travel, ownership and save/load. The broader cavern navigation, lighting, infestation dispatch, hauling and storage checks remain part of ecology and visual acceptance. The owner results above apply to the preceding prototype. [Priority 0 test matrix](UNDERGROUND-INDEPENDENT-LEVELS.md).
 
 The [Priority 0 test matrix](UNDERGROUND-INDEPENDENT-LEVELS.md) records the results for source settlement removal and legacy protections.
 

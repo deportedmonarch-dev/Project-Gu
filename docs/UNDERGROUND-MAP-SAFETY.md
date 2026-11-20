@@ -1,6 +1,6 @@
 # Persistent underground map safety
 
-This audit records the native pocket removal call chains. The current implementation adds independent ownership for new spring levels and pre-mutation guards for legacy pocket dependencies. [Priority 0 implementation and acceptance](UNDERGROUND-INDEPENDENT-LEVELS.md).
+This is the pre-implementation audit of native pocket removal. Its call chains and design options record the investigation that led to Priority 0. The current implementation uses independent ownership for new spring levels and pre-mutation guards for legacy pocket dependencies. [Current lifecycle policy and live acceptance](UNDERGROUND-INDEPENDENT-LEVELS.md).
 
 **Legacy prototype decision.** Retain a settlement with dependent native pockets until a verified operation can preserve those sites. The original probe detects invalid bindings and closes travel after unexpected removal. Priority 0 adds the pre-mutation protection described in the implementation report.
 
@@ -31,9 +31,9 @@ The registry now requires the surface parent to remain registered for travel. It
 
 **Review recommendation.** Use one dependency policy shared by explicit commit, automatic eligibility, destructive launch, and colony reset guards if a Harmony integration is approved. A protected operation should show “Cannot abandon settlement: persistent underground locations are still connected.” Exercise commit-time rejection, dependencies loaded from older saves, and unchanged control settlements before enabling normal gameplay. If this coverage proves impractical, prototype the independent provider before considering migration.
 
-## Disposable-save acceptance matrix
+## Legacy pocket regression checklist
 
-Start from the [isolated game copy](UNDERGROUND-POCKET-PROBE.md#manual-test-setup), with a spare settlement and colonists on the surface so vanilla abandonment restrictions do not mask the result. Record both maps, site and level IDs, spring reserve and cohort, pawn identity and equipment, and marker items. Use separate named checkpoints for each row. Rows requiring a preflight guard are future integration gates, since this branch has diagnostics only.
+Use an [isolated game copy](UNDERGROUND-POCKET-PROBE.md#manual-test-setup) with a generated legacy native pocket. Keep a spare settlement and surface colonists so vanilla abandonment restrictions do not mask the guard. Record both maps, site and level IDs, spring reserve and cohort, pawn identity and equipment, and marker items. Use separate named checkpoints for each row. The current native fixture results and independent-level expectations are in the [Priority 0 report](UNDERGROUND-INDEPENDENT-LEVELS.md#verification).
 
 | Case | Expected result when protected |
 |---|---|
@@ -41,9 +41,9 @@ Start from the [isolated game copy](UNDERGROUND-POCKET-PROBE.md#manual-test-setu
 | Empty cavern | Abandonment is rejected before the settlement or native pocket registration changes. |
 | Pawn underground | Abandonment is rejected. Same pawn, inventory, equipment, health and aperture remain in the cavern. The pawn can return. |
 | Stored items and altered terrain | All content, spring state and map edits persist. |
-| Two independent sites | Either surviving level keeps the source protected. IDs and routes remain distinct. |
+| Two legacy sites sharing one source | Either surviving pocket keeps the source protected. IDs and routes remain distinct. |
 | Repeated save and load | Repeat the rejection after reload. Neither map or route is duplicated, discarded or regenerated. |
 | Lost entrance | Travel closes for that binding. Remaining cavern and contents still count as a dependency. |
 | Cancelled or failed travel | Reserve or queue a travel job, cancel before movement or block its destination, then attempt removal. The same pawn remains on the source of the failed trip and the settlement remains intact. |
 | Automatic removal and DLC | Exercise caravan reform or non-home eligibility where reproducible. With Odyssey, compare destructive and anchored launches. With Ideology, exercise the new-colony choice without starting a reset on protected data. |
-| Forced teardown | Only on a separate disposable checkpoint, a forced developer map destroy or regeneration may bypass a future guard. The diagnostic should identify affected sites, and no unsafe route may move a pawn or regenerate the cavern. Discard the run and reload the prior checkpoint. |
+| Forced teardown | Run only on a separate disposable checkpoint. Direct native removal and pocket destruction are covered by the guards. A third-party path that bypasses those entry points may still break a source binding. Discard the run and reload the prior checkpoint if that happens. |
