@@ -7,7 +7,11 @@ namespace ProjectGu.Underground
     {
         public MapGeneratorDef generator;
         public ThingDef endpoint;
+        public ThingDef returnEndpoint;
+        public int entranceClearance;
         public int mapSize = 31;
+
+        internal ThingDef ExitDef => returnEndpoint ?? endpoint;
 
         internal static GuPocketSiteDef Probe =>
             DefDatabase<GuPocketSiteDef>.GetNamedSilentFail("GU_PocketProbe");
@@ -21,6 +25,8 @@ namespace ProjectGu.Underground
         internal bool IsConfigured => generator?.pocketMapProperties?.biome != null
             && !generator.pocketMapProperties.destroyOnParentMapAbandoned
             && endpoint?.thingClass == typeof(Building_GuPocketProbeEndpoint)
+            && ExitDef?.thingClass == typeof(Building_GuPocketProbeEndpoint)
+            && entranceClearance is >= 0 and <= 2
             && mapSize >= 11 && mapSize <= 65;
     }
 

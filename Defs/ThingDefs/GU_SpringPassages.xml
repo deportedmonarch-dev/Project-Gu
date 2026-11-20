@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef Name="GU_SpringPassageBase" ParentName="BuildingBase" Abstract="True">
+    <thingClass>ProjectGu.Underground.Building_GuPocketProbeEndpoint</thingClass>
+    <graphicData>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(2.2,2.2)</drawSize>
+    </graphicData>
+    <rotatable>false</rotatable>
+    <useHitPoints>false</useHitPoints>
+    <destroyable>false</destroyable>
+    <passability>Standable</passability>
+    <comps>
+      <li Class="CompProperties_Glower">
+        <glowRadius>2.6</glowRadius>
+        <glowColor>(27,67,73,0)</glowColor>
+      </li>
+    </comps>
+    <building>
+      <deconstructible>false</deconstructible>
+      <isTargetable>false</isTargetable>
+      <claimable>false</claimable>
+      <expandHomeArea>false</expandHomeArea>
+    </building>
+  </ThingDef>
+  <ThingDef ParentName="GU_SpringPassageBase">
+    <defName>GU_SpringPitEntrance</defName>
+    <label>spirit spring pit</label>
+    <description>A hemp rope disappears into a natural shaft. A faint teal light shows through the darkness below.</description>
+    <graphicData><texPath>ProjectGU/SpringPitEntrance</texPath></graphicData>
+  </ThingDef>
+  <ThingDef ParentName="GU_SpringPassageBase">
+    <defName>GU_SpringRopeExit</defName>
+    <label>spirit spring rope exit</label>
+    <description>A knotted rope leads up the rock shaft to the surface.</description>
+    <graphicData><texPath>ProjectGU/SpringRopeExit</texPath></graphicData>
+  </ThingDef>
+</Defs>

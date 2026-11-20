@@ -83,9 +83,10 @@ namespace ProjectGu.Underground
             IntVec3 cell = UI.MouseCell();
             if (!Prefs.DevMode || !GuPocketProbeComponent.IsSurfaceSettlement(map)
                 || !cell.InBounds(map) || cell.Fogged(map)
-                || !cell.Standable(map) || cell.GetThingList(map).Count != 0 || kind?.IsConfigured != true)
+                || !cell.Standable(map) || cell.GetThingList(map).Count != 0 || kind?.IsConfigured != true
+                || !HasEntranceClearance(map, cell, kind.entranceClearance))
             {
-                Messages.Message("Place the probe on a clear, unfogged cell of your surface settlement.",
+                Messages.Message("Place the entrance on clear, unfogged ground in your surface settlement.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
@@ -93,6 +94,21 @@ namespace ProjectGu.Underground
             var entrance = GenSpawn.Spawn(kind.endpoint, cell, map) as Building_GuPocketProbeEndpoint;
             if (entrance?.Spawned == true && entrance.Map == map)
                 Current.Game.GetComponent<GuPocketProbeComponent>().AddSite(kind, entrance);
+        }
+
+        private static bool HasEntranceClearance(Map map, IntVec3 center, int clearance)
+        {
+            if (clearance == 0) return true;
+            foreach (IntVec3 cell in CellRect.CenteredOn(center, clearance).Cells)
+            {
+                if (!cell.InBounds(map) || cell.Fogged(map) || !cell.Standable(map)
+                    || cell.GetTerrain(map).IsWater || cell.GetEdifice(map) != null)
+                    return false;
+                foreach (Thing thing in cell.GetThingList(map))
+                    if (thing is Blueprint or Frame || thing.def.category == ThingCategory.Building)
+                        return false;
+            }
+            return true;
         }
     }
 }

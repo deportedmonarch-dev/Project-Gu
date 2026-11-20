@@ -4,7 +4,9 @@
     <defName>GU_SpiritSpringCavern</defName>
     <label>spirit spring cavern</label>
     <generator>GU_SpiritSpringCavern</generator>
-    <endpoint>GU_PocketProbeEndpoint</endpoint>
+    <endpoint>GU_SpringPitEntrance</endpoint>
+    <returnEndpoint>GU_SpringRopeExit</returnEndpoint>
+    <entranceClearance>1</entranceClearance>
     <mapSize>31</mapSize>
   </ProjectGu.Underground.GuPocketSiteDef>
   <MapGeneratorDef>
@@ -35,7 +37,7 @@
       <spring>GU_SpiritSpring</spring>
       <moonOrchid>GU_MoonOrchidHabitat</moonOrchid>
       <spiritGrass>GU_SpiritGrassHabitat</spiritGrass>
-      <exit>GU_PocketProbeEndpoint</exit>
+      <exit>GU_SpringRopeExit</exit>
     </genStep>
   </GenStepDef>
 </Defs>

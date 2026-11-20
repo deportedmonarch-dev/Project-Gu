@@ -162,7 +162,7 @@ namespace ProjectGu.Underground
                 }
 
                 site.Cavern = map;
-                var exits = map.listerThings.ThingsOfDef(site.Kind.endpoint);
+                var exits = map.listerThings.ThingsOfDef(site.Kind.ExitDef);
                 var exit = exits.Count == 1 ? exits[0] as Building_GuPocketProbeEndpoint : null;
                 if (reject || exit?.Spawned != true || exit.Map != map
                     || !JobDriver_GuPocketProbeTravel.CanLand(map, exit.Position, null))
