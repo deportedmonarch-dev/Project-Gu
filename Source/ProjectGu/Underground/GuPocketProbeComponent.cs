@@ -1,0 +1,150 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using RimWorld;
+using RimWorld.Planet;
+using Verse;
+
+namespace ProjectGu.Underground
+{
+    public sealed class GuPocketSiteRecord : IExposable
+    {
+        internal string SiteId;
+        internal string LevelId;
+        internal GuPocketSiteDef Kind;
+        internal Map Source;
+        internal Map Cavern;
+        internal Building_GuPocketProbeEndpoint Entrance;
+        internal Building_GuPocketProbeEndpoint Exit;
+        internal bool GenerationStarted;
+
+        internal string Status => Cavern != null && GuPocketProbeComponent.HasValidRoute(this)
+            ? "Cavern bound"
+            : GenerationStarted ? "Route closed" : "Cavern pending";
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref SiteId, "siteId");
+            Scribe_Values.Look(ref LevelId, "levelId");
+            Scribe_Defs.Look(ref Kind, "kind");
+            Scribe_References.Look(ref Source, "source");
+            Scribe_References.Look(ref Cavern, "cavern");
+            Scribe_References.Look(ref Entrance, "entrance");
+            Scribe_References.Look(ref Exit, "exit");
+            Scribe_Values.Look(ref GenerationStarted, "generationStarted");
+        }
+    }
+
+    public sealed class GuPocketProbeComponent : GameComponent
+    {
+        private List<GuPocketSiteRecord> sites = new();
+        internal bool OperationInProgress { get; set; }
+
+        public GuPocketProbeComponent(Game game) { }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Collections.Look(ref sites, "guPocketProbeSitesV1", LookMode.Deep);
+            sites ??= new List<GuPocketSiteRecord>();
+        }
+
+        internal void AddSite(GuPocketSiteDef kind, Building_GuPocketProbeEndpoint entrance)
+        {
+            sites.Add(new GuPocketSiteRecord
+            {
+                SiteId = Guid.NewGuid().ToString("N"),
+                LevelId = Guid.NewGuid().ToString("N"),
+                Kind = kind,
+                Source = entrance.Map,
+                Entrance = entrance
+            });
+        }
+
+        internal static bool TryGetSite(Building_GuPocketProbeEndpoint endpoint, out GuPocketSiteRecord site)
+        {
+            site = Current.Game?.GetComponent<GuPocketProbeComponent>()?.sites.Find(candidate =>
+                candidate != null && (candidate.Entrance == endpoint || candidate.Exit == endpoint));
+            return site != null;
+        }
+
+        internal static bool IsLive(Map map) => map != null && !map.Disposed && Find.Maps.Contains(map);
+
+        internal static bool IsSurfaceSettlement(Map map) => IsLive(map) && !map.IsPocketMap
+            && map.Parent is Settlement && map.Tile.Valid && map.Tile.LayerDef == PlanetLayerDefOf.Surface
+            && map.IsPlayerHome;
+
+        internal static bool HasValidSource(GuPocketSiteRecord site) =>
+            IsSurfaceSettlement(site.Source) && site.Entrance?.Spawned == true && site.Entrance.Map == site.Source;
+
+        internal static bool HasValidRoute(GuPocketSiteRecord site) =>
+            HasValidSource(site) && IsRegisteredPocket(site, site.Cavern)
+            && site.Exit?.Spawned == true && site.Exit.Map == site.Cavern;
+
+        private static bool IsRegisteredPocket(GuPocketSiteRecord site, Map map) =>
+            IsLive(map) && map.IsPocketMap && map.Parent is PocketMapParent parent
+            && !parent.Destroyed && parent.Map == map && parent.sourceMap == site.Source
+            && site.Kind?.generator != null && parent.MapGeneratorDef == site.Kind.generator
+            && map.generatorDef == site.Kind.generator
+            && Find.World.pocketMaps.Contains(parent);
+
+        internal static bool TryGenerate(GuPocketSiteRecord site, out string reason)
+        {
+            reason = "The probe generator is unavailable or the source is invalid.";
+            if (site.GenerationStarted || site.Cavern != null || site.Kind?.IsConfigured != true || !HasValidSource(site))
+                return false;
+
+            var oldMaps = new HashSet<Map>(Find.Maps);
+            site.GenerationStarted = true;
+            int size = site.Kind.mapSize;
+            bool reject = site.Entrance.ConsumeGenerationRejection();
+            try
+            {
+                Map map = PocketMapUtility.GeneratePocketMap(new IntVec3(size, 1, size),
+                    site.Kind.generator, null, site.Source);
+                if (!IsRegisteredPocket(site, map) || oldMaps.Contains(map) || !HasValidSource(site))
+                {
+                    reason = "The cavern registration failed. The probe route is closed.";
+                    return false;
+                }
+
+                site.Cavern = map;
+                var exits = map.listerThings.ThingsOfDef(site.Kind.endpoint);
+                var exit = exits.Count == 1 ? exits[0] as Building_GuPocketProbeEndpoint : null;
+                if (reject || exit?.Spawned != true || exit.Map != map
+                    || !JobDriver_GuPocketProbeTravel.CanLand(map, exit.Position, null))
+                {
+                    string failure = reject ? "Probe generation rejected deliberately." : "The cavern exit failed validation.";
+                    // Only discard a fresh chamber containing its exit and natural rock.
+                    if (!map.listerThings.AllThings.All(thing => thing == exit || thing.def.building?.isNaturalRock == true)
+                        || map.mapPawns.AllPawns.Any() || map.ChildPocketMaps.Any())
+                    {
+                        reason = failure + " The cavern contains additional Things. The probe route is closed.";
+                        return false;
+                    }
+                    PocketMapParent parent = map.PocketMapParent;
+                    PocketMapUtility.DestroyPocketMap(map);
+                    if (!Find.Maps.Contains(map) && !Find.World.pocketMaps.Contains(parent) && map.Disposed)
+                    {
+                        site.Cavern = null;
+                        site.GenerationStarted = false;
+                        reason = failure + " The empty cavern was removed; retry is available.";
+                        return false;
+                    }
+                    reason = "Probe cleanup did not complete. The route is closed.";
+                    return false;
+                }
+
+                site.Exit = exit;
+                reason = null;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                reason = "Pocket generation or cleanup failed. The traveler stayed on the surface; the route is closed.";
+                Log.Error($"[Project GU] {reason} Probe site {site.SiteId}. {exception}");
+                return false;
+            }
+        }
+    }
+}

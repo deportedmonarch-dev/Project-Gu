@@ -1,12 +1,12 @@
 # RFC-0003 — Persistent underground pocket maps
 
-**Status** — Proposed for owner review. Implementation awaits authorization.
+**Status** — The owner authorized a developer-only pocket-map probe. The [probe report and test plan](UNDERGROUND-POCKET-PROBE.md) records installed 1.7 evidence, the prototype, and source-map removal options. Gameplay integration remains gated on lifecycle and runtime verification.
 **Target** — RimWorld 1.7 Waylith / .NET 10
 **First playable target** — A surface entrance, a persistent spirit spring cavern, and safe travel in both directions.
 
 ## Engine evidence
 
-No installed 1.7 game assemblies or runtime were available in the investigation workspace. The table distinguishes older decompiled behavior from corroboration in third-party source targeting 1.7. Exact signatures, engine behavior and DLC ownership still need direct verification against the chosen game build. The [Ludeon 1.7 announcement](https://ludeon.com/blog/2026/10/announcing-the-waylith-engine-and-update-1-7/) and [1.7 modding notes](https://rimworldwiki.com/wiki/Modding_Tutorials/RimWorld_1.7_Mod_Updates) establish the engine and build target.
+The table records the references used in the initial proposal. The [local probe report](UNDERGROUND-POCKET-PROBE.md) supersedes its provisional API and lifecycle findings for the installed build, RimWorld 1.7.5014 rev1195. Core-only generation and the runtime cases still require an in-game test. The [Ludeon 1.7 announcement](https://ludeon.com/blog/2026/10/announcing-the-waylith-engine-and-update-1-7/) and [1.7 modding notes](https://rimworldwiki.com/wiki/Modding_Tutorials/RimWorld_1.7_Mod_Updates) establish the engine and build target.
 
 | Area | Observed in references | Verification needed |
 |---|---|---|

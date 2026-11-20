@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BuildingBase">
+    <defName>GU_PocketProbeEndpoint</defName>
+    <label>pocket probe passage</label>
+    <description>A developer tool for testing travel between a settlement and an underground cavern.</description>
+    <thingClass>ProjectGu.Underground.Building_GuPocketProbeEndpoint</thingClass>
+    <graphicData>
+      <texPath>Things/Building/Misc/CaveExit/CaveExit</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(1,1)</drawSize>
+    </graphicData>
+    <rotatable>false</rotatable>
+    <useHitPoints>false</useHitPoints>
+    <destroyable>false</destroyable>
+    <passability>Standable</passability>
+    <building>
+      <deconstructible>false</deconstructible>
+      <isTargetable>false</isTargetable>
+      <claimable>false</claimable>
+      <expandHomeArea>false</expandHomeArea>
+    </building>
+  </ThingDef>
+</Defs>
