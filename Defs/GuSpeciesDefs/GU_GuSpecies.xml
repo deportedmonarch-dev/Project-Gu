@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Species definitions only. No automatic spawning or gameplay migration. -->
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_HopeGu</defName>
+    <label>Hope Gu</label>
+    <description>Human Path Gu that congregate around spirit springs. Mature Hope Gu are used in awakening ceremonies.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <pathTags><li>human</li></pathTags>
+    <habitatTags><li>spirit_spring</li></habitatTags>
+    <capabilityTags><li>awakening_consumable</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_MoonlightGu</defName>
+    <label>Moonlight Gu</label>
+    <description>Rank one Moon Path Gu with a future primeval-essence-powered combat ability. Not currently spawned.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>false</wildPopulationEnabled>
+    <pathTags><li>moon</li></pathTags>
+    <capabilityTags><li>active_essence_ability</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
+  <!-- Development-only population serialization fixture. This is not a lore species,
+       is not spawned by the world, and has no ThingDef or ability. -->
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_DevTestSpringGu</defName>
+    <label>test spring Gu (developer only)</label>
+    <description>Developer-only test species for verifying multiple Gu cohorts in one habitat. Not part of the world simulation.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <habitatTags><li>spirit_spring</li></habitatTags>
+    <capabilityTags><li>development_test</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
+</Defs>

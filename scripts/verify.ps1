@@ -54,6 +54,31 @@ $saveKeys = @('guNextProductionTick','guLifetimeProduced','guHopeGuAvailable','g
 foreach ($key in $saveKeys) { Assert-Gu ($source.Contains($key)) "Missing save field: $key" }
 Write-Host 'PASS: XML, file structure, 1.7 metadata, ecology definitions and save-key presence.' -ForegroundColor Green
 
+# Framework slice 1: species metadata checks (PowerShell only, no Python dependency).
+& (Join-Path $PSScriptRoot 'verify-gu-framework.ps1')
+
+# Slice 2 static safety net. These are structural assertions, not proof of
+# Scribe correctness, in-game migration or gameplay behavior.
+$populationRecord = Join-Path $root 'Source\ProjectGu\Domain\GuPopulationRecord.cs'
+$populationLedger = Join-Path $root 'Source\ProjectGu\Springs\GuPopulationLedger.cs'
+Assert-Gu (Test-Path -LiteralPath $populationRecord -PathType Leaf) 'Missing generic GuPopulationRecord'
+Assert-Gu (Test-Path -LiteralPath $populationLedger -PathType Leaf) 'Missing generic GuPopulationLedger'
+$popSource = Get-Content -LiteralPath $populationRecord -Raw
+$ledgerSource = Get-Content -LiteralPath $populationLedger -Raw
+$springSource = Get-Content -LiteralPath (Join-Path $root 'Source\ProjectGu\Springs\CompGuSpiritSpring.cs') -Raw
+foreach ($key in @('guPopulationSchema025','guHabitatId025','guPopulationRecords025',
+                   'guMatureHope024','guJuvenileHope024','guHopeGuAvailable','guReserve024',
+                   'guNextEcology024','guNextProductionTick','guLifetimeProduced')) {
+    Assert-Gu ($springSource.Contains($key)) "Population migration save key missing: $key"
+}
+Assert-Gu ($springSource.Contains('LookMode.Deep')) 'No deep Scribe serialization for cohorts'
+Assert-Gu ($springSource.Contains('populationSchema == 1 && populations == null')) 'Missing guard for a versioned save without cohorts'
+Assert-Gu ($springSource.Contains('if (!populationsReady) return;')) 'Legacy shadows are not guarded against invalid cohort data'
+Assert-Gu ($springSource.Contains('GuPopulationLedger.TryConsumeMature')) 'Consumption does not use generic population ledger'
+Assert-Gu ($popSource.Contains('IExposable')) 'Species population record is not saveable'
+Assert-Gu ($ledgerSource.Contains('TryAddCohort')) 'Species-neutral cohort insertion missing'
+Write-Host 'PASS: Slice 2 cohort schema, legacy keys and migration guards structurally present.' -ForegroundColor Green
+
 & (Join-Path $PSScriptRoot 'build.ps1') -RimWorldPath $RimWorldPath
 if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Compilation failed.' }
 Write-Host 'Static checks + compilation passed. Proceed to the in-game test plan.' -ForegroundColor Green
