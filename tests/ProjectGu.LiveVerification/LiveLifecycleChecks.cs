@@ -19,13 +19,18 @@ internal static class HeadlessRenderer
     private static bool HasSections(Section[,] ___sections) => ___sections != null;
 }
 
-public sealed class LiveLifecycleChecks : GameComponent
+public sealed partial class LiveLifecycleChecks : GameComponent
 {
     private const string SaveName = "autostart";
     private static readonly IntVec3 East = new(1, 0, 0);
     private static GuPocketProbeComponent Registry => Current.Game.GetComponent<GuPocketProbeComponent>();
     private static ThingDef StoneDef => DefDatabase<ThingDef>.GetNamed("GU_PrimevalStone");
     private static bool EmptyCavernReset => GenCommandLine.CommandLineArgPassed("guemptycavernreset");
+    private static bool AwakeningSafety => GenCommandLine.CommandLineArgPassed("guawakeningsafety");
+    private static Action NewCheck => EmptyCavernReset ? ExerciseEmptyCavernReset
+        : AwakeningSafety ? ExerciseAwakening : GenerateAndExercise;
+    private static Action ReloadCheck => EmptyCavernReset ? VerifyEmptyCavernResetReload
+        : AwakeningSafety ? VerifyAwakeningReload : VerifyReload;
     private Action pending;
 
     public LiveLifecycleChecks(Game game) { }
@@ -34,18 +39,13 @@ public sealed class LiveLifecycleChecks : GameComponent
     {
         if (GenCommandLine.CommandLineArgPassed("gupriority0bootstrap"))
             Run(() => GameDataSaveLoader.SaveGame(SaveName), "bootstrap");
-        else Run(EmptyCavernReset ? ExerciseEmptyCavernReset : GenerateAndExercise, "new");
+        else Run(NewCheck, "new");
     };
 
     public override void LoadedGame() => pending = () =>
     {
-        if (EmptyCavernReset)
-        {
-            if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(ExerciseEmptyCavernReset, "new");
-            else Run(VerifyEmptyCavernResetReload, "reload");
-        }
-        else if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(GenerateAndExercise, "new");
-        else Run(VerifyReload, "reload");
+        if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(NewCheck, "new");
+        else Run(ReloadCheck, "reload");
     };
 
     public override void GameComponentUpdate()

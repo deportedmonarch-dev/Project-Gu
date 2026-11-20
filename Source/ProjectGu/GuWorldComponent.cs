@@ -14,6 +14,7 @@ namespace ProjectGu
     {
         private List<GuPawnRecord> records = new List<GuPawnRecord>();
         private Dictionary<Pawn, GuPawnRecord> byPawn = new Dictionary<Pawn, GuPawnRecord>();
+        private readonly HashSet<Pawn> awakeningInProgress = new HashSet<Pawn>();
         private static HediffDef MortalDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_MortalUnawakened");
         private static HediffDef FailedDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_MortalNoAptitude");
         private static HediffDef ApertureDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_Aperture");
@@ -107,20 +108,17 @@ namespace ProjectGu
             return GuAwakeningService.TryAwaken(this, pawn, out result);
         }
 
-        internal Hediff_Aperture GetAperture(Pawn pawn)
-        {
-            if (pawn == null || pawn.health == null || ApertureDef == null) return null;
-            return pawn.health.hediffSet.GetFirstHediffOfDef(ApertureDef) as Hediff_Aperture;
-        }
+        internal bool TryBeginAwakening(Pawn pawn) => awakeningInProgress.Add(pawn);
 
-        internal bool AddAperture(Pawn pawn, int aptitude)
+        internal void EndAwakening(Pawn pawn) => awakeningInProgress.Remove(pawn);
+
+        internal Hediff_Aperture CreateAperture(Pawn pawn, int aptitude)
         {
-            if (ApertureDef == null || GetAperture(pawn) != null) return false;
-            var hediff = HediffMaker.MakeHediff(ApertureDef, pawn) as Hediff_Aperture;
-            if (hediff == null) return false;
-            hediff.Initialize(aptitude);
-            pawn.health.AddHediff(hediff);
-            return GetAperture(pawn) != null;
+            HediffDef def = ApertureDef;
+            if (def == null || pawn.health.hediffSet.GetFirstHediffOfDef(def) != null) return null;
+            var aperture = HediffMaker.MakeHediff(def, pawn) as Hediff_Aperture;
+            aperture?.Initialize(aptitude);
+            return aperture;
         }
     }
 }

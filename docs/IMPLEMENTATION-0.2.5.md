@@ -32,7 +32,7 @@ A developer-only `GU_DevTestSpringGu` can be seeded once through a new spring de
 
 **Player acceptance (2026-11-19):** Project owner reports **10/10 tests passed** for Slice 2. This is player-reported runtime acceptance, not an independently reproduced CI run; the owner has not yet explicitly confirmed the output of `verify.ps1`/`dotnet build`, so **local compilation confirmation remains pending**. The normal `verify.ps1` invokes `build.ps1` using the user's RimWorld 1.7 assemblies. Do not merge into main until compilation is confirmed and pending review gates close. See `TEST-SLICE-0.2.5-2.md`.
 
-**Known issue deliberately deferred:** The existing awakening service still commits pawn state before attempting Gu consumption; a later transaction slice must address rollback and failure-safe coordination.
+The awakening debit issue recorded during Slice 2 was addressed in [Phase B](#phase-b-awakening-conservation).
 
 ## Slice 2 follow-up — population save integrity
 
@@ -56,5 +56,10 @@ See the [roadmap](ROADMAP.md) for sequencing and current gates.
 
 - Verify Slice 2 population custody, spring/site identity and migration through real game testing.
 - Add persistent individual Gu identity and count-conserving materialization/capture.
-- Make awakening consumption failure-safe and atomic at a narrow coordinator.
 - Verify at least one **functioning** second species before claiming the framework is extensible.
+
+## Phase B awakening conservation
+
+The installed RimWorld 1.7.5014 rev1195 assembly shows `HediffSet.AddDirect` inserting the Hediff before invoking `PostAdd`. `Pawn_HealthTracker.AddHediff` then checks health state and invokes Hediff givers. The service keeps the exact aperture reference, blocks a second attempt on the same Pawn during those callbacks, and requires a successful spring debit before committing the Pawn record. It removes the provisional aperture through native health APIs if insertion fails or the debit is no longer available. A zero-aptitude attempt commits the same debit and its failed state. The existing record, Hediff, and cohort save keys remain in use.
+
+`scripts/verify.ps1` passed structural checks, .NET 10 compilation against the installed assemblies, and isolated managed engine fixtures. The headless native `scripts/verify-priority0-live.ps1 -Profile Awakening` fixture uses Core, Harmony 3.0.4 and Project GU. It verifies unavailable aperture creation, an injected exception after native insertion, loss of the last adult during a callback, insufficient adults for either outcome, same-Pawn reentry through both entry points, one debit for each completed outcome, and repeated attempts before and after a fresh-process save reload. The injected exception produces one expected test error message. The fixture calls the ceremony service directly. Player-driven cancellation during the waiting toil and historical save backups remain separate regression checks.

@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Both')][string]$Profile = 'Both',
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Both')][string]$Profile = 'Both',
     [switch]$Rendered
 )
 $ErrorActionPreference = 'Stop'
@@ -75,7 +75,11 @@ try {
         $dlc = ''
         if ($name -in @('IdeologyOdyssey', 'IdeologyReset')) { $dlc = '<li>ludeon.rimworld.ideology</li>' }
         if ($name -eq 'IdeologyOdyssey') { $dlc += '<li>ludeon.rimworld.odyssey</li>' }
-        $probe = if ($name -eq 'IdeologyReset') { '-guemptycavernreset' } else { '' }
+        $probe = switch ($name) {
+            'IdeologyReset' { '-guemptycavernreset' }
+            'Awakening' { '-guawakeningsafety' }
+            default { '' }
+        }
         $configXml = @"
 <ModsConfigData>
   <version>1.7.5014 rev1195</version>

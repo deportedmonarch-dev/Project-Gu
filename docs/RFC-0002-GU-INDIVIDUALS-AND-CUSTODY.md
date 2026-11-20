@@ -14,7 +14,7 @@ Slice 3 would prove identity, active and dormant manifestations, and controlled 
 - [CompGuSpiritSpring](../Source/ProjectGu/Springs/CompGuSpiritSpring.cs) owns its cohort list. [GuPopulationLedger](../Source/ProjectGu/Springs/GuPopulationLedger.cs) provides local operations. Keep those cohorts in place and add a checked debit/credit boundary when materialization is introduced.
 - [Hediff_Aperture](../Source/ProjectGu/Hediff_Aperture.cs) already owns cultivation rank and essence. Preserve its save fields. An aperture can expose a custody endpoint without deep-saving a second list of Gu records.
 - [GuWorldComponent](../Source/ProjectGu/GuWorldComponent.cs) is a GameComponent for cultivator records and discovery. Keep Gu persistence separate from pawn discovery and the existing humanlike eligibility check. Beast cultivation and biological hosting need their own eligibility rules.
-- [GuAwakeningService](../Source/ProjectGu/GuAwakeningService.cs) currently commits the pawn outcome before checking the debit outcome. Verify a narrow fix separately before introducing another mature Hope Gu consumer.
+- [GuAwakeningService](../Source/ProjectGu/GuAwakeningService.cs) commits completed natural outcomes with a checked adult Hope Gu debit. The [native awakening fixture](IMPLEMENTATION-0.2.5.md#phase-b-awakening-conservation) verifies the narrow cohort boundary.
 
 ## 2. Canonical storage
 
