@@ -32,6 +32,7 @@ $requiredFiles = @(
     'Source\ProjectGu\Springs\CompGuSpiritFlora.cs',
     'Source\ProjectGu\Springs\CompProperties_GuSpiritFlora.cs',
     'Textures\ProjectGU\MoonOrchidHabitat.png',
+    'Textures\ProjectGU\StonePassage.png',
     'docs\TEST-PLAN-0.2.0.md',
     'docs\TEST-PLAN-0.2.1.md'
 )

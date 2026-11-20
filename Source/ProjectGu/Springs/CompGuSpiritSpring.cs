@@ -4,7 +4,6 @@ using RimWorld;
 using Verse;
 using Verse.AI;
 using ProjectGu.Domain;
-using ProjectGu.Underground;
 
 namespace ProjectGu.Springs
 {
@@ -13,7 +12,7 @@ namespace ProjectGu.Springs
     /// stay readable; an explicit migration migrates the old Hope Gu charges once.
     /// No off-map regeneration, and the observable population is currently aggregated.
     /// </summary>
-    public sealed class CompGuSpiritSpring : ThingComp
+    public sealed partial class CompGuSpiritSpring : ThingComp
     {
         private int nextProductionTick = -1;
         private int lifetimeProduced;
@@ -225,6 +224,9 @@ namespace ProjectGu.Springs
         public override IEnumerable<Gizmo> CompGetGizmosExtra()
         {
             foreach (Gizmo g in base.CompGetGizmosExtra()) yield return g;
+            if (Prefs.DevMode && parent.Spawned)
+                foreach (Gizmo gizmo in ProductionGizmos())
+                    yield return gizmo;
             if (populationsReady && Prefs.DevMode && parent.Spawned)
                 yield return new Command_Action
                 {
@@ -264,49 +266,7 @@ namespace ProjectGu.Springs
             if (nextProductionTick < 0) { nextProductionTick = now + interval; return; }
             if (now < nextProductionTick) return;
             nextProductionTick = now + interval;
-            if (reserve < ReservePerStone) return;
-            ThingDef stoneDef = DefDatabase<ThingDef>.GetNamedSilentFail(Props.stoneDefName);
-            if (stoneDef == null) return;
-            int count = Math.Max(1, Math.Min(Props.stonesPerCycle, Math.Min(stoneDef.stackLimit, reserve / ReservePerStone)));
-            Thing stone = ThingMaker.MakeThing(stoneDef);
-            stone.stackCount = count;
-            bool placed = GuPocketSiteDef.IsSpringCavern(parent.Map)
-                ? TryPlaceCavernStone(stone)
-                : GenPlace.TryPlaceThing(stone, parent.Position, parent.Map, ThingPlaceMode.Near);
-            if (placed)
-            {
-                lifetimeProduced += count;
-                reserve -= count * ReservePerStone;
-            }
-            else if (!stone.Destroyed) stone.Destroy();
-        }
-
-        private bool TryPlaceCavernStone(Thing stone)
-        {
-            Map map = parent.Map;
-            if (!GuPocketProbeComponent.TryGetCavernArrival(map, out IntVec3 arrival))
-                return false;
-
-            CellRect footprint = parent.OccupiedRect();
-            for (int x = footprint.minX - 1; x <= footprint.maxX + 1; x++)
-            {
-                var cell = new IntVec3(x, 0, footprint.minZ - 1);
-                if (!cell.InBounds(map) || !cell.Standable(map) || cell.Fogged(map) || cell.GetTerrain(map).IsWater
-                    || !map.reachability.CanReach(arrival, cell, PathEndMode.OnCell, TraverseMode.PassDoors))
-                    continue;
-
-                bool blocked = false;
-                foreach (Thing thing in cell.GetThingList(map))
-                    if (thing.def.category is ThingCategory.Pawn or ThingCategory.Item or ThingCategory.Building
-                        || thing is Blueprint or Frame or Fire)
-                    {
-                        blocked = true;
-                        break;
-                    }
-                if (!blocked && GenPlace.TryPlaceThing(stone, cell, map, ThingPlaceMode.Direct))
-                    return true;
-            }
-            return false;
+            AttemptProduction();
         }
         public override IEnumerable<FloatMenuOption> CompFloatMenuOptions(Pawn selPawn)
         {
@@ -333,13 +293,11 @@ namespace ProjectGu.Springs
         }
         public override string CompInspectStringExtra()
         {
-            int now = Find.TickManager != null ? Find.TickManager.TicksGame : 0;
-            string next = nextProductionTick < 0 ? "initializing" : Math.Max(0, nextProductionTick-now) + " ticks";
             GuPopulationRecord extra = GuPopulationLedger.Find(populations, TestSpecies);
             return "Spring profile: " + Props.regionProfile + " (prototype preset)" +
                 "\nPrimeval reserve: " + Math.Max(0, reserve) + " / " + Props.initialReserve +
                 "\nPurity: " + Props.purityPercent + "%" +
-                "\nPrimeval stones produced: " + lifetimeProduced + "; next: " + next +
+                "\nPrimeval stones produced: " + lifetimeProduced + "; next: " + ProductionDue +
                 "\nSpirit flora: " + currentHabitatPatches + " patches (support " + floraSupport + ")" +
                 (populationsReady
                     ? "\nHope Gu: " + HopeGuAvailable + " mature + " + juvenileHopeGu +

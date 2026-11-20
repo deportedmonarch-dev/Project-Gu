@@ -1,6 +1,6 @@
 # Underground spirit spring prototype
 
-The owner reported successful live generation of the original native pocket probe. This branch adds a separate, developer-only spring profile. It uses the same save-backed site registry and portal travel. Established caverns keep their existing generator, terrain, fixtures and IDs.
+The owner reported successful live generation, visible spring terrain and flora, and working travel in the spring prototype, with 15 of 20 acceptance checks complete before this polish pass. This branch uses the same save-backed site registry and portal travel. Established caverns keep their existing generator, terrain, fixtures and IDs.
 
 ## Terrain and layout
 
@@ -18,7 +18,25 @@ The terrain grid uses Core's soil and mud texture blends, shallow water ramp and
 
 One Moon Orchid and three Spirit Grass patches spawn within the spring's existing habitat radius. The ordinary spring comp owns the reserve, Hope Gu cohorts, fertility support, and production schedule. The generated flora supplies seven habitat support. Terrain fertility describes the ground and the existing flora comps supply ecological support.
 
-The spring tries four dry shoreline cells immediately south of its footprint, from west to east. Each candidate must be standable, unfogged, free of blocking contents, and reachable from the passage. The existing production interval and reserve debit apply. If all four cells are unavailable, no stone is placed and no reserve is spent. The next attempt occurs at the following normal interval.
+The spring first tries two shallow basin cells just east of its footprint, then four dry shoreline cells immediately south. Each candidate must be standable, unfogged, free of blocking contents, and reachable from the passage. New caverns reserve the two water cells within the existing water budget. Saved caverns use their current terrain and fall back to dry shoreline if needed. A successful water placement adds a Core splash over the one real stone when the map is being viewed.
+
+## Passages and lighting
+
+The existing passage Def now uses the original [StonePassage sprite](../Textures/ProjectGU/StonePassage.png), a modest native glow and a larger graphic on the existing one-cell footprint. Surface and return passages have contextual labels. The spring and both flora Defs use native glowers enabled only in spring caverns. The spring has a 6.4-cell radius, Moon Orchid 3.5, and Spirit Grass 2.2. The native glow grid handles spawn, loading and despawn. Inspect brightness and overlap in game at normal zoom.
+
+The sprite was generated with the built-in imagegen tool, then sized to 256×256 with alpha retained. Prompt used:
+
+> Original game sprite for Project GU. A compact natural stone passage marker for a top-down colony sim, a rough low oval stone aperture in gray slate with a shadowed opening at its center and two small muted teal mineral inlays on the entrance stones. Slight top-down perspective, chunky silhouette and crisp graphic edges, readable at 32 pixels. Centered square composition, single object with generous transparent margin. No backdrop, ground plane, labels, arrows, text, people, neon bloom, or extra decoration.
+
+## Production developer controls
+
+Select a spawned spring in Development Mode:
+
+- **GU: Produce stone now** runs one real production attempt, including the reserve debit. Use it while paused for a clean count comparison. The debug command leaves the scheduled tick alone.
+- **GU: Show output cells** labels water and shoreline candidates as ready, blocked, inaccessible or wrong terrain. The surface version previews nearby candidates. The engine can search farther and ranks surface cells using its native nearby placement rules.
+- **GU: Production diagnostics** shows placement outcome, cell, reserve and lifetime values before and after, and the next scheduled production. The last attempt display is session-local. Counts and schedule use the existing save data.
+
+Both callers use the same checked operation. Reserve and lifetime production change by the quantity acknowledged by native placement. Candidates with insufficient room for a full batch are excluded. A failed placement with zero stones changes neither total. The scheduled attempt still advances by the original interval.
 
 ## Infestation exclusion
 
@@ -38,15 +56,17 @@ Only the current synchronous generation attempt can discard a rejected cavern. C
 
 Use the [isolated setup for the original probe](UNDERGROUND-POCKET-PROBE.md#manual-test-setup), including the `Patches` directory when staging the mod. Start with **Core + Project GU** in Development Mode and a disposable save. Keep the source settlement intact throughout the test.
 
-- [ ] **Generate and inspect.** In **Debug actions → Project GU**, choose **Place spirit spring cavern entrance**. Click clear, unfogged ground on the surface. Select one colonist, right-click the entrance, choose **Enter spirit spring cavern**, and unpause. Zoom out to inspect the entire chamber. Pause, move the cursor over each terrain type and check the terrain readout. Capture one overview and one close-up of the basin, pools, flora and shoreline if providing visual feedback.
+- [ ] **Generate and inspect.** In **Debug actions → Project GU**, choose **Place spirit spring cavern entrance**. Click clear, unfogged ground on the surface. Enter with a colonist, then inspect both passages and their labels at normal zoom. Check that the spring gives the strongest glow, flora produce smaller pools of light, and the perimeter stays dark. Confirm a surface spring and habitat still have their usual lighting.
 - [ ] **Layout and access.** Start at the southwestern passage and order the pawn along the dry route. Check **Attempt awakening** using an eligible unawakened colonist, then **Return to surface** and re-enter. The pawn should never have to cross a pool to reach the spring.
-- [ ] **Ecology and output.** Inspect the spring for four habitat patches and seven support. Record the reserve, produced count and next production tick. Let a production interval elapse and confirm the stone appears in the four-cell row directly south of the spring. In a separate save, block all four cells with distinct item stacks or solid constructions and advance another production interval. No new stone, reserve decrease or produced-count increase should occur. Unblock one cell and check the following interval. Also run one surface-spring production test.
+- [ ] **Ecology and output.** Inspect four habitat patches and seven support. Pause, choose **GU: Show output cells**, then **GU: Produce stone now** and **GU: Production diagnostics**. Verify one haulable stone and one debit, plus the same scheduler countdown. Unpause briefly to see the splash, then haul the water stone into a stockpile. Repeat with the two water cells blocked to check shoreline fallback. Block both water cells and all four shore cells with item stacks or pawns, then check zero new stones and unchanged totals. Repeat on a surface spring. Use an existing disposable checkpoint with a scheduled attempt close to due to test the timer independently when available.
 - [ ] **Persistence and variation.** Alter a patch of terrain or leave a marker item, save inside, reload, return, save outside, then reload and re-enter. Verify the alteration, site and level IDs, spring habitat ID, cohort and reserve. Compare a second new spring site for a varied layout. Revisit a generic probe saved before this change to check its concrete chamber and original route. The generic **Place pocket probe entrance** action should still create its original chamber.
 - [ ] **Rejected generation.** Select a new surface entrance, activate **Reject next generation**, and order entry. The traveler stays above ground, the fresh spring cavern is removed, and retry is available. Retry and verify exactly one spring and the same entrance IDs. Confirm the older modified cavern still contains its changes.
-- [ ] **Infestations.** From the spring map, use **Do incident w/ points** in the debug actions menu and try **Infestation** and **Deep drill infestation**. No tunnel, hive or infestation letter should appear. Inspect the log for errors or repeated failures. Repeat the standard incident in a disposable surface control with an eligible overhead-mountain cell. Test the drill path with an actively used drill where possible. Repeat the wastepack test in a separate Biotech-enabled test only if that DLC is available.
+- [ ] **Infestations.** Confirm the spring site is ineligible and inspect for tunnels, hives or cocoons. Use a suitable surface control to check ordinary incidents. The owner observed ineligibility and a separate developer-menu error before this pass. Menu ineligibility alone does not verify every spawn path. Revisit the interface error only if this pass introduces a reproducible regression.
 
 ## Verification and release limits
 
 Local `verify.ps1` and XML checks run against actual Windows RimWorld 1.7.5014 rev1195 assemblies and Core Defs with .NET SDK 10.0.401. An isolated geometry check exercised 5,760 combinations of arrival, basin and phase using the compiled layout helpers. Samples had 360–409 exposed cells and 54.7–55.4% ordinary soil, a connected dry path, four dry output cells, and space for four fertile habitat patches. The geometry check did not launch RimWorld or test map rendering, Def injection, save/load, spawn callbacks, or incident dispatch in a live colony.
 
-Source settlement removal remains an unresolved release blocker. This layout extension stays developer-only while the [native ownership decision](UNDERGROUND-POCKET-PROBE.md#source-map-removal-recommendation) is open.
+This polish pass rebuilt with zero warnings and errors. A second 5,760-case check used the updated layout helpers to verify the two water outputs fit the existing water budget and remain connected without crossing the spring footprint. A test against the compiled production component confirmed repeated unspawned-spring failures leave the reserve, lifetime total and scheduled tick unchanged. Actual water placement, hauling, glow appearance, production on live maps and save round-trips are owner acceptance checks.
+
+Source settlement removal remains an unresolved release blocker. See the [local call-chain investigation and isolated removal matrix](UNDERGROUND-MAP-SAFETY.md).

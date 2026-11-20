@@ -36,14 +36,16 @@ namespace ProjectGu.Underground
             IntVec3 basin = center + new IntVec3(Rand.RangeInclusive(-2, 2), 0, Rand.RangeInclusive(-1, 1));
             CellRect footprint = GenAdj.OccupiedRect(basin, Rot4.North, spring.size);
             var dry = MakeDryApproach(arrival, footprint);
+            var waterOutputs = new HashSet<IntVec3>(CompGuSpiritSpring.BasinWaterOutputs(footprint));
             float phase = Rand.Range(0f, 6.28f);
             var open = new HashSet<IntVec3>(map.AllCells.Where(cell =>
-                dry.Contains(cell) || IsOpen(cell, center, map.Size, phase)));
+                dry.Contains(cell) || waterOutputs.Contains(cell) || IsOpen(cell, center, map.Size, phase)));
             KeepConnectedTo(arrival, open);
 
             // Rank whole patches by wetness. The dry approach is excluded from wet terrain.
             var wet = map.AllCells.Where(cell => open.Contains(cell) && !dry.Contains(cell))
-                .OrderByDescending(cell => Wetness(cell, basin, phase)).ToList();
+                .OrderByDescending(cell => waterOutputs.Contains(cell))
+                .ThenByDescending(cell => Wetness(cell, basin, phase)).ToList();
             int exposed = open.Count - footprint.Width * footprint.Height;
             int waterCount = (int)MathF.Round(exposed * 0.08f);
             int mudEnd = waterCount + (int)MathF.Round(exposed * 0.12f);
