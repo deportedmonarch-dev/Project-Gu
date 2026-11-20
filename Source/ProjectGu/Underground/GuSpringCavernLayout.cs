@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ProjectGu.Springs;
 using Verse;
 
 namespace ProjectGu.Underground
 {
-    internal enum GuCavernGround { Wall, Stone, Soil, RichSoil, Marsh, Mud, ShallowWater }
+    internal enum GuCavernGround { Wall, Stone, QiSoil, ShallowWater }
 
     /// <summary>Seeded terrain plan. The native generator applies it only when creating a new map.</summary>
     internal sealed class GuSpringCavernLayout
@@ -16,8 +15,8 @@ namespace ProjectGu.Underground
         internal readonly CellRect Footprint;
         internal readonly HashSet<IntVec3> DryApproach;
         private readonly HashSet<IntVec3> open;
-        private readonly Dictionary<IntVec3, int> shoreDistance;
         private readonly HashSet<IntVec3> water;
+        private readonly Dictionary<IntVec3, int> basinDistance;
         private readonly IntVec3 center;
         private readonly float phase;
 
@@ -45,10 +44,9 @@ namespace ProjectGu.Underground
                     chamber.Add(cell);
             }
 
-            // Extend the southern bank's eastern edge into two safe, original water outlets.
             var mainPool = Offset(Spring, random.Next(-1, 2), 8);
-            var outlets = CompGuSpiritSpring.BasinWaterOutputs(Footprint).ToArray();
-            var inlet = new CellRect(outlets[0].x, Footprint.minZ, 1, mainPool.z - Footprint.minZ);
+            var outlets = SouthernOutputs(Footprint).ToArray();
+            var inlet = new CellRect(Footprint.minX, Footprint.maxZ + 2, Footprint.Width, mainPool.z - Footprint.maxZ - 1);
             chamber.UnionWith(inlet.Cells);
             open = Connected(Arrival, chamber);
             water = new HashSet<IntVec3>();
@@ -56,7 +54,7 @@ namespace ProjectGu.Underground
             AddPool(Offset(center, -12, -3 + random.Next(-1, 2)), 3.3f, 4.0f);
             AddPool(Offset(center, 12, -3 + random.Next(-1, 2)), 3.2f, 3.9f);
             AddPool(Offset(center, 7 + random.Next(-1, 2), -10), 2.5f, 2.8f);
-            shoreDistance = MakeShoreDistance();
+            basinDistance = MainBasinDistances(Footprint, open.Contains, water.Contains);
 
             if (DryApproach.Any(cell => !open.Contains(cell))
                 || outlets.Any(cell => !water.Contains(cell))
@@ -67,22 +65,25 @@ namespace ProjectGu.Underground
         internal GuCavernGround GroundAt(IntVec3 cell)
         {
             if (!open.Contains(cell)) return GuCavernGround.Wall;
-            if (DryApproach.Contains(cell)) return GuCavernGround.Soil;
+            if (DryApproach.Contains(cell)) return GuCavernGround.QiSoil;
             if (water.Contains(cell)) return GuCavernGround.ShallowWater;
+            if (basinDistance.GetValueOrDefault(cell, int.MaxValue) <= 3) return GuCavernGround.QiSoil;
 
             float x = cell.x - center.x;
             float z = cell.z - center.z;
             float ripple = Ripple(x, z);
-            if (shoreDistance.TryGetValue(cell, out int distance))
-            {
-                float dampness = distance + ripple * 0.85f;
-                if (dampness <= 1.35f) return GuCavernGround.Mud;
-                if (dampness <= 2.65f) return GuCavernGround.Marsh;
-                if (dampness <= 4.0f) return GuCavernGround.RichSoil;
-            }
             return x * x / 294f + z * z / 247f + ripple * 0.12f > 0.71f
-                ? GuCavernGround.Stone : GuCavernGround.Soil;
+                ? GuCavernGround.Stone : GuCavernGround.QiSoil;
         }
+
+        internal static IEnumerable<IntVec3> SouthernOutputs(CellRect footprint)
+        {
+            for (int x = footprint.minX; x <= footprint.maxX; x++)
+                yield return new IntVec3(x, 0, footprint.maxZ + 2);
+        }
+
+        internal static IEnumerable<IntVec3> SouthernShore(CellRect footprint) =>
+            SouthernOutputs(footprint).Select(cell => cell + IntVec3.South);
 
         private void AddPool(IntVec3 origin, float width, float depth, IEnumerable<IntVec3> inlet = null)
         {
@@ -103,26 +104,47 @@ namespace ProjectGu.Underground
             water.UnionWith(Connected(origin, candidates));
         }
 
-        private Dictionary<IntVec3, int> MakeShoreDistance()
+        internal static Dictionary<IntVec3, int> MainBasinDistances(CellRect footprint, Func<IntVec3, bool> inBounds,
+            Func<IntVec3, bool> isWater)
         {
             var distances = new Dictionary<IntVec3, int>();
-            var queue = new Queue<IntVec3>(water);
-            foreach (IntVec3 cell in water) distances.Add(cell, 0);
+            var queue = new Queue<IntVec3>();
+            foreach (var outlet in SouthernOutputs(footprint))
+                if (inBounds(outlet) && isWater(outlet) && distances.TryAdd(outlet, 0))
+                    queue.Enqueue(outlet);
+            while (queue.TryDequeue(out IntVec3 cell))
+                foreach (IntVec3 offset in GenAdj.CardinalDirections)
+                {
+                    IntVec3 next = cell + offset;
+                    if (inBounds(next) && isWater(next) && distances.TryAdd(next, 0))
+                        queue.Enqueue(next);
+                }
+
+            foreach (IntVec3 cell in distances.Keys) queue.Enqueue(cell);
             while (queue.TryDequeue(out IntVec3 cell))
             {
                 int distance = distances[cell] + 1;
-                if (distance > 5) continue;
+                if (distance > 6) continue;
                 foreach (IntVec3 offset in GenAdj.CardinalDirections)
-                    if (open.Contains(cell + offset) && distances.TryAdd(cell + offset, distance))
+                    if (inBounds(cell + offset) && distances.TryAdd(cell + offset, distance))
                         queue.Enqueue(cell + offset);
             }
             return distances;
         }
 
-        private static HashSet<IntVec3> MakeDryApproach(IntVec3 arrival, CellRect footprint)
+        internal static float BasinPlantingScore(IntVec3 cell, IntVec3 spring, int seed, Dictionary<IntVec3, int> shore)
+        {
+            int distance = shore.GetValueOrDefault(cell, 7);
+            float variation = MathF.Sin(cell.x * 0.58f + cell.z * 0.28f + seed % 97)
+                + 0.6f * MathF.Cos(cell.z * 0.66f - cell.x * 0.33f);
+            return (distance - 1) * 13f + MathF.Sqrt((cell - spring).LengthHorizontalSquared) * 0.95f + variation * 9f;
+        }
+
+        internal static HashSet<IntVec3> MakeDryApproach(IntVec3 arrival, CellRect footprint)
         {
             var dry = new HashSet<IntVec3>(footprint.ExpandedBy(1).Cells);
             dry.UnionWith(CellRect.CenteredOn(arrival, 1).Cells);
+            dry.UnionWith(new CellRect(arrival.x + 2, arrival.z - 2, 5, 4).Cells);
             int turnZ = (arrival.z + footprint.minZ) / 2;
             dry.UnionWith(new CellRect(arrival.x, arrival.z, 2, turnZ - arrival.z + 1).Cells);
             dry.UnionWith(new CellRect(arrival.x, turnZ, footprint.minX - arrival.x + 2, 2).Cells);

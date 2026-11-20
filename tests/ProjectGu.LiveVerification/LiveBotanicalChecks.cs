@@ -40,12 +40,12 @@ public sealed partial class LiveLifecycleChecks
 
         var exit = site.Endpoints.Single(end => !end.IsSurface).Anchor;
         TransferToFixture(pawn, cave, exit.Position + East);
-        IntVec3 cell = cave.AllCells.First(candidate => candidate.GetTerrain(cave) == QiSoil
+        var garden = CellRect.CenteredOn(exit.Position + new IntVec3(4, 0, 0), 1);
+        IntVec3 cell = garden.Cells
+            .First(candidate => candidate.GetTerrain(cave) == QiSoil
             && PlantUtility.CanNowPlantAt(NativeOrchid, candidate, cave, false)
             && !candidate.GetThingList(cave).Any(thing => thing is Plant)
             && pawn.CanReach(candidate, PathEndMode.OnCell, Danger.None));
-        Check(!PlantUtility.CanNowPlantAt(NativeOrchid, exit.Position + East, cave, false),
-            "Native plant suitability rejects the ordinary soil by the exit");
         var zone = new Zone_Growing(cave.zoneManager);
         cave.zoneManager.RegisterZone(zone);
         zone.AddCell(cell);
@@ -69,9 +69,10 @@ public sealed partial class LiveLifecycleChecks
         Check(PlantUtility.CanNowPlantAt(NativeOrchid, surfaceCell, home, false),
             "The same empty surface cell accepts Moon Orchid on Qi soil without a spring");
         Check(GuPocketProbeComponent.TryGetIndependentEndpoint(exit, out _, out _), "Cave route remains registered");
+        VerifySouthernProduction(spring, pawn);
         Current.Game.CurrentMap = cave;
         GameDataSaveLoader.SaveGame(SaveName);
-        Report("Native flora generation, health recovery, one-patch regrowth and Moon Orchid sowing passed.");
+        Report("Native flora, garden sowing, ecosystem lighting, wet outputs, dry fallback and blocked-output conservation passed.");
     }
 
     private static void VerifyNativeGrowth(Plant grass, Plant orchid)
@@ -105,6 +106,11 @@ public sealed partial class LiveLifecycleChecks
         AssertBotanicalHabitat(cave, spring, expectedOrchids: 6);
         Check(spring.HopeGuAvailable == 3 && cave.listerThings.ThingsOfDef(NativeOrchid).Cast<Plant>()
             .Count(plant => plant.DeliberatelyCultivated()) == 1, "Cohort and native sown plant survived reload");
+        var outlets = spring.CavernOutputs().ToArray();
+        Check(outlets[0].Cell.GetTerrain(cave).IsWater && cave.listerThings.ThingsOfDef(StoneDef)
+            .Any(thing => thing.Position == outlets[0].Cell && thing.stackCount == 200)
+            && cave.listerThings.ThingsOfDef(StoneDef).Sum(thing => thing.stackCount) == 202,
+            "The original wet and shoreline stacks survived reload");
         var pawn = cave.mapPawns.FreeColonistsSpawned.First();
         var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef)
             .OfType<Building_GuPocketProbeEndpoint>().Single();
@@ -124,7 +130,54 @@ public sealed partial class LiveLifecycleChecks
         Check(orchids.Count == expectedOrchids && orchids.All(plant => plant is Plant && plant.Position.GetTerrain(cave) == QiSoil),
             "The native orchids are rooted in Qi-rich soil");
         Check(spring.HabitatSupport == 7, "The botanical field preserves the seven-support baseline");
-        Check(spring.parent.GetComp<CompGuBotanicalGlower>()?.Glows == true,
-            "The botanical profile has one broad accent light on the spring");
+        Check(spring.UsesCavernComposition && cave.AllCells.All(cell => cell.GetTerrain(cave) == QiSoil
+            || cell.GetTerrain(cave).IsWater || cell.GetTerrain(cave).IsRock),
+            "The fresh cavern floor contains Qi soil, actual water, and stone");
+        var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef).Single();
+        var approach = GuSpringCavernLayout.MakeDryApproach(exit.Position, spring.parent.OccupiedRect());
+        Check(approach.All(cell => cell.GetTerrain(cave) == QiSoil) && grass.All(plant => !approach.Contains(plant.Position)),
+            "Plantable Qi soil keeps the approach free of wild Spirit Grass");
+        cave.glowGrid.GlowGridUpdate_First();
+        var core = cave.glowGrid.VisualGlowAt(spring.parent.Position);
+        var reflection = cave.glowGrid.VisualGlowAt(exit.Position + new IntVec3(4, 0, 0));
+        Check(core.b > core.r && core.b > 100, "The ecosystem alone lights the spring focal point");
+        Check(reflection.g > 40 && reflection.b < core.b, "The open garden has soft reflected light below the spring focal point");
+    }
+
+    private static void VerifySouthernProduction(CompGuSpiritSpring spring, Pawn pawn)
+    {
+        Map cave = spring.parent.Map;
+        var outlets = spring.CavernOutputs().ToArray();
+        var produce = spring.CompGetGizmosExtra().OfType<Command_Action>()
+            .Single(action => action.defaultLabel == "GU: Produce stone now");
+        int reserve = spring.Reserve;
+
+        produce.action();
+        Thing first = cave.listerThings.ThingsOfDef(StoneDef).Single();
+        Check(first.Position == outlets[0].Cell && first.Position.GetTerrain(cave) == TerrainDefOf.WaterShallow
+            && pawn.CanReach(first, PathEndMode.ClosestTouch, Danger.None)
+            && pawn.CanReserve(first) && first.def.selectable && first.def.EverHaulable,
+            "First emergence is a selectable, reachable, haulable stack in actual shallow water");
+        first.stackCount = 199;
+        produce.action();
+        Check(first.stackCount == 200, "Wet output merges to the native stack limit");
+        produce.action();
+        Thing second = cave.listerThings.ThingsOfDef(StoneDef).Single(thing => thing != first);
+        Check(second.Position == outlets[1].Cell && second.Position.GetTerrain(cave).IsWater,
+            "Available second water outlet precedes the dry shore");
+        second.stackCount = 200;
+        produce.action();
+        Thing fallback = cave.listerThings.ThingsOfDef(StoneDef).Single(thing => thing != first && thing != second);
+        Check(fallback.Position == outlets[2].Cell && fallback.Position.GetTerrain(cave) == QiSoil,
+            "Two full water stacks send production to the adjacent dry shore");
+        fallback.stackCount = 200;
+        Thing blocker = GenSpawn.Spawn(ThingDefOf.WoodLog, outlets[3].Cell, cave);
+        int count = cave.listerThings.ThingsOfDef(StoneDef).Sum(thing => thing.stackCount);
+        produce.action();
+        Check(spring.Reserve == reserve - 4 && cave.listerThings.ThingsOfDef(StoneDef).Sum(thing => thing.stackCount) == count,
+            "Four actual products debit four reserve and blocked outputs debit zero");
+        blocker.Destroy();
+        second.stackCount = 1;
+        fallback.stackCount = 1;
     }
 }

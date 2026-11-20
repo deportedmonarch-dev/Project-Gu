@@ -330,8 +330,14 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static void RejectNext(Building_GuPocketProbeEndpoint entrance) => entrance.GetGizmos().OfType<Command_Toggle>()
         .Single(gizmo => gizmo.defaultLabel == "Reject next generation").toggleAction();
 
-    private static Building_GuPocketProbeEndpoint SpawnEntrance(Map map) =>
-        (Building_GuPocketProbeEndpoint)GenSpawn.Spawn(GuPocketSiteDef.SpiritSpring.endpoint, map.Center + East * 3, map);
+    private static Building_GuPocketProbeEndpoint SpawnEntrance(Map map)
+    {
+        IntVec3 cell = GenRadial.RadialCellsAround(map.Center + East * 3, 12f, true).First(candidate =>
+            JobDriver_GuPocketProbeTravel.CanLand(map, candidate, null)
+            && JobDriver_GuPocketProbeTravel.CanLand(map, candidate + East, null)
+            && !candidate.GetTerrain(map).IsWater && candidate.GetThingList(map).Count == 0);
+        return (Building_GuPocketProbeEndpoint)GenSpawn.Spawn(GuPocketSiteDef.SpiritSpring.endpoint, cell, map);
+    }
 
     private static void TransferToFixture(Pawn pawn, Map map, IntVec3 cell)
     {

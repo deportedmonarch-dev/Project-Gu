@@ -13,12 +13,14 @@ namespace ProjectGu.Springs
         // sites and surface springs on their established physical habitat rules.
         private int nextFloraGrowthTick = -1;
         private bool usesBotanicalFlora;
+        private IntVec3 cavernApproach = IntVec3.Invalid;
         private bool habitatDirty = true;
         private long rawFloraUnits;
         private readonly Dictionary<ThingDef, int> habitatBySpecies = new();
 
         private bool UsesCavernFlora => nextFloraGrowthTick >= 0 && GuPocketSiteDef.IsSpringCavern(parent.Map);
         internal bool UsesBotanicalFlora => usesBotanicalFlora && UsesCavernFlora;
+        internal bool UsesCavernComposition => UsesBotanicalFlora && cavernApproach.IsValid;
         private List<GuCavernFloraTarget> CavernFlora => usesBotanicalFlora ? Props.botanicalCavernFlora : Props.cavernFlora;
         private int HabitatRadius => UsesCavernFlora
             ? usesBotanicalFlora ? Math.Clamp(Props.botanicalHabitatRadius, 1, 16) : Math.Clamp(Props.cavernHabitatRadius, 1, 12)
@@ -53,6 +55,7 @@ namespace ProjectGu.Springs
             Map map = parent.Map;
             var ecology = map.GetComponent<GuEcologyMapComponent>();
             bool managed = UsesCavernFlora;
+            var orchids = UsesCavernComposition ? new List<IntVec3>(5) : null;
             habitatBySpecies.Clear();
             currentHabitatPatches = 0;
             rawFloraUnits = 0;
@@ -61,11 +64,14 @@ namespace ProjectGu.Springs
                 if (!cell.InBounds(map)) continue;
                 foreach (Thing thing in cell.GetThingList(map))
                 {
-                    if (thing.Position != cell || thing.TryGetComp<CompGuSpiritFlora>() == null
+                    if (thing.Position != cell || thing.TryGetComp<CompGuSpiritFlora>() is not { } flora
                         || ecology.HabitatOwnerAt(cell) != this)
                         continue;
                     currentHabitatPatches++;
                     habitatBySpecies[thing.def] = habitatBySpecies.GetValueOrDefault(thing.def) + 1;
+                    if (orchids != null && orchids.Count < 5 && flora.EcologyProfile == "moon"
+                        && thing is Plant { Growth: >= 0.65f } plant && !plant.DeliberatelyCultivated())
+                        orchids.Add(cell);
                 }
             }
             foreach (var entry in habitatBySpecies)
@@ -75,11 +81,12 @@ namespace ProjectGu.Springs
                 : (int)Math.Min(rawFloraUnits, int.MaxValue);
             // Existing adults survive habitat loss. Only subsequent births use the new capacity.
             carryingCapacity = GuFloraGrowth.HopeCapacity(floraSupport, Props.maxHopeGu);
+            if (orchids != null) RefreshCavernLighting(map, orchids);
             habitatDirty = false;
             if (Find.TickManager != null) nextHabitatTick = Find.TickManager.TicksGame + SafetyRecount;
         }
 
-        internal void InitializeCavernFlora(int seed)
+        internal void InitializeCavernFlora(int seed, IntVec3 arrival)
         {
             if (nextFloraGrowthTick >= 0) return;
             var targets = Props.botanicalCavernFlora;
@@ -91,7 +98,9 @@ namespace ProjectGu.Springs
                 throw new InvalidOperationException("The spring cavern requires unique, configured one-cell flora targets.");
 
             usesBotanicalFlora = true;
+            cavernApproach = arrival;
             nextFloraGrowthTick = Find.TickManager.TicksGame + Math.Max(250, Props.cavernGrowthIntervalTicks);
+            parent.GetComp<CompGuCavernGlower>()?.UpdateLit(parent.Map);
             parent.GetComp<CompGuBotanicalGlower>()?.UpdateLit(parent.Map);
             habitatDirty = true;
             parent.Map.GetComponent<GuEcologyMapComponent>().NotifyHabitatRangeChanged(this);
@@ -106,13 +115,24 @@ namespace ProjectGu.Springs
             EnsureHabitatFresh();
 
             TerrainDef TerrainAt(IntVec3 cell) => cell.InBounds(map) ? cell.GetTerrain(map) : null;
+            var footprint = parent.OccupiedRect();
+            var approach = UsesCavernComposition ? GuSpringCavernLayout.MakeDryApproach(cavernApproach, footprint) : null;
+            Func<IntVec3, float> basinScore = null;
+            if (approach != null && CavernFlora.Any(target => habitatBySpecies.GetValueOrDefault(target.flora) < target.targetPatches))
+            {
+                var shore = GuSpringCavernLayout.MainBasinDistances(footprint, cell => cell.InBounds(map),
+                    cell => TerrainAt(cell).IsWater);
+                // Vacancy fills use the same field shape as the original seed.
+                int fieldSeed = Gen.HashCombineInt(parent.Position.GetHashCode(), cavernApproach.GetHashCode());
+                basinScore = cell => GuSpringCavernLayout.BasinPlantingScore(cell, parent.Position, fieldSeed, shore);
+            }
             int planted = 0;
             foreach (GuCavernFloraTarget target in CavernFlora)
             {
                 ThingDef flora = target.flora;
                 planted += GuFloraGrowth.Fill(target, parent.Position, HabitatRadius, seed,
                     habitatBySpecies.GetValueOrDefault(flora), budget - planted, TerrainAt,
-                    cell => ecology.HabitatOwnerAt(cell) == this && CanPlant(map, cell, flora),
+                    cell => ecology.HabitatOwnerAt(cell) == this && CanPlant(map, cell, flora, footprint, approach),
                     cell => cell.InBounds(map) && cell.GetThingList(map).Any(thing => thing.def == flora),
                     cell =>
                     {
@@ -124,18 +144,17 @@ namespace ProjectGu.Springs
                         }
                         Thing grown = GenSpawn.Spawn(flora, cell, map, Rot4.North);
                         return grown?.Spawned == true && grown.Map == map && grown.Position == cell;
-                    });
+                    }, basinScore);
                 if (planted == budget) break;
             }
             EnsureHabitatFresh();
             return planted;
         }
 
-        private bool CanPlant(Map map, IntVec3 cell, ThingDef flora)
+        private static bool CanPlant(Map map, IntVec3 cell, ThingDef flora, CellRect footprint, HashSet<IntVec3> approach)
         {
-            // Keep interaction cells and the original water and dry shoreline outlets clear.
-            CellRect footprint = parent.OccupiedRect();
-            if (footprint.ExpandedBy(1).Contains(cell) || BasinWaterOutputs(footprint).Contains(cell)
+            if (footprint.ExpandedBy(1).Contains(cell) || approach?.Contains(cell) == true
+                || (approach == null && BasinWaterOutputs(footprint).Contains(cell))
                 || !cell.Standable(map) || map.zoneManager.ZoneAt(cell) != null)
                 return false;
 

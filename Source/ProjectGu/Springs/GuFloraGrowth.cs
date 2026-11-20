@@ -9,7 +9,7 @@ namespace ProjectGu.Springs
     {
         internal static int Fill(GuCavernFloraTarget target, IntVec3 spring, int radius, int seed,
             int existing, int budget, Func<IntVec3, TerrainDef> terrainAt, Func<IntVec3, bool> canOccupy,
-            Func<IntVec3, bool> hasSameSpecies, Func<IntVec3, bool> trySpawn)
+            Func<IntVec3, bool> hasSameSpecies, Func<IntVec3, bool> trySpawn, Func<IntVec3, float> basinScore = null)
         {
             int remaining = Math.Min(target.targetPatches - existing, budget);
             if (remaining <= 0) return 0;
@@ -18,7 +18,9 @@ namespace ProjectGu.Springs
             var random = new Random(seed);
             // Bias toward the spring while letting seeded variation break up the rings.
             var cells = CellRect.CenteredOn(spring, radius).Cells
-                .OrderBy(cell => random.Next(100) + (cell - spring).LengthHorizontalSquared);
+                .OrderBy(cell => basinScore == null
+                    ? random.Next(100) + (cell - spring).LengthHorizontalSquared
+                    : random.Next(9) + basinScore(cell));
             int planted = 0;
             foreach (IntVec3 cell in cells)
             {

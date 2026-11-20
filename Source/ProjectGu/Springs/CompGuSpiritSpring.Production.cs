@@ -162,9 +162,15 @@ namespace ProjectGu.Springs
                 yield return new IntVec3(footprint.maxX + 2, 0, z);
         }
 
-        private IEnumerable<(IntVec3 Cell, bool Water)> CavernOutputs()
+        internal IEnumerable<(IntVec3 Cell, bool Water)> CavernOutputs()
         {
             CellRect footprint = parent.OccupiedRect();
+            if (UsesCavernComposition)
+            {
+                foreach (IntVec3 cell in GuSpringCavernLayout.SouthernOutputs(footprint)) yield return (cell, true);
+                foreach (IntVec3 cell in GuSpringCavernLayout.SouthernShore(footprint)) yield return (cell, false);
+                yield break;
+            }
             foreach (IntVec3 cell in BasinWaterOutputs(footprint))
                 yield return (cell, true);
             for (int x = footprint.minX - 1; x <= footprint.maxX + 1; x++)
@@ -181,7 +187,7 @@ namespace ProjectGu.Springs
             if (!cell.InBounds(map))
                 return OutputStatus.Inaccessible;
             TerrainDef terrain = cell.GetTerrain(map);
-            if (water ? terrain.defName != "WaterShallow" : terrain.IsWater)
+            if (water ? terrain != TerrainDefOf.WaterShallow : terrain.IsWater)
                 return OutputStatus.WrongTerrain;
             if (!cell.Standable(map) || !GenSpawn.CanSpawnAt(stone.def, cell, map) || cell.GetMaxItemsAllowedInCell(map) < 1)
                 return OutputStatus.Blocked;

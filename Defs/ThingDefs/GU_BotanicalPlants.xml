@@ -6,7 +6,8 @@
     <description>Fine silver-green grass that carpets fertile cavern banks and provides shelter for wild Gu.</description>
     <selectable>true</selectable>
     <graphicData>
-      <texPath>ProjectGU/SpiritGrass</texPath>
+      <texPath>ProjectGU/SpiritGrassBank</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
     </graphicData>
     <statBases>
       <MaxHitPoints>60</MaxHitPoints>

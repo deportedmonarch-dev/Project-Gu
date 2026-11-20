@@ -60,8 +60,15 @@ namespace ProjectGu.Springs
         }
         public override void PostDeSpawn(Map previousMap, DestroyMode mode = DestroyMode.Vanish)
         {
+            ClearCavernLighting(previousMap);
             previousMap?.GetComponent<GuEcologyMapComponent>()?.Unregister(this);
             base.PostDeSpawn(previousMap, mode);
+        }
+
+        public override void PostMapInit()
+        {
+            base.PostMapInit();
+            if (UsesCavernComposition) EnsureHabitatFresh();
         }
         public override void PostExposeData()
         {
@@ -81,6 +88,7 @@ namespace ProjectGu.Springs
             Scribe_Values.Look(ref nextEcologyTick, "guNextEcology024", -1);
             Scribe_Values.Look(ref nextFloraGrowthTick, "guNextFloraGrowthTick", -1);
             Scribe_Values.Look(ref usesBotanicalFlora, "guUsesBotanicalFlora");
+            Scribe_Values.Look(ref cavernApproach, "guCavernApproach", IntVec3.Invalid);
             Scribe_Values.Look(ref populationSchema, "guPopulationSchema025", 0);
             Scribe_Values.Look(ref habitatId, "guHabitatId025", "");
             Scribe_Collections.Look(ref populations, "guPopulationRecords025", LookMode.Deep);

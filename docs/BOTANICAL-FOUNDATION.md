@@ -10,7 +10,7 @@ Retain `GU_SpiritGrassHabitat` and `GU_MoonOrchidHabitat` as Building Defs for e
 
 ## Render density
 
-Royalty's installed Anima Grass Def uses `Graphic_Random`, a 3×3 mesh budget and a small visual size range. The installed `Plant.Print` scales mesh count with growth and places jittered planes in the static map section. Use that Core rendering path with Project GU grass artwork, a bounded population along connected banks, and lower-density orchid colonies among the grass. Each grass Plant can show up to nine small tufts. The grass has no per-plant glower and no added pathing cost. The spring's concentrated central light and one broad accent light illuminate the field. [Rendered and native verification](UNDERGROUND-SPIRIT-SPRING.md#verification-and-release-limits).
+Royalty's installed Anima Grass Def uses `Graphic_Random`, a 3×3 mesh budget and a small visual size range. The installed `Plant.Print` scales mesh count with growth and places jittered planes in the static map section. Project GU uses that Core rendering path with original grass artwork, a bounded population along connected banks, and lower-density orchid colonies among the grass. Each grass Plant can show up to nine small tufts and has no added pathing cost. The revised spring lights the field through a focal light, soft shore and approach lighting, and a bounded set of mature orchid accents. [Rendered and native verification](UNDERGROUND-SPIRIT-SPRING.md#verification-and-release-limits).
 
 ## Qi-rich soil and sowing
 

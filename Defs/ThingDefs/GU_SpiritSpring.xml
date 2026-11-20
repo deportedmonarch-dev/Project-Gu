@@ -33,9 +33,9 @@
     <description>A concentration of primeval energy found in spirit spring caverns. An active spring spends its reserve to produce physical primeval stones. Its local Hope Gu can support natural awakening ceremonies.</description>
     <thingClass>Building</thingClass>
     <graphicData>
-      <texPath>ProjectGU/SpiritSpring</texPath>
+      <texPath>ProjectGU/SpiritSpringSeep</texPath>
       <graphicClass>Graphic_Single</graphicClass>
-      <drawSize>(2,2)</drawSize>
+      <drawSize>(2.5,2.5)</drawSize>
     </graphicData>
     <size>(2,2)</size>
     <passability>PassThroughOnly</passability>

@@ -75,10 +75,13 @@ $qiSoil = Read-GuXml 'Defs\TerrainDefs\GU_PrimevalQiRichSoil.xml'
 Assert-Gu ($null -ne $botanical.SelectSingleNode('//ThingDef[@ParentName="PlantBaseNonEdible" and defName="GU_SpiritGrass" and plant/maxMeshCount="9"]')) 'Native Spirit Grass mesh configuration'
 Assert-Gu ($null -ne $botanical.SelectSingleNode('//ThingDef[defName="GU_MoonOrchid" and plant/sowTags/li="Ground" and plant/wildTerrainTags/li="GU_PrimevalQiRich"]')) 'Native Moon Orchid sowing and soil requirement'
 Assert-Gu ($null -ne $qiSoil.SelectSingleNode('//TerrainDef[defName="GU_PrimevalQiRichSoil" and tags/li="GU_PrimevalQiRich" and affordances/li="GrowSoil"]')) 'Primeval qi-rich soil tag and growing affordance'
-Assert-Gu ($null -ne $cavern.SelectSingleNode('//genStep[richSoil="GU_PrimevalQiRichSoil"]')) 'New caverns need qi-rich soil'
+Assert-Gu ($null -ne $cavern.SelectSingleNode('//genStep[qiSoil="GU_PrimevalQiRichSoil"]')) 'New caverns need qi-rich soil'
 Assert-Gu (Test-Path -LiteralPath (Join-Path $root 'Textures\ProjectGU\Terrain\PrimevalQiRichSoil.png')) 'Primeval qi-rich soil texture missing'
+foreach ($texture in @('SpiritSpringSeep', 'SpiritGrassBank')) {
+    Assert-Gu (Test-Path -LiteralPath (Join-Path $root "Textures\ProjectGU\$texture.png")) "Spring visual texture missing: $texture"
+}
 $source = Get-Content -LiteralPath (Join-Path $root 'Source\ProjectGu\Springs\CompGuSpiritSpring.cs') -Raw
-$saveKeys = @('guNextProductionTick','guLifetimeProduced','guHopeGuAvailable','guNextHopeRecoveryTick','guHabitatPatches','guReserve024','guMatureHope024','guJuvenileHope024','guNextEcology024','guNextFloraGrowthTick','guUsesBotanicalFlora')
+$saveKeys = @('guNextProductionTick','guLifetimeProduced','guHopeGuAvailable','guNextHopeRecoveryTick','guHabitatPatches','guReserve024','guMatureHope024','guJuvenileHope024','guNextEcology024','guNextFloraGrowthTick','guUsesBotanicalFlora','guCavernApproach')
 foreach ($key in $saveKeys) { Assert-Gu ($source.Contains($key)) "Missing save field: $key" }
 Write-Host 'PASS: XML, file structure, 1.7 metadata, ecology definitions and save-key presence.' -ForegroundColor Green
 
