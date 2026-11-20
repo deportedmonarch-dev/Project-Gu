@@ -55,6 +55,11 @@ namespace ProjectGu.Underground
             if (level.GenerationStarted || level.Parent != null || site.Kind?.IsConfigured != true
                 || (site.Kind == GuPocketSiteDef.SpiritSpring && !GuSpringCavernIncidents.GuardsInstalled()))
                 return false;
+            if (LongEventHandler.AnyEventNowOrWaiting)
+            {
+                reason = "Wait for RimWorld to finish loading before opening a new level.";
+                return false;
+            }
             // Keep room for normal colony maps. This is an experimental provider's development limit.
             if (Find.WorldObjects.MapParents.Count(parent => parent is GuUndergroundLevelParent) >= 8)
             {

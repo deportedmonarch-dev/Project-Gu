@@ -175,6 +175,11 @@ namespace ProjectGu.Underground
                 reason = "Underground lifecycle protections are unavailable.";
                 return false;
             }
+            if (LongEventHandler.AnyEventNowOrWaiting)
+            {
+                reason = "Wait for RimWorld to finish loading before opening a new level.";
+                return false;
+            }
 
             if (site.Kind == GuPocketSiteDef.SpiritSpring && !GuSpringCavernIncidents.GuardsInstalled())
             {
