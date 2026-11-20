@@ -45,7 +45,7 @@ namespace ProjectGu.Springs
         public int HopeGuAvailable => DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) != null
             ? MatureCountFor(HopeSpecies) : 0;
         public int HopeGuJuvenile => GuPopulationLedger.Find(populations, HopeSpecies)?.JuvenileCount ?? 0;
-        public int HabitatSupport => floraSupport;
+        public int HabitatSupport { get { EnsureHabitatFresh(); return floraSupport; } }
         public int Reserve => reserve;
         public string HabitatId => habitatId;
         public int MatureCountFor(string speciesDefName) => populationsReady
@@ -56,14 +56,12 @@ namespace ProjectGu.Springs
             base.PostSpawnSetup(respawningAfterLoad);
             EnsureInitialized();
             parent.Map?.GetComponent<GuEcologyMapComponent>()?.Register(this);
-            RefreshHabitat();
+            habitatDirty = true;
         }
-        public override void PostDestroy(DestroyMode mode, Map previousMap)
+        public override void PostDeSpawn(Map previousMap, DestroyMode mode = DestroyMode.Vanish)
         {
-            // RimWorld 1.7's ThingComp API does not expose PostDeSpawn(Map).
-            // Remove the spring from the transient registry when it is destroyed.
             previousMap?.GetComponent<GuEcologyMapComponent>()?.Unregister(this);
-            base.PostDestroy(mode, previousMap);
+            base.PostDeSpawn(previousMap, mode);
         }
         public override void PostExposeData()
         {
@@ -81,6 +79,7 @@ namespace ProjectGu.Springs
             Scribe_Values.Look(ref carryingCapacity, "guHopeCapacity024", 3);
             Scribe_Values.Look(ref floraSupport, "guFloraSupport024", 0);
             Scribe_Values.Look(ref nextEcologyTick, "guNextEcology024", -1);
+            Scribe_Values.Look(ref nextFloraGrowthTick, "guNextFloraGrowthTick", -1);
             Scribe_Values.Look(ref populationSchema, "guPopulationSchema025", 0);
             Scribe_Values.Look(ref habitatId, "guHabitatId025", "");
             Scribe_Collections.Look(ref populations, "guPopulationRecords025", LookMode.Deep);
@@ -174,38 +173,6 @@ namespace ProjectGu.Springs
                 Messages.Message("GU: secondary test cohort added to spring.",
                     MessageTypeDefOf.NeutralEvent, false);
         }
-        public void NotifyNearbyFloraChanged(IntVec3 cell)
-        {
-            if (!parent.Spawned) return;
-            int radius = Math.Max(1, Props.habitatRadius);
-            if (Math.Abs(parent.Position.x-cell.x) > radius || Math.Abs(parent.Position.z-cell.z) > radius) return;
-            RefreshHabitat();
-        }
-        private void RefreshHabitat()
-        {
-            if (!parent.Spawned || parent.Map == null) return;
-            int radius = Math.Max(1, Props.habitatRadius);
-            int count = 0;
-            int support = 0;
-            for (int dx=-radius; dx<=radius; dx++)
-                for (int dz=-radius; dz<=radius; dz++)
-                {
-                    IntVec3 cell = new IntVec3(parent.Position.x+dx, 0, parent.Position.z+dz);
-                    if (!cell.InBounds(parent.Map)) continue;
-                    foreach (Thing t in parent.Map.thingGrid.ThingsListAt(cell))
-                    {
-                        CompGuSpiritFlora flora = t.TryGetComp<CompGuSpiritFlora>();
-                        if (flora == null) continue;
-                        count++;
-                        support += flora.Support;
-                    }
-                }
-            currentHabitatPatches = count;
-            floraSupport = Math.Max(0, support);
-            // Adults survive habitat removal; no unsupported reproduction occurs.
-            carryingCapacity = Math.Max(3, Math.Min(Props.maxHopeGu, 3 + 2 * floraSupport));
-            if (Find.TickManager != null) nextHabitatTick = Find.TickManager.TicksGame + SafetyRecount;
-        }
         private void EcologyDayStep()
         {
             if (!populationsReady || DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) == null) return;
@@ -225,8 +192,12 @@ namespace ProjectGu.Springs
         {
             foreach (Gizmo g in base.CompGetGizmosExtra()) yield return g;
             if (Prefs.DevMode && parent.Spawned)
+            {
                 foreach (Gizmo gizmo in ProductionGizmos())
                     yield return gizmo;
+                foreach (Gizmo gizmo in FloraGizmos())
+                    yield return gizmo;
+            }
             if (populationsReady && Prefs.DevMode && parent.Spawned)
                 yield return new Command_Action
                 {
@@ -247,7 +218,12 @@ namespace ProjectGu.Springs
             base.CompTickRare();
             if (!parent.Spawned || parent.Map == null || Find.TickManager == null) return;
             int now = Find.TickManager.TicksGame;
-            if (nextHabitatTick < 0 || now >= nextHabitatTick) RefreshHabitat();
+            if (UsesCavernFlora && now >= nextFloraGrowthTick)
+            {
+                CavernFloraStep();
+                nextFloraGrowthTick = now + Math.Max(250, Props.cavernGrowthIntervalTicks);
+            }
+            if (habitatDirty || nextHabitatTick < 0 || now >= nextHabitatTick) RefreshHabitat();
             GuPopulationRecord hope = GuPopulationLedger.Find(populations, HopeSpecies);
             if (populationsReady && hope != null &&
                 DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) != null)
@@ -293,6 +269,7 @@ namespace ProjectGu.Springs
         }
         public override string CompInspectStringExtra()
         {
+            EnsureHabitatFresh();
             GuPopulationRecord extra = GuPopulationLedger.Find(populations, TestSpecies);
             return "Spring profile: " + Props.regionProfile + " (prototype preset)" +
                 "\nPrimeval reserve: " + Math.Max(0, reserve) + " / " + Props.initialReserve +

@@ -42,8 +42,8 @@
     <tickerType>Rare</tickerType>
     <comps>
       <li Class="ProjectGu.Underground.CompProperties_GuCavernGlower">
-        <glowRadius>6.4</glowRadius>
-        <glowColor>(47,126,115,0)</glowColor>
+        <glowRadius>8.4</glowRadius>
+        <glowColor>(62,178,163,0)</glowColor>
       </li>
       <li Class="ProjectGu.Springs.CompProperties_GuSpiritSpring">
         <productionIntervalTicks>60000</productionIntervalTicks>
@@ -54,6 +54,14 @@
         <purityPercent>75</purityPercent>
         <habitatRadius>5</habitatRadius>
         <maxHopeGu>30</maxHopeGu>
+        <cavernHabitatRadius>9</cavernHabitatRadius>
+        <cavernGrowthIntervalTicks>30000</cavernGrowthIntervalTicks>
+        <cavernSupportUnitsPerPoint>5</cavernSupportUnitsPerPoint>
+        <cavernMaxFloraSupport>7</cavernMaxFloraSupport>
+        <cavernFlora>
+          <li><flora>GU_MoonOrchidHabitat</flora><targetPatches>5</targetPatches></li>
+          <li><flora>GU_SpiritGrassHabitat</flora><targetPatches>24</targetPatches></li>
+        </cavernFlora>
       </li>
     </comps>
   </ThingDef>

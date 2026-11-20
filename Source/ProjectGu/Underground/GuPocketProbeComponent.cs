@@ -124,13 +124,14 @@ namespace ProjectGu.Underground
             && map.generatorDef == site.Kind.generator
             && Find.World.pocketMaps.Contains(parent);
 
-        internal static void SpawnFixture(ThingDef def, IntVec3 cell, Map map)
+        internal static Thing SpawnFixture(ThingDef def, IntVec3 cell, Map map)
         {
             Thing fixture = ThingMaker.MakeThing(def);
             Thing spawned = GenSpawn.Spawn(fixture, cell, map, Rot4.North);
             if (spawned != fixture || !fixture.Spawned || fixture.Map != map || fixture.Position != cell)
                 throw new InvalidOperationException($"Could not place {def.defName} at {cell}.");
             generationFixtures?.Add(fixture);
+            return fixture;
         }
 
         internal static bool TryGenerate(GuPocketSiteRecord site, out string reason)

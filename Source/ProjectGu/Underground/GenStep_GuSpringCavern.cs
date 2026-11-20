@@ -14,8 +14,6 @@ namespace ProjectGu.Underground
         public TerrainDef shallowWater;
         public ThingDef rock;
         public ThingDef spring;
-        public ThingDef moonOrchid;
-        public ThingDef spiritGrass;
         public ThingDef exit;
 
         public override int SeedPart => 840763;
@@ -24,7 +22,7 @@ namespace ProjectGu.Underground
         {
             TerrainDef stone = rock?.building?.naturalTerrain;
             var springProps = spring?.GetCompProperties<CompProperties_GuSpiritSpring>();
-            if (springProps == null || moonOrchid == null || spiritGrass == null || exit == null
+            if (springProps == null || exit == null
                 || new[] { soil, richSoil, marsh, mud, shallowWater, stone }
                     .Any(terrain => terrain == null || terrain.passability == Traversability.Impassable))
                 throw new InvalidOperationException("The spirit spring cavern requires walkable terrain and all fixture Defs.");
@@ -47,15 +45,8 @@ namespace ProjectGu.Underground
                     GuPocketProbeComponent.SpawnFixture(rock, cell, map);
             }
 
-            var floraCells = CellRect.CenteredOn(layout.Spring, springProps.habitatRadius).Cells
-                .Where(cell => layout.GroundAt(cell) is GuCavernGround.RichSoil or GuCavernGround.Marsh)
-                .Take(4).ToList();
-            if (floraCells.Count != 4)
-                throw new InvalidOperationException("The spirit spring cavern has too little fertile ground.");
-            for (int i = 0; i < floraCells.Count; i++)
-                GuPocketProbeComponent.SpawnFixture(i == 0 ? moonOrchid : spiritGrass, floraCells[i], map);
-
-            GuPocketProbeComponent.SpawnFixture(spring, layout.Spring, map);
+            Thing core = GuPocketProbeComponent.SpawnFixture(spring, layout.Spring, map);
+            core.TryGetComp<CompGuSpiritSpring>().InitializeCavernFlora(Rand.Int);
             // Keep the exit last so a swallowed GenStep failure cannot commit an incomplete level.
             GuPocketProbeComponent.SpawnFixture(exit, layout.Arrival, map);
         }

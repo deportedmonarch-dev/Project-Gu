@@ -1,0 +1,200 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using ProjectGu.Underground;
+using RimWorld;
+using Verse;
+
+namespace ProjectGu.Springs
+{
+    public sealed partial class CompGuSpiritSpring
+    {
+        // Only new cavern generation enables this schedule. A missing key leaves older
+        // sites and surface springs on their established physical habitat rules.
+        private int nextFloraGrowthTick = -1;
+        private bool habitatDirty = true;
+        private long rawFloraUnits;
+        private readonly Dictionary<ThingDef, int> habitatBySpecies = new();
+
+        private bool UsesCavernFlora => nextFloraGrowthTick >= 0 && GuPocketSiteDef.IsSpringCavern(parent.Map);
+        private int HabitatRadius => UsesCavernFlora ? Math.Clamp(Props.cavernHabitatRadius, 1, 12)
+            : Math.Max(1, Props.habitatRadius);
+
+        internal bool HabitatContains(IntVec3 cell) =>
+            Math.Abs(parent.Position.x - cell.x) <= HabitatRadius
+            && Math.Abs(parent.Position.z - cell.z) <= HabitatRadius;
+
+        public void NotifyNearbyFloraChanged(IntVec3 cell)
+        {
+            if (parent.Spawned && HabitatContains(cell)) habitatDirty = true;
+        }
+
+        internal void NotifySpringChanged(CompGuSpiritSpring other)
+        {
+            int overlap = HabitatRadius + other.HabitatRadius;
+            IntVec3 offset = parent.Position - other.parent.Position;
+            if (Math.Abs(offset.x) <= overlap && Math.Abs(offset.z) <= overlap)
+                habitatDirty = true;
+        }
+
+        private void EnsureHabitatFresh()
+        {
+            if (habitatDirty) RefreshHabitat();
+        }
+
+        private void RefreshHabitat()
+        {
+            if (!parent.Spawned || parent.Map == null) return;
+
+            Map map = parent.Map;
+            var ecology = map.GetComponent<GuEcologyMapComponent>();
+            bool managed = UsesCavernFlora;
+            habitatBySpecies.Clear();
+            currentHabitatPatches = 0;
+            rawFloraUnits = 0;
+            foreach (IntVec3 cell in CellRect.CenteredOn(parent.Position, HabitatRadius).Cells)
+            {
+                if (!cell.InBounds(map)) continue;
+                foreach (Thing thing in cell.GetThingList(map))
+                {
+                    if (thing.Position != cell || thing.TryGetComp<CompGuSpiritFlora>() is not CompGuSpiritFlora flora
+                        || ecology.HabitatOwnerAt(cell) != this)
+                        continue;
+                    currentHabitatPatches++;
+                    habitatBySpecies[thing.def] = habitatBySpecies.GetValueOrDefault(thing.def) + 1;
+                    rawFloraUnits += managed ? flora.CavernSupportUnits : flora.Support;
+                }
+            }
+            floraSupport = managed
+                ? GuFloraGrowth.EffectiveSupport(rawFloraUnits, Props.cavernSupportUnitsPerPoint, Props.cavernMaxFloraSupport)
+                : (int)Math.Min(rawFloraUnits, int.MaxValue);
+            // Existing adults survive habitat loss. Only subsequent births use the new capacity.
+            carryingCapacity = GuFloraGrowth.HopeCapacity(floraSupport, Props.maxHopeGu);
+            habitatDirty = false;
+            if (Find.TickManager != null) nextHabitatTick = Find.TickManager.TicksGame + SafetyRecount;
+        }
+
+        internal void InitializeCavernFlora(int seed)
+        {
+            if (nextFloraGrowthTick >= 0) return;
+            var targets = Props.cavernFlora;
+            if (targets.Count == 0 || targets.Any(target => target.flora == null
+                || target.flora.size != new IntVec2(1, 1) || target.targetPatches < 1
+                || target.flora.GetCompProperties<CompProperties_GuSpiritFlora>()?.growthSoils.Count is not > 0)
+                || targets.Select(target => target.flora).Distinct().Count() != targets.Count)
+                throw new InvalidOperationException("The spring cavern requires unique, configured one-cell flora targets.");
+
+            nextFloraGrowthTick = Find.TickManager.TicksGame + Math.Max(250, Props.cavernGrowthIntervalTicks);
+            habitatDirty = true;
+            parent.Map.GetComponent<GuEcologyMapComponent>().NotifyHabitatRangeChanged(this);
+            GrowCavernFlora(int.MaxValue, seed, initial: true);
+        }
+
+        private int GrowCavernFlora(int budget, int seed, bool initial = false)
+        {
+            if (!UsesCavernFlora || reserve <= 0) return 0;
+            Map map = parent.Map;
+            var ecology = map.GetComponent<GuEcologyMapComponent>();
+            EnsureHabitatFresh();
+
+            TerrainDef TerrainAt(IntVec3 cell) => cell.InBounds(map) ? cell.GetTerrain(map) : null;
+            int planted = 0;
+            foreach (GuCavernFloraTarget target in Props.cavernFlora)
+            {
+                ThingDef flora = target.flora;
+                planted += GuFloraGrowth.Fill(target, parent.Position, HabitatRadius, seed,
+                    habitatBySpecies.GetValueOrDefault(flora), budget - planted, TerrainAt,
+                    cell => ecology.HabitatOwnerAt(cell) == this && CanPlant(map, cell, flora),
+                    cell => cell.InBounds(map) && cell.GetThingList(map).Any(thing => thing.def == flora),
+                    cell =>
+                    {
+                        if (initial)
+                        {
+                            GuPocketProbeComponent.SpawnFixture(flora, cell, map);
+                            return true;
+                        }
+                        Thing grown = GenSpawn.Spawn(flora, cell, map, Rot4.North);
+                        return grown?.Spawned == true && grown.Map == map && grown.Position == cell;
+                    });
+                if (planted == budget) break;
+            }
+            EnsureHabitatFresh();
+            return planted;
+        }
+
+        private bool CanPlant(Map map, IntVec3 cell, ThingDef flora)
+        {
+            // Keep interaction cells and the original water and dry shoreline outlets clear.
+            CellRect footprint = parent.OccupiedRect();
+            if (footprint.ExpandedBy(1).Contains(cell) || BasinWaterOutputs(footprint).Contains(cell)
+                || !cell.Standable(map) || map.zoneManager.ZoneAt(cell) != null)
+                return false;
+
+            foreach (Thing thing in cell.GetThingList(map))
+                if (thing.def.category is ThingCategory.Building or ThingCategory.Item or ThingCategory.Pawn or ThingCategory.Plant
+                    || thing is Blueprint or Frame or Fire)
+                    return false;
+            return GenSpawn.CanSpawnAt(flora, cell, map, Rot4.North);
+        }
+
+        private string CavernFloraStep()
+        {
+            if (!UsesCavernFlora || reserve <= 0) return "The spring cannot sustain flora growth.";
+            if (GrowCavernFlora(1, Gen.HashCombineInt(parent.thingIDNumber, nextFloraGrowthTick)) == 1)
+                return "One flora patch grew.";
+
+            Map map = parent.Map;
+            var ecology = map.GetComponent<GuEcologyMapComponent>();
+            TerrainDef TerrainAt(IntVec3 cell) => cell.InBounds(map) ? cell.GetTerrain(map) : null;
+            foreach (IntVec3 cell in CellRect.CenteredOn(parent.Position, HabitatRadius).Cells)
+            {
+                if (!cell.InBounds(map)) continue;
+                foreach (Thing thing in cell.GetThingList(map))
+                {
+                    if (thing.Position != cell || !thing.def.useHitPoints
+                        || thing.def.GetCompProperties<CompProperties_GuSpiritFlora>() is not { } species)
+                        continue;
+                    int maximum = thing.MaxHitPoints;
+                    if (thing.HitPoints >= maximum || ecology.HabitatOwnerAt(cell) != this
+                        || !GuFloraGrowth.SuitableGround(species, cell, TerrainAt))
+                        continue;
+                    // A surviving patch uses its existing native hit points for partial recovery.
+                    thing.HitPoints = Math.Min(maximum, thing.HitPoints + Math.Max(1, maximum / 6));
+                    return "One damaged flora patch recovered some health.";
+                }
+            }
+            return "No suitable flora vacancy or recoverable damage.";
+        }
+
+        private IEnumerable<Gizmo> FloraGizmos()
+        {
+            if (UsesCavernFlora)
+                yield return new Command_Action
+                {
+                    defaultLabel = "GU: Simulate flora growth step",
+                    defaultDesc = "Run one normal regrowth step without changing the scheduled tick or advancing time.",
+                    action = () => Messages.Message(CavernFloraStep(), MessageTypeDefOf.NeutralEvent, false)
+                };
+            yield return new Command_Action
+            {
+                defaultLabel = "GU: Habitat diagnostics",
+                defaultDesc = "List physical flora credited to this spring, their support, and the Hope Gu capacity.",
+                action = () =>
+                {
+                    RefreshHabitat();
+                    var report = habitatBySpecies.OrderBy(entry => entry.Key.defName).Select(entry =>
+                    {
+                        var flora = entry.Key.GetCompProperties<CompProperties_GuSpiritFlora>();
+                        int units = UsesCavernFlora ? flora.cavernSupportUnits : flora.support;
+                        return $"{entry.Key.LabelCap}: {entry.Value} × {Math.Max(0, units)}";
+                    });
+                    string detail = UsesCavernFlora
+                        ? $"\n{rawFloraUnits} raw units, {Props.cavernSupportUnitsPerPoint} per support point, cap {Props.cavernMaxFloraSupport}."
+                        : "";
+                    Find.WindowStack.Add(new Dialog_MessageBox(
+                        string.Join("\n", report) + detail + $"\n{currentHabitatPatches} patches, {floraSupport} support, {carryingCapacity} Hope Gu capacity."));
+                }
+            };
+        }
+    }
+}

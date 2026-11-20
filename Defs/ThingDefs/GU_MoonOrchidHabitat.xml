@@ -2,27 +2,36 @@
 <Defs>
   <ThingDef ParentName="BuildingBase">
     <defName>GU_MoonOrchidHabitat</defName>
-    <label>moon orchid habitat</label>
-    <description>A patch of moon orchids growing around concentrated primeval energy. Its flowers support wild Hope Gu. This first ecological prototype represents a habitat patch rather than individually growing plants.</description>
+    <label>moon orchid colony</label>
+    <description>A colony of broad indigo orchids with luminous centers. The flowers grow beside spring-fed water and provide habitat support for wild Gu.</description>
     <thingClass>Building</thingClass>
+    <tickerType>Never</tickerType>
     <graphicData>
-      <texPath>ProjectGU/MoonOrchidHabitat</texPath>
-      <graphicClass>Graphic_Single</graphicClass>
-      <drawSize>(1,1)</drawSize>
+      <texPath>ProjectGU/MoonOrchid</texPath>
+      <graphicClass>Graphic_Random</graphicClass>
+      <drawSize>(1.68,1.68)</drawSize>
     </graphicData>
     <comps>
       <li Class="ProjectGu.Underground.CompProperties_GuCavernGlower">
-        <glowRadius>3.5</glowRadius>
-        <glowColor>(26,61,74,0)</glowColor>
+        <glowRadius>3.8</glowRadius>
+        <glowColor>(86,101,181,0)</glowColor>
       </li>
       <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">
         <support>1</support>
         <ecologyProfile>moon</ecologyProfile>
+        <cavernSupportUnits>3</cavernSupportUnits>
+        <growthSoils><li>SoilRich</li><li>MarshyTerrain</li></growthSoils>
+        <waterRange>2</waterRange>
+        <minimumSpacing>3</minimumSpacing>
       </li>
     </comps>
     <size>(1,1)</size>
     <passability>Standable</passability>
     <fillPercent>0</fillPercent>
+    <building>
+      <claimable>false</claimable>
+      <expandHomeArea>false</expandHomeArea>
+    </building>
     <statBases>
       <MaxHitPoints>60</MaxHitPoints>
       <Flammability>0.25</Flammability>

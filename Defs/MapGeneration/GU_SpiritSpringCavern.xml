@@ -35,8 +35,6 @@
       <shallowWater>WaterShallow</shallowWater>
       <rock>Granite</rock>
       <spring>GU_SpiritSpring</spring>
-      <moonOrchid>GU_MoonOrchidHabitat</moonOrchid>
-      <spiritGrass>GU_SpiritGrassHabitat</spiritGrass>
       <exit>GU_SpringRopeExit</exit>
     </genStep>
   </GenStepDef>

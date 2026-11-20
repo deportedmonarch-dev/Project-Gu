@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Verse;
 
 namespace ProjectGu.Springs
@@ -7,6 +8,10 @@ namespace ProjectGu.Springs
     {
         public int support = 1;
         public string ecologyProfile = "generic";
+        public int cavernSupportUnits;
+        public List<TerrainDef> growthSoils = new();
+        public int waterRange;
+        public int minimumSpacing = 1;
         public CompProperties_GuSpiritFlora() { compClass = typeof(CompGuSpiritFlora); }
     }
 }

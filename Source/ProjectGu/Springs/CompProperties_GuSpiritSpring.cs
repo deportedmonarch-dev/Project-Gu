@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Verse;
 
 namespace ProjectGu.Springs
@@ -13,6 +14,17 @@ namespace ProjectGu.Springs
         public int purityPercent = 75;
         public int habitatRadius = 5;
         public int maxHopeGu = 30;
+        public int cavernHabitatRadius = 9;
+        public int cavernGrowthIntervalTicks = 30000;
+        public int cavernSupportUnitsPerPoint = 5;
+        public int cavernMaxFloraSupport = 7;
+        public List<GuCavernFloraTarget> cavernFlora = new();
         public CompProperties_GuSpiritSpring() { compClass = typeof(CompGuSpiritSpring); }
+    }
+
+    public sealed class GuCavernFloraTarget
+    {
+        public ThingDef flora;
+        public int targetPatches;
     }
 }
