@@ -12,12 +12,16 @@ namespace ProjectGu.Springs
         // Only new cavern generation enables this schedule. A missing key leaves older
         // sites and surface springs on their established physical habitat rules.
         private int nextFloraGrowthTick = -1;
+        private bool usesBotanicalFlora;
         private bool habitatDirty = true;
         private long rawFloraUnits;
         private readonly Dictionary<ThingDef, int> habitatBySpecies = new();
 
         private bool UsesCavernFlora => nextFloraGrowthTick >= 0 && GuPocketSiteDef.IsSpringCavern(parent.Map);
-        private int HabitatRadius => UsesCavernFlora ? Math.Clamp(Props.cavernHabitatRadius, 1, 12)
+        internal bool UsesBotanicalFlora => usesBotanicalFlora && UsesCavernFlora;
+        private List<GuCavernFloraTarget> CavernFlora => usesBotanicalFlora ? Props.botanicalCavernFlora : Props.cavernFlora;
+        private int HabitatRadius => UsesCavernFlora
+            ? usesBotanicalFlora ? Math.Clamp(Props.botanicalHabitatRadius, 1, 16) : Math.Clamp(Props.cavernHabitatRadius, 1, 12)
             : Math.Max(1, Props.habitatRadius);
 
         internal bool HabitatContains(IntVec3 cell) =>
@@ -57,14 +61,15 @@ namespace ProjectGu.Springs
                 if (!cell.InBounds(map)) continue;
                 foreach (Thing thing in cell.GetThingList(map))
                 {
-                    if (thing.Position != cell || thing.TryGetComp<CompGuSpiritFlora>() is not CompGuSpiritFlora flora
+                    if (thing.Position != cell || thing.TryGetComp<CompGuSpiritFlora>() == null
                         || ecology.HabitatOwnerAt(cell) != this)
                         continue;
                     currentHabitatPatches++;
                     habitatBySpecies[thing.def] = habitatBySpecies.GetValueOrDefault(thing.def) + 1;
-                    rawFloraUnits += managed ? flora.CavernSupportUnits : flora.Support;
                 }
             }
+            foreach (var entry in habitatBySpecies)
+                rawFloraUnits += entry.Key.GetCompProperties<CompProperties_GuSpiritFlora>().HabitatUnits(entry.Value, managed);
             floraSupport = managed
                 ? GuFloraGrowth.EffectiveSupport(rawFloraUnits, Props.cavernSupportUnitsPerPoint, Props.cavernMaxFloraSupport)
                 : (int)Math.Min(rawFloraUnits, int.MaxValue);
@@ -77,14 +82,17 @@ namespace ProjectGu.Springs
         internal void InitializeCavernFlora(int seed)
         {
             if (nextFloraGrowthTick >= 0) return;
-            var targets = Props.cavernFlora;
+            var targets = Props.botanicalCavernFlora;
             if (targets.Count == 0 || targets.Any(target => target.flora == null
+                || target.flora.plant == null
                 || target.flora.size != new IntVec2(1, 1) || target.targetPatches < 1
                 || target.flora.GetCompProperties<CompProperties_GuSpiritFlora>()?.growthSoils.Count is not > 0)
                 || targets.Select(target => target.flora).Distinct().Count() != targets.Count)
                 throw new InvalidOperationException("The spring cavern requires unique, configured one-cell flora targets.");
 
+            usesBotanicalFlora = true;
             nextFloraGrowthTick = Find.TickManager.TicksGame + Math.Max(250, Props.cavernGrowthIntervalTicks);
+            parent.GetComp<CompGuBotanicalGlower>()?.UpdateLit(parent.Map);
             habitatDirty = true;
             parent.Map.GetComponent<GuEcologyMapComponent>().NotifyHabitatRangeChanged(this);
             GrowCavernFlora(int.MaxValue, seed, initial: true);
@@ -99,7 +107,7 @@ namespace ProjectGu.Springs
 
             TerrainDef TerrainAt(IntVec3 cell) => cell.InBounds(map) ? cell.GetTerrain(map) : null;
             int planted = 0;
-            foreach (GuCavernFloraTarget target in Props.cavernFlora)
+            foreach (GuCavernFloraTarget target in CavernFlora)
             {
                 ThingDef flora = target.flora;
                 planted += GuFloraGrowth.Fill(target, parent.Position, HabitatRadius, seed,
@@ -110,7 +118,8 @@ namespace ProjectGu.Springs
                     {
                         if (initial)
                         {
-                            GuPocketProbeComponent.SpawnFixture(flora, cell, map);
+                            var plant = (Plant)GuPocketProbeComponent.SpawnFixture(flora, cell, map);
+                            plant.Growth = Rand.RangeSeeded(0.84f, 1f, Gen.HashCombineInt(seed, cell.GetHashCode()));
                             return true;
                         }
                         Thing grown = GenSpawn.Spawn(flora, cell, map, Rot4.North);
@@ -134,7 +143,8 @@ namespace ProjectGu.Springs
                 if (thing.def.category is ThingCategory.Building or ThingCategory.Item or ThingCategory.Pawn or ThingCategory.Plant
                     || thing is Blueprint or Frame or Fire)
                     return false;
-            return GenSpawn.CanSpawnAt(flora, cell, map, Rot4.North);
+            return GenSpawn.CanSpawnAt(flora, cell, map, Rot4.North)
+                && (flora.plant == null || PlantUtility.CanNowPlantAt(flora, cell, map, false));
         }
 
         private string CavernFloraStep()
@@ -185,8 +195,8 @@ namespace ProjectGu.Springs
                     var report = habitatBySpecies.OrderBy(entry => entry.Key.defName).Select(entry =>
                     {
                         var flora = entry.Key.GetCompProperties<CompProperties_GuSpiritFlora>();
-                        int units = UsesCavernFlora ? flora.cavernSupportUnits : flora.support;
-                        return $"{entry.Key.LabelCap}: {entry.Value} × {Math.Max(0, units)}";
+                        long units = flora.HabitatUnits(entry.Value, UsesCavernFlora);
+                        return $"{entry.Key.LabelCap}: {entry.Value} plants, {units} support units";
                     });
                     string detail = UsesCavernFlora
                         ? $"\n{rawFloraUnits} raw units, {Props.cavernSupportUnitsPerPoint} per support point, cap {Props.cavernMaxFloraSupport}."

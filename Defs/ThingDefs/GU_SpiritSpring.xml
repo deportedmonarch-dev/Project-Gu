@@ -46,6 +46,10 @@
         <glowRadius>8.4</glowRadius>
         <glowColor>(62,178,163,0)</glowColor>
       </li>
+      <li Class="ProjectGu.Underground.CompProperties_GuBotanicalGlower">
+        <glowRadius>19</glowRadius>
+        <glowColor>(96,126,175,0)</glowColor>
+      </li>
       <li Class="ProjectGu.Springs.CompProperties_GuSpiritSpring">
         <productionIntervalTicks>60000</productionIntervalTicks>
         <stonesPerCycle>1</stonesPerCycle>
@@ -63,6 +67,11 @@
           <li><flora>GU_MoonOrchidHabitat</flora><targetPatches>5</targetPatches></li>
           <li><flora>GU_SpiritGrassHabitat</flora><targetPatches>24</targetPatches></li>
         </cavernFlora>
+        <botanicalHabitatRadius>16</botanicalHabitatRadius>
+        <botanicalCavernFlora>
+          <li><flora>GU_MoonOrchid</flora><targetPatches>5</targetPatches></li>
+          <li><flora>GU_SpiritGrass</flora><targetPatches>110</targetPatches></li>
+        </botanicalCavernFlora>
       </li>
     </comps>
   </ThingDef>

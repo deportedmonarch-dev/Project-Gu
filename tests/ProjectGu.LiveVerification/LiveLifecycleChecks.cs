@@ -27,10 +27,11 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static ThingDef StoneDef => DefDatabase<ThingDef>.GetNamed("GU_PrimevalStone");
     private static bool EmptyCavernReset => GenCommandLine.CommandLineArgPassed("guemptycavernreset");
     private static bool AwakeningSafety => GenCommandLine.CommandLineArgPassed("guawakeningsafety");
+    private static bool Botanical => GenCommandLine.CommandLineArgPassed("gubotanical");
     private static Action NewCheck => EmptyCavernReset ? ExerciseEmptyCavernReset
-        : AwakeningSafety ? ExerciseAwakening : GenerateAndExercise;
+        : AwakeningSafety ? ExerciseAwakening : Botanical ? ExerciseBotanical : GenerateAndExercise;
     private static Action ReloadCheck => EmptyCavernReset ? VerifyEmptyCavernResetReload
-        : AwakeningSafety ? VerifyAwakeningReload : VerifyReload;
+        : AwakeningSafety ? VerifyAwakeningReload : Botanical ? VerifyBotanicalReload : VerifyReload;
     private Action pending;
 
     public LiveLifecycleChecks(Game game) { }

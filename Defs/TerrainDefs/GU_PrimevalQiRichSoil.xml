@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <TerrainDef ParentName="NaturalTerrainBase">
+    <defName>GU_PrimevalQiRichSoil</defName>
+    <label>primeval qi-rich soil</label>
+    <description>Cool, fertile earth enriched with primeval qi. Cultivation plants such as moon orchids can take root here.</description>
+    <texturePath>ProjectGU/Terrain/PrimevalQiRichSoil</texturePath>
+    <edgeType>FadeRough</edgeType>
+    <categoryType>Soil</categoryType>
+    <renderPrecedence>334</renderPrecedence>
+    <pathCost>2</pathCost>
+    <fertility>1.4</fertility>
+    <tags><li>GU_PrimevalQiRich</li></tags>
+    <statBases>
+      <Beauty>-3</Beauty>
+      <BeautyOutdoors>0</BeautyOutdoors>
+      <Cleanliness>-1</Cleanliness>
+    </statBases>
+    <affordances>
+      <li>Light</li>
+      <li>Medium</li>
+      <li>Heavy</li>
+      <li>GrowSoil</li>
+      <li>Diggable</li>
+    </affordances>
+    <generatedFilth>Filth_Dirt</generatedFilth>
+    <takeFootprints>true</takeFootprints>
+  </TerrainDef>
+</Defs>

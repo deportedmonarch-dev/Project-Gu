@@ -80,6 +80,7 @@ namespace ProjectGu.Springs
             Scribe_Values.Look(ref floraSupport, "guFloraSupport024", 0);
             Scribe_Values.Look(ref nextEcologyTick, "guNextEcology024", -1);
             Scribe_Values.Look(ref nextFloraGrowthTick, "guNextFloraGrowthTick", -1);
+            Scribe_Values.Look(ref usesBotanicalFlora, "guUsesBotanicalFlora");
             Scribe_Values.Look(ref populationSchema, "guPopulationSchema025", 0);
             Scribe_Values.Look(ref habitatId, "guHabitatId025", "");
             Scribe_Collections.Look(ref populations, "guPopulationRecords025", LookMode.Deep);

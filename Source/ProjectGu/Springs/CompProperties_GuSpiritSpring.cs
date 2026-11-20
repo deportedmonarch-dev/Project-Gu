@@ -19,6 +19,8 @@ namespace ProjectGu.Springs
         public int cavernSupportUnitsPerPoint = 5;
         public int cavernMaxFloraSupport = 7;
         public List<GuCavernFloraTarget> cavernFlora = new();
+        public int botanicalHabitatRadius = 16;
+        public List<GuCavernFloraTarget> botanicalCavernFlora = new();
         public CompProperties_GuSpiritSpring() { compClass = typeof(CompGuSpiritSpring); }
     }
 

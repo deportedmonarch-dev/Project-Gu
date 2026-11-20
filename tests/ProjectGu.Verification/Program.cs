@@ -18,21 +18,28 @@ var terrains = new Dictionary<GuCavernGround, TerrainDef>
     [GuCavernGround.Marsh] = new() { defName = "MarshyTerrain" },
     [GuCavernGround.ShallowWater] = new() { defName = "WaterShallow", tags = new() { "Water" } }
 };
-var targets = springSettings.Element("cavernFlora")!.Elements("li").Select(node =>
+var botanicalTerrains = new Dictionary<GuCavernGround, TerrainDef>(terrains)
+{
+    [GuCavernGround.RichSoil] = new() { defName = "GU_PrimevalQiRichSoil" }
+};
+var floraDefs = Directory.EnumerateFiles(Path.Combine(root, "Defs/ThingDefs"), "*.xml")
+    .Select(XDocument.Load).SelectMany(document => document.Descendants("ThingDef"))
+    .Where(definition => definition.Element("defName") != null)
+    .ToDictionary(definition => (string)definition.Element("defName")!);
+List<GuCavernFloraTarget> ReadTargets(string listName, Dictionary<GuCavernGround, TerrainDef> ground)
+    => springSettings.Element(listName)!.Elements("li").Select(node =>
 {
     string defName = node.Element("flora")!.Value;
-    var flora = Directory.EnumerateFiles(Path.Combine(root, "Defs/ThingDefs"), "*.xml")
-        .Select(XDocument.Load).SelectMany(document => document.Descendants("ThingDef"))
-        .Single(definition => (string)definition.Element("defName") == defName);
-    var props = flora.Descendants("li").Single(element =>
+    var props = floraDefs[defName].Descendants("li").Single(element =>
         (string)element.Attribute("Class") == "ProjectGu.Springs.CompProperties_GuSpiritFlora");
     var species = new CompProperties_GuSpiritFlora
     {
         support = (int)props.Element("support")!,
         cavernSupportUnits = (int)props.Element("cavernSupportUnits")!,
+        cavernSupportFullAt = (int?)props.Element("cavernSupportFullAt") ?? 0,
         growthSoils = props.Element("growthSoils")!.Elements("li")
-            .Select(soil => terrains.Values.Single(terrain => terrain.defName == soil.Value)).ToList(),
-        waterRange = (int)props.Element("waterRange")!,
+            .Select(soil => ground.Values.Single(terrain => terrain.defName == soil.Value)).ToList(),
+        waterRange = (int?)props.Element("waterRange") ?? 0,
         minimumSpacing = (int?)props.Element("minimumSpacing") ?? 1
     };
     return new GuCavernFloraTarget
@@ -41,7 +48,40 @@ var targets = springSettings.Element("cavernFlora")!.Elements("li").Select(node 
         targetPatches = (int)node.Element("targetPatches")!
     };
 }).ToList();
+var targets = ReadTargets("cavernFlora", terrains);
+var botanicalTargets = ReadTargets("botanicalCavernFlora", botanicalTerrains);
+int botanicalRadius = (int)springSettings.Element("botanicalHabitatRadius")!;
 ManagedEngineChecks.Run(springDef, args[1], targets);
+
+void VerifyFlora(List<GuCavernFloraTarget> floraTargets, Dictionary<GuCavernGround, TerrainDef> terrainDefs,
+    int radius, GuSpringCavernLayout layout, List<IntVec3> outlets, int seed)
+{
+    var physicalFlora = new Dictionary<IntVec3, ThingDef>();
+    foreach (GuCavernFloraTarget target in floraTargets)
+    {
+        int Fill(int budget, int existing, Dictionary<IntVec3, ThingDef> flora, bool blocked = false) =>
+            GuFloraGrowth.Fill(target, layout.Spring, radius, seed, existing, budget,
+                cell => terrainDefs.GetValueOrDefault(layout.GroundAt(cell)),
+                cell => !blocked && !layout.DryApproach.Contains(cell) && !outlets.Contains(cell) && !flora.ContainsKey(cell),
+                cell => flora.GetValueOrDefault(cell) == target.flora,
+                cell => flora.TryAdd(cell, target.flora));
+
+        int initial = Fill(int.MaxValue, 0, physicalFlora);
+        Check(initial == target.targetPatches, $"{target.flora.defName} placed {initial} at seed {seed}");
+        // Rebuild the local set from physical entries as the spring does after restoring.
+        var restored = new Dictionary<IntVec3, ThingDef>(physicalFlora);
+        int restoredCount = restored.Values.Count(def => def == target.flora);
+        Check(Fill(1, restoredCount, restored) == 0, $"Restored colony capacity at seed {seed}");
+        restored.Remove(restored.First(entry => entry.Value == target.flora).Key);
+        Check(Fill(1, restoredCount - 1, restored, blocked: true) == 0, $"Blocked regrowth at seed {seed}");
+        Check(Fill(1, restoredCount - 1, restored) == 1 && restored.Count == physicalFlora.Count,
+            $"Bounded recovery at seed {seed}");
+    }
+    long rawUnits = physicalFlora.Values.GroupBy(def => def).Sum(group =>
+        group.Key.GetCompProperties<CompProperties_GuSpiritFlora>().HabitatUnits(group.Count(), true));
+    Check(rawUnits == 39 && GuFloraGrowth.EffectiveSupport(rawUnits, unitsPerPoint, supportCap) == 7,
+        $"Initial habitat contribution at seed {seed}");
+}
 
 var size = new IntVec3(39, 1, 39);
 var bounds = new CellRect(0, 0, size.x, size.z);
@@ -83,30 +123,8 @@ for (int seed = 0; seed < samples; seed++)
         .SetEquals(Connected(layout.Arrival, open.Except(layout.Footprint.Cells).ToHashSet())),
         $"Walkable chamber connectivity at seed {seed}");
 
-    var physicalFlora = new Dictionary<IntVec3, ThingDef>();
-    foreach (GuCavernFloraTarget target in targets)
-    {
-        int Fill(int budget, int existing, Dictionary<IntVec3, ThingDef> flora, bool blocked = false) =>
-            GuFloraGrowth.Fill(target, layout.Spring, habitatRadius, seed, existing, budget,
-                cell => terrains.GetValueOrDefault(layout.GroundAt(cell)),
-                cell => !blocked && !layout.DryApproach.Contains(cell) && !outlets.Contains(cell) && !flora.ContainsKey(cell),
-                cell => flora.GetValueOrDefault(cell) == target.flora,
-                cell => flora.TryAdd(cell, target.flora));
-
-        int initial = Fill(int.MaxValue, 0, physicalFlora);
-        Check(initial == target.targetPatches, $"{target.flora.defName} placed {initial} at seed {seed}");
-        // Rebuild the local set from physical entries as the spring does after restoring.
-        var restored = new Dictionary<IntVec3, ThingDef>(physicalFlora);
-        int restoredCount = restored.Values.Count(def => def == target.flora);
-        Check(Fill(1, restoredCount, restored) == 0, $"Restored colony capacity at seed {seed}");
-        restored.Remove(restored.First(entry => entry.Value == target.flora).Key);
-        Check(Fill(1, restoredCount - 1, restored, blocked: true) == 0, $"Blocked regrowth at seed {seed}");
-        Check(Fill(1, restoredCount - 1, restored) == 1 && restored.Count == physicalFlora.Count,
-            $"Bounded recovery at seed {seed}");
-    }
-
-    int rawUnits = physicalFlora.Values.Sum(def => def.GetCompProperties<CompProperties_GuSpiritFlora>().cavernSupportUnits);
-    Check(GuFloraGrowth.EffectiveSupport(rawUnits, unitsPerPoint, supportCap) == 7, $"Initial support at seed {seed}");
+    VerifyFlora(targets, terrains, habitatRadius, layout, outlets, seed);
+    VerifyFlora(botanicalTargets, botanicalTerrains, botanicalRadius, layout, outlets, seed);
 
     openCounts.Add(open.Count);
     waterCounts.Add(water.Count);
@@ -126,6 +144,9 @@ Check(GuFloraGrowth.EffectiveSupport(0, unitsPerPoint, supportCap) == 0
     && GuFloraGrowth.HopeCapacity(7, maximumHope) == 17, "Cavern habitat support bounds");
 Console.WriteLine($"PASS: {samples:N0} physical placement and regrowth scenarios. "
     + string.Join(", ", targets.Select(target => $"{target.targetPatches} {target.flora.defName}"))
+    + ". 39 units yield 7 support and Hope Gu capacity 17.");
+Console.WriteLine($"PASS: {samples:N0} botanical placement and regrowth scenarios. "
+    + string.Join(", ", botanicalTargets.Select(target => $"{target.targetPatches} {target.flora.defName}"))
     + ". 39 units yield 7 support and Hope Gu capacity 17.");
 
 static HashSet<IntVec3> Connected(IntVec3 origin, HashSet<IntVec3> cells)

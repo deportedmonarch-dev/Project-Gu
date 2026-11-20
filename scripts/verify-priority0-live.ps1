@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Both')][string]$Profile = 'Both',
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'Both')][string]$Profile = 'Both',
     [switch]$Rendered
 )
 $ErrorActionPreference = 'Stop'
@@ -78,6 +78,7 @@ try {
         $probe = switch ($name) {
             'IdeologyReset' { '-guemptycavernreset' }
             'Awakening' { '-guawakeningsafety' }
+            'Botanical' { '-gubotanical' }
             default { '' }
         }
         $configXml = @"

@@ -30,7 +30,7 @@
     <order>210</order>
     <genStep Class="ProjectGu.Underground.GenStep_GuSpringCavern">
       <soil>Soil</soil>
-      <richSoil>SoilRich</richSoil>
+      <richSoil>GU_PrimevalQiRichSoil</richSoil>
       <marsh>MarshyTerrain</marsh>
       <mud>Mud</mud>
       <shallowWater>WaterShallow</shallowWater>

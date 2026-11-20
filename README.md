@@ -4,7 +4,7 @@ An experimental *Reverend Insanity*-inspired Gu cultivation framework for **RimW
 
 ## Current validated baseline: Prototype 0.2.4
 
-The 0.2.4 **compile-hotfix** source is the stable prototype baseline. The project maintainer reported **10/10 in-game tests passing** on this version. The development branch adds 0.2.5 species and cohorts, independent developer-only spring caverns, and compatibility for legacy pocket maps. Lifecycle verification targets RimWorld 1.7.5014 rev1195. [Priority 0 report](docs/UNDERGROUND-INDEPENDENT-LEVELS.md).
+The 0.2.4 **compile-hotfix** source is the stable prototype baseline. The project maintainer reported **10/10 in-game tests passing** on that version. The 0.2.5 development branch adds species and cohorts, independently saved spring caverns, native Spirit Grass and Moon Orchids, and primeval qi-rich soil. Existing pocket maps retain their ownership. Native verification targets RimWorld 1.7.5014 rev1195. [Spring ecology](docs/UNDERGROUND-SPIRIT-SPRING.md), [Priority 0 report](docs/UNDERGROUND-INDEPENDENT-LEVELS.md).
 
 Working prototype systems include:
 - Mortal/unawakened/failed statuses, hidden aptitude and persistent Gu Master apertures
