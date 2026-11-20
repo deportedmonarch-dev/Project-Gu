@@ -27,6 +27,7 @@ internal static class ManagedEngineChecks
             ThingDef stone = VerifyNativeStoneStacks(defs);
             var restoredFlora = VerifySpringMigrationAndScribe(stone, targets);
             VerifyOverlappingHabitat(game, restoredFlora);
+            UndergroundAddressChecks.Run(game, directory.FullName);
         }
         finally
         {

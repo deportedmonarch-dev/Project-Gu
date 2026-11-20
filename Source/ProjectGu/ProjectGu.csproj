@@ -11,16 +11,19 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>../../1.7/Assemblies/</OutputPath>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <HarmonyPath Condition="'$(HarmonyPath)' == ''">$(RimWorldPath)/../../workshop/content/294100/2009463077/1.7/Assemblies/0Harmony.dll</HarmonyPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldPath)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Waylith"><HintPath>$(RimWorldPath)/Waylith.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityStubs"><HintPath>$(RimWorldPath)/UnityStubs.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(HarmonyPath)</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <Target Name="RequireRimWorld17" BeforeTargets="ResolveReferences">
     <Error Condition="'$(RimWorldPath)' == ''" Text="Set -p:RimWorldPath=YOUR_RIMWORLD_1.7_INSTALL_DIRECTORY (not Managed)." />
     <Error Condition="'$(RimWorldPath)' != '' and !Exists('$(RimWorldPath)/Assembly-CSharp.dll')" Text="Assembly-CSharp.dll missing from RimWorldPath. Is Steam running the 1.7 unstable branch?" />
     <Error Condition="'$(RimWorldPath)' != '' and !Exists('$(RimWorldPath)/Waylith.dll')" Text="Waylith.dll missing: this project requires RimWorld 1.7, not 1.6." />
     <Error Condition="'$(RimWorldPath)' != '' and !Exists('$(RimWorldPath)/UnityStubs.dll')" Text="UnityStubs.dll missing from the RimWorld 1.7 game root." />
+    <Error Condition="!Exists('$(HarmonyPath)')" Text="Pass -p:HarmonyPath=PATH_TO_1.7_0Harmony.dll or install the Harmony mod in the same Steam library as RimWorld." />
   </Target>
 </Project>

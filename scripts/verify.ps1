@@ -1,4 +1,4 @@
-param([string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld')
+param([string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld', [string]$HarmonyPath = '')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 
@@ -20,7 +20,7 @@ Assert-Gu ((@($about.ModMetaData.supportedVersions.li) -join ',') -eq '1.7') 'Su
 Assert-Gu ($project.Project.PropertyGroup.TargetFramework -eq 'net10.0') 'Incorrect target framework'
 Assert-Gu ($project.Project.PropertyGroup.OutputPath -eq '../../1.7/Assemblies/') 'Unexpected assembly output path'
 $references = @($project.Project.ItemGroup.Reference | ForEach-Object { $_.Include } | Sort-Object)
-Assert-Gu (($references -join ',') -eq 'Assembly-CSharp,UnityStubs,Waylith') 'Unexpected assembly references'
+Assert-Gu (($references -join ',') -eq '0Harmony,Assembly-CSharp,UnityStubs,Waylith') 'Unexpected assembly references'
 Assert-Gu ($null -ne $hediff.SelectSingleNode('//HediffDef[defName="GU_Aperture" and hediffClass="ProjectGu.Hediff_Aperture"]')) 'Aperture definition mismatch'
 $requiredFiles = @(
     'Source\ProjectGu\Hediff_Aperture.cs',
@@ -99,9 +99,11 @@ Assert-Gu ($popSource.Contains('IExposable')) 'Species population record is not 
 Assert-Gu ($ledgerSource.Contains('TryAddCohort')) 'Species-neutral cohort insertion missing'
 Write-Host 'PASS: Slice 2 cohort schema, legacy keys and migration guards structurally present.' -ForegroundColor Green
 
-& (Join-Path $PSScriptRoot 'build.ps1') -RimWorldPath $RimWorldPath
+& (Join-Path $PSScriptRoot 'build.ps1') -RimWorldPath $RimWorldPath -HarmonyPath $HarmonyPath
 if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Compilation failed.' }
 $verification = Join-Path $root 'tests\ProjectGu.Verification\ProjectGu.Verification.csproj'
-dotnet run --project $verification -c Release "-p:RimWorldPath=$RimWorldPath" -- $root $RimWorldPath
+$verificationReferences = @("-p:RimWorldPath=$RimWorldPath")
+if ($HarmonyPath) { $verificationReferences += "-p:HarmonyPath=$HarmonyPath" }
+dotnet run --project $verification -c Release @verificationReferences -- $root $RimWorldPath
 if ($LASTEXITCODE -ne 0) { throw 'Isolated cavern and spring verification failed.' }
 Write-Host 'Static checks, game-linked compilation, and isolated managed tests passed. Live acceptance is separate.' -ForegroundColor Green
