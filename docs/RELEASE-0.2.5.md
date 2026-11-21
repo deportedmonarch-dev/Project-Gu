@@ -1,6 +1,6 @@
 # Project GU 0.2.5 — release readiness
 
-**Status** — Prepared for owner review. **Not merged.** Merging into `main` requires explicit owner authorization.
+**Status** — The owner authorized the merge into `main` and the `v0.2.5` tag under gate G0 after reviewing `98bf468`.
 **Branch** — `feature/spirit-spring-ecology-visual-overhaul`
 **Target** — Windows RimWorld 1.7.5014 rev1195, Harmony 3.0.4, .NET SDK 10.0.401
 
@@ -56,7 +56,7 @@ These owner checks are documented and not yet recorded as complete.
 - Rendered hauling assignment, pause and Work priority controls, and cancellation while waiting to awaken. [Phase F](IMPLEMENTATION-0.2.5.md#phase-f-focused-regression)
 - Full-colony save baseline for empty cohort lists, unresolved species, old-save migration and repeated reloads. [Roadmap priority 1](ROADMAP.md#priorities-and-dependencies)
 
-The owner may accept these as post-merge checks because none blocks the V2 work. That decision belongs to the owner.
+**Owner decision.** The owner deferred these checks as post-merge development checks. They remain open and are not marked passed.
 
 ## Save compatibility
 
@@ -82,6 +82,6 @@ The owner may accept these as post-merge checks because none blocks the V2 work.
 - [x] Historical saves load from disposable copies with unchanged hashes.
 - [x] `About.xml` advertises 1.7 only.
 - [x] Build outputs and game DLLs are excluded from Git.
-- [ ] Owner merge authorization.
-- [ ] `v0.2.5` tag.
-- [ ] Owner decision on the outstanding manual checks.
+- [x] Owner merge authorization (gate G0).
+- [x] `v0.2.5` tag on the merge commit.
+- [x] Owner decision on the outstanding manual checks: deferred, still open.
