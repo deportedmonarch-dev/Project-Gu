@@ -1,6 +1,6 @@
 # RFC-0002 — Individual Gu identity and custody
 
-**Status** — Slice 3B implemented. Owner-rendered acceptance and merge authorization are pending.
+**Status** — Slice 3B implemented. The owner reported a rendered pass for the controlled lifecycle. The ordinary inventory follow-up and merge decision remain tracked separately.
 **Target** — RimWorld 1.7 / Waylith / .NET 10
 **Branch** — `feature/spirit-spring-ecology-visual-overhaul`
 
@@ -98,6 +98,14 @@ Inventory can use a non-stackable contained Thing handle where the engine needs 
 ## 5. Aperture, feeding, and management UI
 
 An aperture endpoint is bound to a persistent host and an aperture identity. Verify identity resolution across Hediff replacement and host travel. Aperture access, capacity and release eligibility depend on the host and species. Occupants are indexed from the canonical custody records. Host death, aperture loss, or a missing host triggers an explicit species/host outcome, with recoverable custody for unresolved cases. A beast host can offer an aperture or a separate biological host endpoint under explicit eligibility rules.
+
+### Physical custody, refinement and aperture rules
+
+Dormancy describes biological condition. Refinement allegiance has its own state, independent of condition and custody. Physical possession grants physical control of a Gu. Unrefined dormant Gu can be picked up and dropped through native inventory while the same canonical record authorizes each committed transfer.
+
+Ordinary mortal-aperture storage requires appropriately refined Gu. Entry of an unrefined Gu for refinement is a distinct action and process with its own rules and outcomes. The current Development Mode storage and withdrawal are infrastructure fixtures for exact holder binding, save/load and conservation.
+
+Immortal apertures and blessed lands are persistent internal physical environments. Refined and unrefined Gu can occupy those environments as dormant objects or active living creatures. Their physical custody identifies the environment or holder, and refinement allegiance remains a separate relationship.
 
 Feeding uses optional per-species rules. A rule describes acceptable inputs or environmental exposure, scheduling, and outcomes such as nourishment, dormancy, recovery, or death. Use known tick intervals and bounded elapsed-time processing. Keep hunger state only where the species needs it. A feeding result accounts for the real source and quantity consumed, the feeding method, and the resulting individual state.
 

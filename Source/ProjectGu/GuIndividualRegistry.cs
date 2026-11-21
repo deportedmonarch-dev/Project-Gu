@@ -18,7 +18,8 @@ namespace ProjectGu
 
         internal IReadOnlyList<GuIndividual> Individuals => individuals;
         internal bool CustodyTransitionInProgress { get; private set; }
-        private bool CanUseDevelopmentCustody => Prefs.DevMode && ready && GuCustodySaveGuard.Installed && !CustodyTransitionInProgress
+        private bool CanUseDevelopmentCustody => Prefs.DevMode && CanUseCustody;
+        private bool CanUseCustody => ready && GuCustodySaveGuard.Installed && !CustodyTransitionInProgress
             && !LongEventHandler.AnyEventNowOrWaiting && Scribe.mode == LoadSaveMode.Inactive;
 
         public override void ExposeData()

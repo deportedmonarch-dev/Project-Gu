@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using ProjectGu.Domain;
 using RimWorld;
 using Verse;
@@ -29,6 +30,21 @@ namespace ProjectGu
         }
 
         public override bool CanStackWith(Thing other) => false;
+
+        public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
+        {
+            foreach (var option in base.GetFloatMenuOptions(selPawn)) yield return option;
+            var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+            int revision = GuRevision;
+            if (registry?.CanOrderDormantPickup(this, revision, selPawn) != true
+                || DefDatabase<JobDef>.GetNamedSilentFail("GU_PickupDormant") is not { } jobDef) yield break;
+
+            yield return new FloatMenuOption($"Pick up {Label}", () =>
+            {
+                if (registry.CanOrderDormantPickup(this, revision, selPawn))
+                    selPawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(jobDef, this));
+            });
+        }
 
         public override void ExposeData()
         {

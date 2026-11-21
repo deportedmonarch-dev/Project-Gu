@@ -3,16 +3,30 @@ using System.Linq;
 using ProjectGu.Domain;
 using RimWorld;
 using Verse;
+using Verse.AI;
 
 namespace ProjectGu
 {
     public sealed partial class GuIndividualRegistry
     {
         internal bool TryTakeDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, out string reason) =>
-            TryMoveDormant(thing, expectedRevision, pawn, thing?.Position ?? IntVec3.Invalid, true, out reason);
+            TryMoveDormant(thing, expectedRevision, pawn, thing?.Position ?? IntVec3.Invalid, taking: true, ordinary: false, out reason);
 
         internal bool TryDropDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, IntVec3 cell, out string reason) =>
-            TryMoveDormant(thing, expectedRevision, pawn, cell, false, out reason);
+            TryMoveDormant(thing, expectedRevision, pawn, cell, taking: false, ordinary: false, out reason);
+
+        internal bool CanOrderDormantPickup(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn) =>
+            CanUseCustody && GuGearInventoryGuard.Installed && InventoryOf(pawn) is { } inventory && IsMapOwned(pawn)
+            && !pawn.Downed && pawn.IsColonistPlayerControlled && thing?.Map == pawn.Map
+            && Resolve(thing) is { } record && record.Custody.Kind == GuCustodyKind.DormantGround
+            && record.Revision == expectedRevision && expectedRevision != int.MaxValue && CanPack(pawn, inventory, thing)
+            && pawn.CanReserveAndReach(thing, PathEndMode.ClosestTouch, pawn.NormalMaxDanger());
+
+        internal bool TryPickUpDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, out string reason) =>
+            TryMoveDormant(thing, expectedRevision, pawn, thing?.Position ?? IntVec3.Invalid, taking: true, ordinary: true, out reason);
+
+        internal bool TryDropDormantFromGear(Thing_GuDormantProjection thing, Pawn pawn, out string reason) =>
+            TryMoveDormant(thing, thing.GuRevision, pawn, pawn?.Position ?? IntVec3.Invalid, taking: false, ordinary: true, out reason);
 
         private static ThingOwner InventoryOf(Pawn pawn) => pawn is { Dead: false, Destroyed: false, IsFreeColonist: true }
             && pawn.inventory is { } tracker && tracker.ParentHolder == pawn ? tracker.GetDirectlyHeldThings() : null;
@@ -28,27 +42,32 @@ namespace ProjectGu
             inventory.CanAcceptAnyOf(thing, false) && MassUtility.CountToPickUpUntilOverEncumbered(pawn, thing) >= 1;
 
         private bool TryMoveDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, IntVec3 cell,
-            bool taking, out string reason)
+            bool taking, bool ordinary, out string reason)
         {
             reason = "The Gu's source custody or revision is unavailable.";
-            if (!CanUseDevelopmentCustody || Resolve(thing) is not { } record || record.Revision != expectedRevision || expectedRevision == int.MaxValue
+            if (!(ordinary ? CanUseCustody && GuGearInventoryGuard.Installed : CanUseDevelopmentCustody)
+                || Resolve(thing) is not { } record || record.Revision != expectedRevision || expectedRevision == int.MaxValue
                 || record.Custody.Kind != (taking ? GuCustodyKind.DormantGround : GuCustodyKind.DormantInventory))
                 return false;
 
-            reason = "Choose a free colonist beside the Gu or the drop cell on the same map.";
+            reason = "The free colonist must be on the same map and within reach.";
             if (InventoryOf(pawn) is not { } inventory || !IsMapOwned(pawn)) return false;
             Map map = pawn.Map;
-            bool HolderReady() => IsMapOwned(pawn) && pawn.Map == map && pawn.Position.AdjacentToCardinal(cell)
-                && InventoryOf(pawn) == inventory;
+            bool nearDrop = ordinary && !taking;
+            bool HolderReady() => IsMapOwned(pawn) && pawn.Map == map && InventoryOf(pawn) == inventory
+                && (nearDrop ? pawn.Position == cell
+                    : ordinary ? !pawn.Downed && pawn.IsColonistPlayerControlled && pawn.CanReachImmediate(cell, PathEndMode.ClosestTouch)
+                    : pawn.Position.AdjacentToCardinal(cell));
             if (!HolderReady() || (taking ? !IsOnCell(thing, map, cell) : !IsInInventory(thing, inventory))) return false;
 
             bool CanTake() => CanPack(pawn, inventory, thing);
             reason = taking ? "The colonist's inventory has no room for the Gu." : "Choose an open cell for the dormant Gu.";
-            if (taking ? !CanTake() : !CanPlaceDormant(map, cell, null)) return false;
+            if (taking ? !CanTake() : !nearDrop && !CanPlaceDormant(map, cell, null)) return false;
             if (RejectConflictingProjection(record, thing, out reason)) return false;
 
             string pawnId = pawn.GetUniqueLoadID();
             bool committed = false;
+            IntVec3 placement = cell;
             CustodyTransitionInProgress = true;
             try
             {
@@ -60,11 +79,15 @@ namespace ProjectGu
                         thing.DeSpawnOrDeselect(DestroyMode.Vanish);
                         if (!IsDetached(thing) || !HolderReady() || !CanTake() || !inventory.TryAdd(thing, false)) return false;
                     }
-                    else if (!inventory.TryDrop(thing, cell, map, ThingPlaceMode.Direct, out Thing placed) || placed != thing)
-                        return false;
+                    else
+                    {
+                        if (!inventory.TryDrop(thing, cell, map, nearDrop ? ThingPlaceMode.Near : ThingPlaceMode.Direct, out Thing placed)
+                            || placed != thing) return false;
+                        if (nearDrop) placement = thing.Position;
+                    }
 
                     if (!HolderReady() || pawn.GetUniqueLoadID() != pawnId || !MatchesDormantThing(record, thing)
-                        || (taking ? !IsInInventory(thing, inventory) : !IsOnCell(thing, map, cell))) return false;
+                        || (taking ? !IsInInventory(thing, inventory) : !IsOnCell(thing, map, placement))) return false;
                 }
                 catch (Exception exception)
                 {
@@ -85,7 +108,8 @@ namespace ProjectGu
             {
                 try
                 {
-                    if (!committed && !RestoreInventoryTransfer(record, thing, pawn, inventory, map, cell, taking))
+                    if (nearDrop && thing.Spawned && thing.Map == map) placement = thing.Position;
+                    if (!committed && !RestoreInventoryTransfer(record, thing, pawn, inventory, map, placement, taking))
                         reason = "The original Gu custody could not be restored. The binding was quarantined.";
                 }
                 finally { CustodyTransitionInProgress = false; }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>GU_PickupDormant</defName>
+    <driverClass>ProjectGu.Jobs.JobDriver_GuPickupDormant</driverClass>
+    <reportString>picking up TargetA.</reportString>
+    <casualInterruptible>true</casualInterruptible>
+  </JobDef>
+</Defs>

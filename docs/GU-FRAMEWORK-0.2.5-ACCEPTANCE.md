@@ -1,6 +1,6 @@
 # Project GU 0.2.5 framework technical acceptance
 
-**Status** — Automated technical verification passed. The checkpoint is ready for owner-rendered acceptance. This slice changes verification fixtures and documentation.
+**Status** — Automated technical verification and owner-reported rendered acceptance passed for the controlled lifecycle. Ordinary inventory integration is tracked in the follow-up. [Implementation journal](IMPLEMENTATION-0.2.5.md#owner-acceptance-and-inventory-follow-up)
 
 ## Automated lifecycle verification
 
@@ -76,7 +76,7 @@ Run `scripts/verify-priority0-live.ps1 -Profile Slice3B5BPerf` to reproduce the 
 
 ## Owner acceptance and next milestone
 
-- **Rendered owner acceptance remains open.** In a disposable colony, check the Development Mode materialize, dormancy, inventory, aperture and release controls and readouts. Follow the Gu through an independent passage and reload, and inspect the quarantine diagnostic.
+- **Owner-reported rendered acceptance.** The owner completed Cohort → Wild → Dormant → Inventory → Aperture → Released Wild and reloaded successfully while the Gu was in aperture custody. The final inspection showed an active Rank 1 developer Gu at revision 5 with cohort provenance and its committed adult debit. The owner reported no red errors during that run. An earlier vanilla Gear drop exposed a separate custody mismatch. [Owner acceptance and inventory follow-up](IMPLEMENTATION-0.2.5.md#owner-acceptance-and-inventory-follow-up)
 - **DLC and third-party scope.** The individual lifecycle and performance runs use Core and Harmony. Underground verification additionally covers Core with Ideology and Core with Ideology plus Odyssey. Anomaly remains gated for native cleanup transitions. Broader DLC combinations, including Royalty and Biotech, and third-party lifecycle patches need their own validation.
 - **Future framework work.** Define explicit terminal lifecycle and recovery rules, then validate cohort and individual conservation for those outcomes. Larger aperture capacity, feeding, refinement, abilities and the cultivation interface remain separately scoped.
-- **Merge decision.** The tested scope has no outstanding automated blocker. Rendered acceptance and owner merge authorization remain open. The next milestone is owner-rendered acceptance of the 0.2.5 framework checkpoint, followed by a review of recovery and terminal lifecycle scope.
+- **Merge decision.** Review the ordinary pickup and Gear controls in a rendered disposable colony and obtain owner merge authorization. Recovery and terminal lifecycle scope follow that review.
