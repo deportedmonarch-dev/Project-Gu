@@ -1,6 +1,6 @@
 # Gu Framework V2 reconstruction plan
 
-**Status** — Proposed. Each phase starts only after its approval gate.
+**Status** — Gate G0 and gate G1 approved by the owner after review of `98bf468`. Phase 1 is in progress on `feature/gu-framework-v2`. Later gates remain open.
 **Architecture** — [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md) · [RFC-0005](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md) · [RFC-0006](RFC-0006-PERSISTENT-IMMORTAL-ENVIRONMENTS.md) · [Assessment](V2-SYSTEM-ASSESSMENT.md) · [Engine evidence](ENGINE-1.7-GU-V2-INVESTIGATION.md)
 
 ## Dependency-aware roadmap
@@ -27,7 +27,7 @@ flowchart TD
 | Phase | Scope | Exit evidence |
 |---|---|---|
 | **0** | Record 0.2.5 acceptance, prepare the release, publish the V2 architecture, add `V2EngineProbe`. | This document set. Owner decision on the 0.2.5 merge. |
-| **1** | `GuRecord` V2, pure `GuView` queries, reconciliation queue, `CompGuManifestation` with load-time self-registration, legacy classes as shells, V1 → V2 migrator, coordinator with V1 transaction mechanics. Ground and inventory moves stop being transitions. Remove the Gear guard. | All adapted Slice 3B profiles pass. `V2EngineProbe` shows no quarantine for downing, death, imprisonment, stripping or faction change. V1 checkpoint saves migrate. Benchmark ≤ V1 cost at 120 records. |
+| **1** | `GuRecord` V2 with independent facets, pure queries, reconciliation from events and a scheduled sweep, `CompGuManifestation` with load-time self-registration, legacy classes as loadable shells, transitional aperture identity (`guApertureId`), V1 → V2 migrator, coordinator reusing V1 transaction mechanics, adapted developer controls and underground protection. Ground and inventory moves stop being transitions. Remove the Gear guard only after the ordinary inventory fixtures pass on V2. | Adapted Slice 3B profiles pass with explained expectation changes. `V2EngineProbe` shows no quarantine for downing, death, imprisonment, stripping or faction change. Reads are pure. Rogue projections are rejected. V1 checkpoint saves migrate in every custody state. Historical saves load with unchanged hashes. 120-record benchmark compared with V1. |
 | **2** | Terminal outcomes from native hooks, `Unresolved` causes and policies, `TileAbstract` placement, world-pawn GC rule, operator recovery tools, tombstone retention. | `V2EngineProbe` records terminal outcomes for destruction and death and an unresolved, then resolved, outcome for map removal and world GC. Quarantine occurs only in the evidential cases. |
 | **3** | `CultivatorRecord`, `ApertureRecord`, `guApertureId`, the multi-occupant `MortalAperture` container, host death and resurrection recovery, NPC retention. | Resurrection restores occupants. 120 hosts with 10 Gu each meet the benchmark budget. NPC with aperture survives GC and reload. |
 | **4** | `GuProcess`, reservations, due-time scheduler, a developer test process. | Process survives reload mid-step, interruption outcomes, reservation conflicts. |
@@ -74,18 +74,18 @@ Saves written by V2 are not supported by V1 builds. The release notes will say s
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D0.1 | Merge `feature/spirit-spring-ecology-visual-overhaul` into `main` as 0.2.5. | Approve after reviewing [the release notes](RELEASE-0.2.5.md). |
-| D0.2 | Accept the development philosophy as recorded in [AGENTS.md](../AGENTS.md) and the [vision](PROJECT-VISION.md). | Approve. |
+| D0.1 | Merge `feature/spirit-spring-ecology-visual-overhaul` into `main` as 0.2.5. | **Approved.** Merged as `229df4e` and tagged `v0.2.5`. Outstanding manual checks deferred and still open. |
+| D0.2 | Accept the development philosophy as recorded in [AGENTS.md](../AGENTS.md) and the [vision](PROJECT-VISION.md). | **Approved.** |
 
 ### Gate G1 — before phase 1
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1.1 | Reconstruct the individual schema as V2 with migration. | Approve. V1 fails ordinary play. |
-| D1.2 | The engine is authoritative for the physical location of manifested Gu. Ground and inventory become derived locations. | Approve. |
-| D1.3 | Component-based manifestation with legacy classes kept as shells. | Approve. |
-| D1.4 | Separate `Unresolved` from evidential quarantine. | Approve. |
-| D1.5 | Remove the Gear guard and the special pickup transaction. | Approve. |
+| D1.1 | Reconstruct the individual schema as V2 with migration. | **Approved.** |
+| D1.2 | The engine is authoritative for the physical location of manifested Gu. Ground and inventory become derived locations. | **Approved**, with commit-time revalidation (RFC-0004 §15.1). |
+| D1.3 | Component-based manifestation with legacy classes kept as shells. | **Approved.** |
+| D1.4 | Separate `Unresolved` from evidential quarantine. | **Approved**, with RFC-0004 §15.4. |
+| D1.5 | Remove the Gear guard and the special pickup transaction. | **Approved conditionally.** Remove after the replacement passes the ordinary inventory fixtures. Keep right-click pickup. |
 | D1.6 | Should dormant Gu become haulable to stockpiles? | Defer to playtesting after phase 1. |
 
 ### Gate G2 — before phase 3

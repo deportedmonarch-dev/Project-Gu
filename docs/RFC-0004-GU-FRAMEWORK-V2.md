@@ -1,6 +1,6 @@
 # RFC-0004 — Gu Framework V2
 
-**Status** — Proposed. Awaiting owner approval. No production code has changed.
+**Status** — Accepted with the gate G1 amendments in [section 15](#15-gate-g1-amendments). Phase 1 implementation is authorized on `feature/gu-framework-v2`. Later phases and gameplay policies remain unapproved.
 **Target** — RimWorld 1.7 Waylith / .NET 10
 **Supersedes** — The data model and custody validation in [RFC-0002](RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md). RFC-0002's transaction discipline, conservation rules and event-key idempotency carry forward.
 **Companions** — [RFC-0005 cultivators and apertures](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md) · [RFC-0006 immortal environments](RFC-0006-PERSISTENT-IMMORTAL-ENVIRONMENTS.md) · [Engine investigation](ENGINE-1.7-GU-V2-INVESTIGATION.md) · [System assessment](V2-SYSTEM-ASSESSMENT.md) · [Reconstruction plan](V2-RECONSTRUCTION-PLAN.md)
@@ -110,11 +110,11 @@ record Unresolved(UnresolvedCause cause, GuLastKnown lastKnown, int sinceTick) :
 | `HostDead` | Aperture Hediff `Notify_PawnDied` | Recover on resurrection. Apply the species host-loss policy when the corpse is destroyed or the deadline passes. |
 | `HostCorpseDestroyed` | Hediff `Notify_PawnCorpseDestroyed` | Apply the host-loss policy immediately. |
 | `HostAbsent` | Host Pawn discarded or unresolved on load | Apply the host-loss policy. |
-| `MapRemoved` | Projection comp `Notify_MapRemoved` | Abstract into a tile-level record or end as `Lost`. |
-| `ProjectionMissingOnLoad` | No comp registered for a manifested record | Recover if the comp appears this load. Otherwise end as `Lost` with the evidence. |
+| `MapRemoved` | Projection comp `Notify_MapRemoved` | Phase 1 keeps the record unresolved with the evidence. Phase 2 policy may abstract it into tile custody. |
+| `ProjectionMissingOnLoad` | No authorized comp registered for a manifested record | Stays unresolved with any rogue candidates listed. Recovery is explicit. Absence of evidence is never a terminal outcome. |
 | `WorldRetired` | An active Gu Pawn became a world Pawn | Abstract into regional or tile custody, or retain by GC rule. |
 
-Unresolved records are inspectable and cannot act. They block uniqueness reuse and count toward conservation.
+Unresolved records are inspectable and cannot act. They keep their uniqueness reservation and count toward conservation. A missing species Def, host or projection never makes a record terminal by itself.
 
 ### 3.5 Quarantine as evidential integrity
 
@@ -136,7 +136,7 @@ A quarantined record keeps its raw data and blocks actions and uniqueness reuse.
 | `custodyRevision` | Manifest, unmanifest, contain, release, transfer between containers, rebind after recovery | Projection binding token. Stale requests for placement operations. |
 | `stateRevision` | Condition, rank, refinement, species state, existence | Processes and UI actions that depend on state. |
 
-Observed physical movement advances neither revision. Each operation declares the revisions it expects. Rejection, rollback, travel and reload preserve both. V1 `revision` becomes `custodyRevision`, and `stateRevision` starts at 1.
+Observed physical movement of an authorized manifestation advances neither revision. Each operation declares the revisions it expects, and also revalidates current physical location, accessibility, holder, allegiance and every other authorization condition at commit. A valid ID and unchanged revision are never sufficient on their own. Rejection, rollback, travel and reload preserve both revisions. V1 `revision` becomes `custodyRevision`, and `stateRevision` starts at 1.
 
 ## 5. Native manifestation and reconciliation
 
@@ -180,7 +180,7 @@ GuLocation Locate(in GuView view);                     // derived from the nativ
 IEnumerable<GuView> InContainer(GuContainerRef container);
 ```
 
-A view that detects a mismatch returns a `Suspect` flag and enqueues a reconciliation item. A budgeted pass in `GameComponentTick` processes the queue. Drawing, inspecting and building menus cannot change saves.
+Views report what they observe and never mutate records or enqueue work. Correctness never depends on whether the player opened a UI. Native hooks enqueue events, and a scheduled reconciliation sweep checks a bounded slice of records each interval. A budgeted pass in `GameComponentTick` applies both.
 
 ## 6. Containers
 
@@ -313,7 +313,7 @@ The interface reads `GuView`s and asks each capability for `GuActionDescriptor`s
 | `WildPawn`, Active | Living, Active, `Manifested(pawnLoadId, Pawn)` |
 | `DormantGround` | Living, Dormant, `Manifested(thingLoadId, Thing)` |
 | `DormantInventory` | Living, Dormant, `Manifested(thingLoadId, Thing)`. The holder becomes observed location. |
-| `Aperture` | Living, Dormant, `Contained(MortalAperture)`. The aperture ID is assigned to the Hediff found by the saved load ID. |
+| `Aperture` | Living, Dormant, `Contained(MortalAperture)`. The transitional aperture identity contract in [section 15](#15-gate-g1-amendments) assigns the container ID. |
 | Quarantine whose reason is an ordinary-gameplay mismatch | Re-evaluated. A live comp with the same ID and load ID rebinds. A dead host becomes `Unresolved(HostDead)`. A missing projection becomes `Unresolved(ProjectionMissingOnLoad)`. |
 | Quarantine whose reason is evidential, such as duplicates or an unsupported version | Remains quarantined with the legacy reason. |
 | Rank, provenance, event key and debit flag | Carried unchanged. |
@@ -351,3 +351,35 @@ These examples test the architecture. They do not define lore mechanics.
 ## 14. Decisions requested
 
 The [reconstruction plan](V2-RECONSTRUCTION-PLAN.md#owner-decisions-and-approval-gates) lists every owner decision. Approving this RFC means approving the record model, observed physical location, the component-based manifestation, the separation of unresolved and quarantine, and V1-to-V2 migration. Gameplay policies such as host loss, map-removal outcomes and tombstone retention remain separate decisions.
+
+## 15. Gate G1 amendments
+
+The owner approved Phase 1 with these requirements. They take precedence over earlier sections.
+
+### 15.1 Native physical movement
+
+Native movement of an authorized manifestation does not advance its custody revision. Every action and persistent process revalidates at commit the current physical location, accessibility, holder, refinement allegiance and other authorization conditions that apply to it. An unchanged revision proves only that the registry has not rebound the Gu. It does not prove the Gu is still reachable or permitted.
+
+### 15.2 Read purity
+
+Inspection, menu generation and read-model queries never mutate canonical records and never enqueue reconciliation work. Reconciliation runs from native lifecycle events and a scheduled sweep. Simulation results are identical whether or not the player opens a UI.
+
+### 15.3 Gear integration
+
+The V1 Gear guard stays installed until the V2 manifestation model passes the existing and expanded ordinary inventory fixtures. It is then removed. Ordinary right-click pickup stays available unless a better verified interaction replaces it.
+
+### 15.4 Unresolved states
+
+A record becomes terminal only after a demonstrated terminal event and an approved Phase 2 policy. Phase 1 records demonstrated events such as projection destruction, death or map removal as evidence on an unresolved record. A temporarily missing species Def, host or projection is absence of evidence and is never terminal. Unique Gu keep their uniqueness reservation while unresolved.
+
+### 15.5 Transitional aperture identity
+
+Phase 1 must migrate V1 aperture custody before Phase 3 builds cultivator and aperture records. The minimal durable contract is:
+
+- `Hediff_Aperture` saves a new `guApertureId` GUID. It is assigned when first needed and never changes.
+- A contained Gu saves the container kind `MortalAperture`, the container ID (`guApertureId`) and an anchor hint (the host Pawn load ID).
+- Resolution finds the host by the anchor hint, then the aperture Hediff with the matching ID. Host status (free colonist, prisoner, NPC) is checked by actions, not by binding.
+- Migration matches a V1 aperture record's saved Hediff load ID on its saved host and assigns the ID once.
+- Phase 3 `ApertureRecord` and `CultivatorRecord` adopt the same `guApertureId` without migrating Gu records again.
+
+Capacity stays one Gu per aperture in the Phase 1 developer fixture. The container data model already supports many occupants. Final capacity is a later balance decision.
