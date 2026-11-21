@@ -30,10 +30,10 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static bool Botanical => GenCommandLine.CommandLineArgPassed("gubotanical");
     private static bool CargoPrototype => GenCommandLine.CommandLineArgPassed("gucargoprototype");
     private static bool AutomaticHauling => GenCommandLine.CommandLineArgPassed("guautomatichauling");
-    private Action NewCheck => Slice3A ? ExerciseSlice3A : EmptyCavernReset ? ExerciseEmptyCavernReset
+    private Action NewCheck => Slice3B1 ? ExerciseSlice3B1 : Slice3A ? ExerciseSlice3A : EmptyCavernReset ? ExerciseEmptyCavernReset
         : AwakeningSafety ? ExerciseAwakening : Botanical ? ExerciseBotanical
         : CargoPrototype ? ExerciseCargoPrototype : AutomaticHauling ? ExerciseAutomaticHauling : GenerateAndExercise;
-    private Action ReloadCheck => Slice3A ? VerifySlice3AReload
+    private Action ReloadCheck => Slice3B1 ? VerifySlice3B1Reload : Slice3A ? VerifySlice3AReload
         : GenCommandLine.CommandLineArgPassed("gulegacy31") ? () => VerifyHistoricalSpring(31)
         : GenCommandLine.CommandLineArgPassed("gulegacy39") ? () => VerifyHistoricalSpring(39)
         : EmptyCavernReset ? VerifyEmptyCavernResetReload

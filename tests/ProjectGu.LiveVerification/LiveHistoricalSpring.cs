@@ -1,3 +1,4 @@
+using ProjectGu;
 using ProjectGu.Underground;
 using RimWorld;
 using Verse;
@@ -6,6 +7,8 @@ public sealed partial class LiveLifecycleChecks
 {
     private static void VerifyHistoricalSpring(int size)
     {
+        Check(IndividualRegistry.Individuals.Count == 0 && !PawnsFinder.All_AliveOrDead.OfType<Pawn_GuWildProjection>().Any(),
+            "A historical save loads an empty individual registry and creates no projections");
         bool originalPocket = size == 31;
         int expectedStones = originalPocket ? 19 : 24;
         var cave = Find.Maps.Single(map => map.Size.x == size && map.Size.z == size
@@ -38,6 +41,6 @@ public sealed partial class LiveLifecycleChecks
                 && endpoint.Resolve(site) == cave && site.Hauling == null,
                 "Historical independent level and route identity resolve with the new assignment off by default");
         }
-        Report($"Historical {size}x{size} cavern loaded with its original owner, terrain, {flora.Length} Building flora, reserve, 3 adult Hope Gu and {expectedStones} stones.");
+        Report($"Historical {size}x{size} cavern loaded with its original owner, terrain, {flora.Length} Building flora, reserve, 3 adult Hope Gu and {expectedStones} stones. The individual registry was empty.");
     }
 }

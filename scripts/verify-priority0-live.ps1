@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = ''
@@ -96,6 +96,7 @@ try {
             'CargoPrototype' { '-gucargoprototype' }
             'AutomaticHauling' { '-guautomatichauling' }
             'Slice3A' { '-guslice3a' }
+            'Slice3B1' { '-guslice3b1' }
             'Legacy31' { '-gulegacy31' }
             'Legacy39' { '-gulegacy39' }
             default { '' }
