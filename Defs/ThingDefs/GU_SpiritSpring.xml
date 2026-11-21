@@ -11,10 +11,11 @@
     <selectable>true</selectable>
     <alwaysHaulable>true</alwaysHaulable>
     <graphicData>
-      <texPath>ProjectGU/PrimevalStone</texPath>
-      <graphicClass>Graphic_Single</graphicClass>
+      <texPath>Things/Item/Resource/Silver</texPath>
+      <graphicClass>Graphic_StackCount</graphicClass>
+      <color>(255,235,211)</color>
     </graphicData>
-    <stackLimit>75</stackLimit>
+    <stackLimit>200</stackLimit>
     <drawGUIOverlay>true</drawGUIOverlay>
     <statBases>
       <MaxHitPoints>100</MaxHitPoints>
@@ -25,22 +26,33 @@
     <thingCategories>
       <li>ResourcesRaw</li>
     </thingCategories>
+    <comps>
+      <li Class="CompProperties_Forbiddable" />
+    </comps>
   </ThingDef>
   <ThingDef ParentName="BuildingBase">
     <defName>GU_SpiritSpring</defName>
     <label>spirit spring (prototype)</label>
-    <description>An exposed concentration of primeval energy. Produces one primeval stone per day while its map is active. For testing, place it with Development Mode's spawn-thing action. Awakening ceremonies function in the prototype; underground caverns are planned.</description>
+    <description>A concentration of primeval energy found in spirit spring caverns. An active spring spends its reserve to produce physical primeval stones. Its local Hope Gu can support natural awakening ceremonies.</description>
     <thingClass>Building</thingClass>
     <graphicData>
-      <texPath>ProjectGU/SpiritSpring</texPath>
+      <texPath>ProjectGU/SpiritSpringSeep</texPath>
       <graphicClass>Graphic_Single</graphicClass>
-      <drawSize>(2,2)</drawSize>
+      <drawSize>(2.5,2.5)</drawSize>
     </graphicData>
     <size>(2,2)</size>
     <passability>PassThroughOnly</passability>
     <fillPercent>0.1</fillPercent>
     <tickerType>Rare</tickerType>
     <comps>
+      <li Class="ProjectGu.Underground.CompProperties_GuCavernGlower">
+        <glowRadius>8.4</glowRadius>
+        <glowColor>(62,178,163,0)</glowColor>
+      </li>
+      <li Class="ProjectGu.Underground.CompProperties_GuBotanicalGlower">
+        <glowRadius>19</glowRadius>
+        <glowColor>(96,126,175,0)</glowColor>
+      </li>
       <li Class="ProjectGu.Springs.CompProperties_GuSpiritSpring">
         <productionIntervalTicks>60000</productionIntervalTicks>
         <stonesPerCycle>1</stonesPerCycle>
@@ -50,6 +62,19 @@
         <purityPercent>75</purityPercent>
         <habitatRadius>5</habitatRadius>
         <maxHopeGu>30</maxHopeGu>
+        <cavernHabitatRadius>9</cavernHabitatRadius>
+        <cavernGrowthIntervalTicks>30000</cavernGrowthIntervalTicks>
+        <cavernSupportUnitsPerPoint>5</cavernSupportUnitsPerPoint>
+        <cavernMaxFloraSupport>7</cavernMaxFloraSupport>
+        <cavernFlora>
+          <li><flora>GU_MoonOrchidHabitat</flora><targetPatches>5</targetPatches></li>
+          <li><flora>GU_SpiritGrassHabitat</flora><targetPatches>24</targetPatches></li>
+        </cavernFlora>
+        <botanicalHabitatRadius>16</botanicalHabitatRadius>
+        <botanicalCavernFlora>
+          <li><flora>GU_MoonOrchid</flora><targetPatches>5</targetPatches></li>
+          <li><flora>GU_SpiritGrass</flora><targetPatches>110</targetPatches></li>
+        </botanicalCavernFlora>
       </li>
     </comps>
   </ThingDef>

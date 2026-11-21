@@ -1,3 +1,4 @@
+using System;
 using Verse;
 using ProjectGu.Domain;
 using ProjectGu.Springs;
@@ -15,64 +16,100 @@ namespace ProjectGu
         public static bool TryAwakenAtSpring(Pawn pawn, CompGuSpiritSpring spring, out string result)
         {
             result = "The spirit spring is unavailable.";
-            if (pawn == null || pawn.Dead || spring == null || !spring.parent.Spawned ||
-                pawn.Map != spring.parent.Map) return false;
-            GuWorldComponent world = Current.Game?.GetComponent<GuWorldComponent>();
-            GuPawnRecord record = world?.GetOrCreate(pawn);
-            if (record == null) return false;
-            if (record.State != AwakeningState.Unattempted)
-            {
-                result = "This person has already undergone awakening.";
-                return false;
-            }
-            if (spring.HopeGuAvailable <= 0)
-            {
-                result = "No Hope Gu are available at the spirit spring.";
-                return false;
-            }
-            // The existing authoritative service owns the one-way transition.
-            // Both successful and failed natural attempts consume one Hope Gu.
-            if (!TryAwaken(world, pawn, out result)) return false;
-            spring.TryConsumeHopeGu();
-            return true;
+            return CanUseSpring(pawn, spring)
+                && TryAwaken(Current.Game?.GetComponent<GuWorldComponent>(), pawn, spring, out result);
         }
 
-        public static bool TryAwaken(GuWorldComponent world, Pawn pawn, out string result)
+        public static bool TryAwaken(GuWorldComponent world, Pawn pawn, out string result) =>
+            TryAwaken(world, pawn, null, out result);
+
+        private static bool CanUseSpring(Pawn pawn, CompGuSpiritSpring spring) =>
+            pawn != null && !pawn.Dead && spring?.parent?.Spawned == true && pawn.Map == spring.parent.Map;
+
+        private static bool TryAwaken(GuWorldComponent world, Pawn pawn, CompGuSpiritSpring spring, out string result)
         {
             result = "Invalid humanlike pawn or missing cultivation registry.";
             if (world == null || pawn == null || pawn.Dead) return false;
-            GuPawnRecord record = world.GetOrCreate(pawn);
-            if (record == null) return false;
-            if (record.State == AwakeningState.Awakened)
+            if (!world.TryBeginAwakening(pawn))
             {
-                result = "Already awakened. No duplicate aperture created.";
+                result = "This person is already undergoing awakening.";
                 return false;
             }
-            if (record.State == AwakeningState.Failed)
+
+            Hediff_Aperture aperture = null;
+            bool committed = false;
+            try
             {
-                result = "This pawn has already failed their natural awakening attempt.";
-                return false;
-            }
-            // On failure, a pawn has no aptitude rather than D-grade aptitude.
-            if (record.LatentAptitude == 0)
-            {
-                record.State = AwakeningState.Failed;
+                GuPawnRecord record = world.GetOrCreate(pawn);
+                if (record == null) return false;
+                if (record.State != AwakeningState.Unattempted)
+                {
+                    result = spring != null ? "This person has already undergone awakening."
+                        : record.State == AwakeningState.Awakened ? "Already awakened. No duplicate aperture created."
+                        : "This pawn has already failed their natural awakening attempt.";
+                    return false;
+                }
+                if (spring != null && spring.HopeGuAvailable <= 0)
+                {
+                    result = "No Hope Gu are available at the spirit spring.";
+                    return false;
+                }
+
+                bool opensAperture = record.LatentAptitude != 0;
+                if (opensAperture)
+                {
+                    result = "Could not add aperture. Awakening state was not changed.";
+                    aperture = world.CreateAperture(pawn, record.LatentAptitude);
+                    if (aperture == null) return false;
+                    // Native AddHediff can throw from callbacks after inserting the object.
+                    pawn.health.AddHediff(aperture);
+                    if (pawn.Dead || !pawn.health.hediffSet.hediffs.Contains(aperture)) return false;
+                }
+
+                string outcome = opensAperture
+                    ? "Aperture opened: " + AptitudeRules.Grade(record.LatentAptitude) +
+                        "-grade (" + record.LatentAptitude + "/100)."
+                    : "Awakening failed: no aperture formed.";
+                if (spring != null)
+                {
+                    if (!CanUseSpring(pawn, spring))
+                    {
+                        result = "The spirit spring is unavailable.";
+                        return false;
+                    }
+                    if (!spring.TryConsumeHopeGu())
+                    {
+                        result = "No Hope Gu are available at the spirit spring.";
+                        return false;
+                    }
+                }
+
+                // The debit and record assignment are synchronous and invoke no engine callbacks.
+                record.State = opensAperture ? AwakeningState.Awakened : AwakeningState.Failed;
+                committed = true;
+                result = outcome;
+                // These health markers are derived from the committed record. Discovery retries them.
                 world.SyncMortalStatus(pawn, record);
-                result = "Awakening failed: no aperture formed.";
                 return true;
             }
-            // Only commit the transition after the health system actually owns
-            // the aperture; avoid a half-awakened state if a def is missing.
-            if (!world.AddAperture(pawn, record.LatentAptitude))
+            catch (Exception exception)
             {
-                result = "Could not add aperture. Awakening state was not changed.";
-                return false;
+                Log.Error($"[Project GU] Awakening for {pawn} encountered an error. {exception}");
+                if (!committed) result = "The awakening ceremony was interrupted.";
+                return committed;
             }
-            record.State = AwakeningState.Awakened;
-            world.SyncMortalStatus(pawn, record);
-            result = "Aperture opened: " + AptitudeRules.Grade(record.LatentAptitude) +
-                     "-grade (" + record.LatentAptitude + "/100).";
-            return true;
+            finally
+            {
+                try
+                {
+                    if (!committed && aperture != null && pawn.health.hediffSet.hediffs.Contains(aperture))
+                        pawn.health.RemoveHediff(aperture);
+                }
+                finally
+                {
+                    world.EndAwakening(pawn);
+                }
+            }
         }
     }
 }

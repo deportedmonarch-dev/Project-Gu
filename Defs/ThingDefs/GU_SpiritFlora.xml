@@ -1,14 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
-  <!-- Generic support flora. Artwork reuses the prototype orchid texture until dedicated assets exist. -->
   <ThingDef ParentName="BuildingBase">
     <defName>GU_SpiritGrassHabitat</defName>
-    <label>spirit grass habitat (prototype)</label>
-    <description>Nondescript spirit-fed growth. Supports local Gu ecology independently of clan-specific species.</description>
+    <label>spirit grass patch</label>
+    <description>Low tufts of silver-green spirit grass. Wild patches take root in spring-fed ground and provide shelter for local Gu.</description>
     <thingClass>Building</thingClass>
-    <graphicData><texPath>ProjectGU/MoonOrchidHabitat</texPath><graphicClass>Graphic_Single</graphicClass><drawSize>(1,1)</drawSize></graphicData>
+    <tickerType>Never</tickerType>
+    <graphicData>
+      <texPath>ProjectGU/SpiritGrass</texPath>
+      <graphicClass>Graphic_Random</graphicClass>
+      <drawSize>(1.48,1.48)</drawSize>
+    </graphicData>
     <size>(1,1)</size><passability>Standable</passability><fillPercent>0</fillPercent>
     <statBases><MaxHitPoints>60</MaxHitPoints><Flammability>0.2</Flammability></statBases>
-    <comps><li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora"><support>2</support><ecologyProfile>generic</ecologyProfile></li></comps>
+    <building>
+      <claimable>false</claimable>
+      <expandHomeArea>false</expandHomeArea>
+    </building>
+    <comps>
+      <li Class="ProjectGu.Underground.CompProperties_GuCavernGlower">
+        <glowRadius>1.8</glowRadius>
+        <glowColor>(31,75,54,0)</glowColor>
+      </li>
+      <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">
+        <support>2</support>
+        <ecologyProfile>generic</ecologyProfile>
+        <cavernSupportUnits>1</cavernSupportUnits>
+        <growthSoils><li>SoilRich</li><li>MarshyTerrain</li></growthSoils>
+        <waterRange>4</waterRange>
+      </li>
+    </comps>
   </ThingDef>
 </Defs>

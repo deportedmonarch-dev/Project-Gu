@@ -8,6 +8,7 @@
 *.log
 
 # Local developer state
+/local-references/
 .vscode/
 *.csproj.user
 *.rsav

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef Name="GU_PassageHaulJob" Abstract="True">
+    <suspendable>false</suspendable>
+    <dropThingBeforeJob>false</dropThingBeforeJob>
+  </JobDef>
+  <JobDef ParentName="GU_PassageHaulJob">
+    <defName>GU_PassageHaulTravel</defName>
+    <driverClass>ProjectGu.Underground.JobDriver_GuPocketProbeTravel</driverClass>
+    <reportString>using the underground passage for hauling.</reportString>
+  </JobDef>
+  <JobDef ParentName="GU_PassageHaulJob">
+    <defName>GU_PassageHaulPack</defName>
+    <driverClass>ProjectGu.Underground.JobDriver_GuPassageHaulPack</driverClass>
+    <reportString>packing TargetA for surface transport.</reportString>
+  </JobDef>
+  <JobDef ParentName="GU_PassageHaulJob">
+    <defName>GU_PassageHaulStore</defName>
+    <driverClass>ProjectGu.Underground.JobDriver_GuPassageHaulStore</driverClass>
+    <reportString>storing TargetA brought up from underground.</reportString>
+  </JobDef>
+  <WorkGiverDef>
+    <defName>GU_PassageHaul</defName>
+    <label>haul underground cargo</label>
+    <giverClass>ProjectGu.Underground.WorkGiver_GuPassageHaul</giverClass>
+    <workType>Hauling</workType>
+    <priorityInType>16</priorityInType>
+    <verb>haul</verb>
+    <gerund>hauling</gerund>
+    <requiredCapacities>
+      <li>Manipulation</li>
+    </requiredCapacities>
+  </WorkGiverDef>
+</Defs>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="ResourceBase">
+    <defName>GU_Slice3A_ProbeThing</defName>
+    <label>Gu custody probe item</label>
+    <description>Disposable test item for native holder and save verification.</description>
+    <thingClass>Slice3ProbeThing</thingClass>
+    <stackLimit>1</stackLimit>
+    <alwaysHaulable>false</alwaysHaulable>
+    <graphicData>
+      <texPath>Things/Item/Resource/Silver</texPath>
+      <graphicClass>Graphic_StackCount</graphicClass>
+    </graphicData>
+    <statBases><Mass>0.1</Mass></statBases>
+  </ThingDef>
+</Defs>

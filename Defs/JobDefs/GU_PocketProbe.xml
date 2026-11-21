@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>GU_PocketProbeTravel</defName>
+    <driverClass>ProjectGu.Underground.JobDriver_GuPocketProbeTravel</driverClass>
+    <dropThingBeforeJob>false</dropThingBeforeJob>
+    <reportString>using the pocket probe passage.</reportString>
+  </JobDef>
+</Defs>

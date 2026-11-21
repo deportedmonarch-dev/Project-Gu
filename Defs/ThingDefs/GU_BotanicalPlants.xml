@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="PlantBaseNonEdible">
+    <defName>GU_SpiritGrass</defName>
+    <label>spirit grass</label>
+    <description>Fine silver-green grass that carpets fertile cavern banks and provides shelter for wild Gu.</description>
+    <selectable>true</selectable>
+    <graphicData>
+      <texPath>ProjectGU/SpiritGrassBank</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+    </graphicData>
+    <statBases>
+      <MaxHitPoints>60</MaxHitPoints>
+      <Flammability>0.2</Flammability>
+    </statBases>
+    <plant>
+      <growDays>2.5</growDays>
+      <growMinGlow>0</growMinGlow>
+      <growOptimalGlow>0</growOptimalGlow>
+      <minGrowthTemperature>-10</minGrowthTemperature>
+      <minOptimalGrowthTemperature>5</minOptimalGrowthTemperature>
+      <fertilityMin>0.7</fertilityMin>
+      <fertilitySensitivity>0.3</fertilitySensitivity>
+      <maxMeshCount>9</maxMeshCount>
+      <visualSizeRange>0.25~0.50</visualSizeRange>
+      <topWindExposure>0.2</topWindExposure>
+      <neverBlightable>true</neverBlightable>
+    </plant>
+    <comps>
+      <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">
+        <support>0</support>
+        <cavernSupportUnits>24</cavernSupportUnits>
+        <cavernSupportFullAt>110</cavernSupportFullAt>
+        <growthSoils><li>GU_PrimevalQiRichSoil</li><li>MarshyTerrain</li></growthSoils>
+      </li>
+    </comps>
+  </ThingDef>
+  <ThingDef ParentName="PlantBaseNonEdible">
+    <defName>GU_MoonOrchid</defName>
+    <label>moon orchid</label>
+    <description>A blue-violet orchid that grows on primeval qi-rich soil even in darkness. It can be sown in growing zones.</description>
+    <selectable>true</selectable>
+    <graphicData>
+      <texPath>ProjectGU/MoonOrchid</texPath>
+    </graphicData>
+    <statBases>
+      <MaxHitPoints>60</MaxHitPoints>
+      <Flammability>0.25</Flammability>
+    </statBases>
+    <plant>
+      <growDays>5</growDays>
+      <growMinGlow>0</growMinGlow>
+      <growOptimalGlow>0</growOptimalGlow>
+      <minGrowthTemperature>-10</minGrowthTemperature>
+      <minOptimalGrowthTemperature>5</minOptimalGrowthTemperature>
+      <fertilityMin>0.7</fertilityMin>
+      <sowTags><li>Ground</li></sowTags>
+      <wildTerrainTags><li>GU_PrimevalQiRich</li></wildTerrainTags>
+      <maxMeshCount>1</maxMeshCount>
+      <visualSizeRange>0.40~1.15</visualSizeRange>
+      <neverBlightable>true</neverBlightable>
+    </plant>
+    <comps>
+      <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">
+        <support>0</support>
+        <ecologyProfile>moon</ecologyProfile>
+        <cavernSupportUnits>3</cavernSupportUnits>
+        <growthSoils><li>GU_PrimevalQiRichSoil</li></growthSoils>
+        <minimumSpacing>3</minimumSpacing>
+      </li>
+    </comps>
+  </ThingDef>
+</Defs>

@@ -4,7 +4,9 @@ An experimental *Reverend Insanity*-inspired Gu cultivation framework for **RimW
 
 ## Current validated baseline: Prototype 0.2.4
 
-The 0.2.4 **compile-hotfix** source is the latest player-tested baseline. The project maintainer reported **10/10 in-game tests passing** on this version. This repository's initial state is intended as a stable starting point for the **0.2.5 Gu Framework architecture review**, not a public 1.0 release. This source snapshot has not been compiled in the repository-preparation environment; the Windows RimWorld 1.7 game assemblies are required.
+The 0.2.4 **compile-hotfix** source is the stable prototype baseline. The project maintainer reported **10/10 in-game tests passing** on that version. The 0.2.5 development branch adds species and cohorts, independently saved spring caverns, native Spirit Grass and Moon Orchids, and primeval qi-rich soil. Existing pocket maps retain their ownership. Native verification targets RimWorld 1.7.5014 rev1195. [Spring ecology](docs/UNDERGROUND-SPIRIT-SPRING.md), [Priority 0 report](docs/UNDERGROUND-INDEPENDENT-LEVELS.md).
+
+0.2.5 is prepared for owner review and is not yet merged. [Release readiness](docs/RELEASE-0.2.5.md). Its Development Mode individual Gu framework (Schema V1) is provisional and scheduled for reconstruction. [Gu Framework V2 plan](docs/V2-RECONSTRUCTION-PLAN.md).
 
 Working prototype systems include:
 - Mortal/unawakened/failed statuses, hidden aptitude and persistent Gu Master apertures
@@ -13,12 +15,13 @@ Working prototype systems include:
 - Spirit flora support, mature/juvenile Hope Gu populations and ecological capacity
 - Save migration and development testing controls
 
-**Known limitations:** No universal Gu species framework yet; no roaming physical Gu, spontaneous flora propagation, underground pocket-map integration, fully implemented region rules, or Ideology ritual adapter. Current test parameters are provisional and not always canon-calibrated.
+Roaming physical Gu, regional simulation and an Ideology ritual adapter remain proposed. The underground map lifecycle report separates verified transitions from remaining gameplay acceptance.
 
 ## Requirements
 
 - Windows RimWorld **1.7** installation, with `Assembly-CSharp.dll`, `Waylith.dll`, `UnityStubs.dll` in the game root
 - **.NET SDK 10**
+- **Harmony for RimWorld 1.7**, loaded before Project GU
 - Windows PowerShell
 
 ## Build and install
@@ -31,19 +34,19 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\install.ps1
 ```
 
-`verify.ps1` runs PowerShell structural checks then builds. Only install after a successful build. Build outputs in `1.7/Assemblies/` are **intentionally excluded from Git**. Do not commit game binaries, SDK files, compiled DLLs, game logs, saves, or private data.
+`verify.ps1` runs PowerShell structural checks, compiles against the local game and runs isolated tests against the installed assemblies. `install.ps1` performs a fresh build in a private output directory before copying the mod. A failed build stops installation before it touches the deployed mod. Both scripts accept `-RimWorldPath` and `-HarmonyPath` for custom Steam library locations. Build outputs in `1.7/Assemblies/` are **intentionally excluded from Git**. Do not commit game binaries, SDK files, compiled DLLs, game logs, saves, or private data.
 
 For focused gameplay testing, enable **Core + Project GU** and follow `docs/RELEASE-0.2.4.md`, plus earlier release test plans.
 
 ## Development workflow
 
 1. Use the current passing build as the reference baseline; commit changes on a dedicated branch.
-2. For **0.2.5**, write and review a Gu Framework RFC **before implementing**.
+2. Review substantial architecture decisions and obtain owner approval for gameplay scope before implementing.
 3. For each feature: verify/build, install, test in-game, check save/load and regressions, fix bugs before advancing.
 4. Preserve `About/packageId`, Def identifiers, serialized Scribe keys, and save migration behavior.
 5. Keep Gu ecology authoritative and avoid duplicating physical Gu during population ↔ instance conversions.
 
-See `AGENTS.md` for repository-agent guidance and `docs/` for existing specifications and test plans.
+See [engineering instructions](AGENTS.md), [architecture](ARCHITECTURE.md), [project vision](docs/PROJECT-VISION.md), and the [roadmap](docs/ROADMAP.md) for current direction and verification status.
 
 ## Legal / attribution
 

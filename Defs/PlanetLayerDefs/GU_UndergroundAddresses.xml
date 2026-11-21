@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <PlanetLayerDef>
+    <defName>GU_UndergroundAddresses</defName>
+    <label>underground addresses</label>
+    <layerType>ProjectGu.Underground.GuUndergroundAddressLayer</layerType>
+    <tileType>ProjectGu.Underground.GuUndergroundAddressTile</tileType>
+    <viewGizmoTexPath>PlaceholderImage</viewGizmoTexPath>
+    <defaultBiome>Underground</defaultBiome>
+    <alwaysRaycastable>false</alwaysRaycastable>
+    <obstructsExpandingIcons>false</obstructsExpandingIcons>
+    <canFormCaravans>false</canFormCaravans>
+    <onlyAllowWhitelistedIncidents>true</onlyAllowWhitelistedIncidents>
+    <onlyAllowWhitelistedGameConditions>true</onlyAllowWhitelistedGameConditions>
+    <onlyAllowWhitelistedArrivals>true</onlyAllowWhitelistedArrivals>
+    <onlyAllowWhitelistedArrivalModes>true</onlyAllowWhitelistedArrivalModes>
+    <onlyAllowWhitelistedQuests>true</onlyAllowWhitelistedQuests>
+  </PlanetLayerDef>
+</Defs>

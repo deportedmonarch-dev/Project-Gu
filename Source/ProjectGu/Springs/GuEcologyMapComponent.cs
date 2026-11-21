@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Verse;
 
 namespace ProjectGu.Springs
@@ -8,11 +9,60 @@ namespace ProjectGu.Springs
     {
         private readonly HashSet<CompGuSpiritSpring> springs = new HashSet<CompGuSpiritSpring>();
         public GuEcologyMapComponent(Map map) : base(map) { }
-        public void Register(CompGuSpiritSpring spring) { if (spring != null) springs.Add(spring); }
-        public void Unregister(CompGuSpiritSpring spring) { if (spring != null) springs.Remove(spring); }
+
+        internal bool ContainsSpring(CompGuSpiritSpring spring) => springs.Contains(spring);
+
+        internal bool HasOtherSpringWithId(CompGuSpiritSpring spring) => springs.Any(other =>
+            other != spring && other.parent.Spawned && other.parent.Map == map && other.HabitatId == spring.HabitatId);
+
+        public void Register(CompGuSpiritSpring spring)
+        {
+            if (spring == null || !springs.Add(spring)) return;
+            // Never merge cohorts by ID: spring ThingComps remain authoritative.
+            foreach (CompGuSpiritSpring other in springs)
+            {
+                if (other == null || ReferenceEquals(other, spring)) continue;
+                if (!string.IsNullOrEmpty(spring.HabitatId) &&
+                    spring.HabitatId == other.HabitatId)
+                    Log.ErrorOnce("[Project GU] Duplicate spring habitat ID detected: " + spring.HabitatId,
+                        spring.HabitatId.GetHashCode());
+                other.NotifySpringChanged(spring);
+            }
+        }
+        public void Unregister(CompGuSpiritSpring spring)
+        {
+            if (!springs.Remove(spring)) return;
+            NotifyHabitatRangeChanged(spring);
+        }
+
+        internal void NotifyHabitatRangeChanged(CompGuSpiritSpring spring)
+        {
+            foreach (CompGuSpiritSpring other in springs)
+                if (other != spring) other.NotifySpringChanged(spring);
+        }
+
+        internal CompGuSpiritSpring HabitatOwnerAt(IntVec3 cell)
+        {
+            CompGuSpiritSpring owner = null;
+            int distance = int.MaxValue;
+            foreach (CompGuSpiritSpring spring in springs)
+            {
+                if (!spring.parent.Spawned || spring.parent.Map != map || !spring.HabitatContains(cell))
+                    continue;
+                int candidate = (spring.parent.Position - cell).LengthHorizontalSquared;
+                if (owner == null || candidate < distance
+                    || (candidate == distance && spring.parent.thingIDNumber < owner.parent.thingIDNumber))
+                {
+                    owner = spring;
+                    distance = candidate;
+                }
+            }
+            return owner;
+        }
+
         public void NotifyFloraChanged(IntVec3 cell)
         {
-            // One event per changed plant; only nearby springs recalculate. No per-tick map scan.
+            // Batch invalidation until a nearby spring needs its support or ticks.
             foreach (var spring in springs)
                 spring.NotifyNearbyFloraChanged(cell);
         }

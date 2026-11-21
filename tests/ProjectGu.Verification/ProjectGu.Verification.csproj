@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Source/ProjectGu/ProjectGu.csproj" />
+    <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldPath)/Assembly-CSharp.dll</HintPath></Reference>
+    <Reference Include="Waylith"><HintPath>$(RimWorldPath)/Waylith.dll</HintPath></Reference>
+    <Reference Include="UnityStubs"><HintPath>$(RimWorldPath)/UnityStubs.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

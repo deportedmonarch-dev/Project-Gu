@@ -15,5 +15,7 @@ for new in ('guReserve024','guMatureHope024','guJuvenileHope024','guNextEcology0
     assert new in source
 for name in ('GuEcologyMapComponent.cs','CompGuSpiritFlora.cs','CompProperties_GuSpiritFlora.cs'):
     assert (root/'Source/ProjectGu/Springs'/name).is_file()
-assert (root/'Textures/ProjectGU/MoonOrchidHabitat.png').is_file()
+for asset in ('MoonOrchid/ColonyA.png', 'MoonOrchid/ColonyB.png', 'SpiritGrass/PatchA.png',
+              'SpiritGrass/PatchB.png', 'SpiritGrass/PatchC.png', 'SpiritGrass/PatchD.png'):
+    assert (root/'Textures/ProjectGU'/asset).is_file()
 print('PASS: all defs parse; generic flora and spring comps declared; save keys preserved; ecology source/assets exist.')

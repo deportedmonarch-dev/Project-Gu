@@ -62,6 +62,18 @@ namespace ProjectGu
             }
         }
 
+        public override void PostRemoved()
+        {
+            base.PostRemoved();
+            Current.Game?.GetComponent<GuIndividualRegistry>()?.NotifyApertureLost(this, "The bound aperture was removed.");
+        }
+
+        public override void Notify_PawnDied(DamageInfo? dinfo, Hediff culprit)
+        {
+            base.Notify_PawnDied(dinfo, culprit);
+            Current.Game?.GetComponent<GuIndividualRegistry>()?.NotifyApertureLost(this, "The aperture host died.");
+        }
+
         public override string TipStringExtra =>
             "Aptitude: " + AptitudeGrade + (HasExtremePhysique
                 ? " (" + ExtremePhysiqueId + ")"

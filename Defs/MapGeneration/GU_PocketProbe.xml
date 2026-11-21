@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ProjectGu.Underground.GuPocketSiteDef>
+    <defName>GU_PocketProbe</defName>
+    <label>pocket probe cavern</label>
+    <generator>GU_PocketProbeCavern</generator>
+    <endpoint>GU_PocketProbeEndpoint</endpoint>
+    <mapSize>31</mapSize>
+  </ProjectGu.Underground.GuPocketSiteDef>
+  <MapGeneratorDef>
+    <defName>GU_PocketProbeCavern</defName>
+    <label>pocket probe cavern</label>
+    <isUnderground>true</isUnderground>
+    <disableCallAid>true</disableCallAid>
+    <pocketMapProperties>
+      <biome>Underground</biome>
+      <temperature>18</temperature>
+      <destroyOnParentMapAbandoned>false</destroyOnParentMapAbandoned>
+    </pocketMapProperties>
+    <genSteps>
+      <li>GU_PocketProbeChamber</li>
+    </genSteps>
+  </MapGeneratorDef>
+  <GenStepDef>
+    <defName>GU_PocketProbeChamber</defName>
+    <order>210</order>
+    <genStep Class="ProjectGu.Underground.GenStep_GuPocketProbe">
+      <floor>Concrete</floor>
+      <boundaryRock>Granite</boundaryRock>
+      <exit>GU_PocketProbeEndpoint</exit>
+    </genStep>
+  </GenStepDef>
+</Defs>

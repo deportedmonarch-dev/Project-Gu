@@ -1,64 +1,49 @@
-# Living Society Roadmap — Project GU (RimWorld 1.7)
+# Project GU roadmap
 
-## Target: RimWorld 1.7 only
-Beta-to-stable compatibility is managed by tests, not guaranteed. See COMPATIBILITY-1.7.md.
+Target RimWorld 1.7 Waylith / .NET 10. See [project vision](PROJECT-VISION.md) for design requirements and [architecture](../ARCHITECTURE.md) for current save ownership and open defects.
 
-## North star
-A world of autonomous cultivators with ambitions, scarcity, loyalties, institutions and consequences. Every Gu system should create a social or economic choice, not merely another combat stat.
+## Delivered milestones
 
-## Core gameplay loop
-Work / negotiate / steal resources -> cultivate/refine -> compete for status -> interact with clan rivals -> alter relations -> world reacts.
+| Milestone | Implementation | Verification |
+|---|---|---|
+| Prototype 0.1–0.2.4 | Aptitude, mortal status, apertures, awakening, spirit springs, haulable primeval stones, and finite-reserve Hope Gu ecology. | The owner reported 10/10 in-game checks for the 0.2.4 compile-hotfix. |
+| 0.2.5 Slice 1 | XML species catalog and validation. | The owner reported 12/12 in-game checks after the fully qualified Def XML fix. |
+| 0.2.5 Slice 2 | Species-keyed spring cohorts, legacy migration, habitat IDs, and a second developer test cohort. | The owner reported 10/10 in-game checks. The test plan lists additional cases. Explicit build output for the slice remains pending. |
+| Slice 2 save-integrity follow-up | Handles ambiguous cohorts, preserves unresolved species data, and prevents population overflow. | Structural and managed migration checks passed. Phase F covers native Hope Gu persistence in the historical cavern saves. |
+| Underground spring ecology and visual overhaul | Expanded generation, rope passages, physical flora with bounded regrowth, and native primeval-stone stacking. | Windows RimWorld 1.7.5014 rev1195 build and managed tests passed, including 5,760 layout and flora seeds. Separate live ecology and visual acceptance remains open. See [spring verification](UNDERGROUND-SPIRIT-SPRING.md#verification-and-release-limits). |
+| Priority 0 underground ownership | An independent engine parent for each new spring level, a saved route graph, native pocket compatibility, and occupant recovery. | Alpha technical acceptance passed on RimWorld 1.7.5014 rev1195. See the [live evidence and remaining compatibility checks](UNDERGROUND-INDEPENDENT-LEVELS.md). |
+| 0.2.5 Phase A | Ideology colony reset retains and seals an independent cavern with physical resources when its surface colony is removed. | The rendered native reset and fresh-process reload retained the original cavern and a single 137-stone stack. See [underground lifecycle evidence](UNDERGROUND-INDEPENDENT-LEVELS.md). |
+| 0.2.5 Phase B | Completed natural awakening consumes one mature Hope Gu. The service rolls back provisional aperture creation on abort and guards against reentry. | A focused Core native game fixture verified both outcomes, callback failure, depletion, repeat attempts, and fresh-process reload. See the [awakening verification](IMPLEMENTATION-0.2.5.md#phase-b-awakening-conservation). |
+| 0.2.5 Phase C | Select native Plant Defs for new flora, retain saved Building Defs, and use terrain tags for Qi-rich ground sowing. | The [botanical decision](BOTANICAL-FOUNDATION.md) records the installed 1.7 assembly and Anima Grass Def evidence. Live growth, sowing, and appearance belong to Phase D. |
+| 0.2.5 Phase D | New caverns grow native Spirit Grass fields and Moon Orchids on primeval qi-rich soil. The spring credits the botanical field at seven support and capacity 17. | Core native sowing, damage recovery, generation retry and reload passed. Both profiles passed 5,760 seeded layouts. See [botanical verification and owner checks](UNDERGROUND-SPIRIT-SPRING.md#verification-and-release-limits). |
+| 0.2.5 Phase E | Player-controlled automatic hauling uses real stacks, native Pawn inventory and surface storage on the independent spring route. | The disposable Core fixture delivered 66 stones across successive shipments and partial storage, including a reload with packed cargo. [Player controls and verification](UNDERGROUND-SPIRIT-SPRING.md#automatic-hauling). |
+| 0.2.5 spring visual revision | Mossy Qi-rich floor, basin-centered grass, open cultivation pad, layered ecosystem lighting, a natural seep sprite, and real southern water outputs. | Seeded and native Core checks passed. The owner reviewed the updated cavern. [Spring visual verification](UNDERGROUND-SPIRIT-SPRING.md#verification-and-release-limits). |
+| 0.2.5 Phase F | Focused regression of underground travel and lifecycle, cargo, plants, spring production, cohorts and awakening. | 14 native stages passed on 1.7.5014, including the historical 31×31 and 39×39 saves. [Technical results and remaining owner checks](IMPLEMENTATION-0.2.5.md#phase-f-focused-regression). |
+| 0.2.5 Slice 3B-1 | Versioned individual registry, exact wild Pawn binding, quarantine and Development Mode controls. | Native creation, fresh-process reload, ten quarantine cases and both historical saves passed. [Slice 3B-1 verification](IMPLEMENTATION-0.2.5.md#slice-3b-1--individual-identity-and-wild-pawn-binding). |
+| 0.2.5 Slice 3B-2 | Development wild-to-dormant custody transition with reversible staging and guarded native retirement. | Actual Gu Pawn retirement, blocked and interrupted placement, cleanup quarantine, fresh-process reload and existing passage travel passed. [Slice 3B-2 verification](IMPLEMENTATION-0.2.5.md#slice-3b-2--wild-gu-dormancy). |
+| 0.2.5 Slice 3B-3A | Development pickup and drop bind the same dormant Thing to the ground or the exact native colonist inventory. | Native rollback, save reentry, stale requests, fresh-process reload and passage travel passed. [Slice 3B-3A verification](IMPLEMENTATION-0.2.5.md#slice-3b-3a--physical-gu-inventory-custody). |
+| 0.2.5 Slice 3B-3B | One-slot record-only aperture custody and native inventory withdrawal at the exact Pawn and Hediff. | Native interruption, endpoint loss, replacement, passage travel and fresh-process reload passed. [Slice 3B-3B verification](IMPLEMENTATION-0.2.5.md#slice-3b-3b--exact-aperture-custody). |
+| 0.2.5 Slice 3B-4 | Active release from exact aperture custody completes the development Gu lifecycle. | The same identity survived release, both fresh-process reloads, interrupted placement and last-access protection. [Slice 3B-4 verification](IMPLEMENTATION-0.2.5.md#slice-3b-4--active-gu-release). |
+| 0.2.5 Slice 3B-5A | A checked habitat debit materializes one adult into a species-defined wild Pawn with stable event provenance. | Exact habitat and revision checks, quarantine, conservation, fresh-process replay and passage travel passed in the native fixture. [Slice 3B-5A verification](IMPLEMENTATION-0.2.5.md#slice-3b-5a--cohort-materialization). |
+| 0.2.5 Slice 3B-5B | Technical acceptance for cohort materialization through released wild custody and a matched 120-record benchmark. | 40 native stages passed. The benchmark kept one Gu per aperture and measured persistence and registry cost with zero physical Gu. [Technical acceptance](GU-FRAMEWORK-0.2.5-ACCEPTANCE.md). |
+| 0.2.5 owner acceptance | Rendered controlled lifecycle, including aperture save and reload. | Owner reported an active Rank 1 developer Gu at revision 5 with cohort provenance and adult debit retained, and no red errors during the successful run. [Owner evidence and inventory follow-up](IMPLEMENTATION-0.2.5.md#owner-acceptance-and-inventory-follow-up). |
+| 0.2.5 ordinary inventory acceptance | Ordinary pickup and Gear drop outside Development Mode. | The owner reported 10/10. The relayed screenshot showed a Rank 1 developer Gu at revision 7 in `DormantInventory` custody with no reported quarantine. `VanillaGuInventory` passed separately. [Release readiness](RELEASE-0.2.5.md#ordinary-inventory-acceptance). |
+| V2 engine investigation | `V2EngineProbe` characterization of native death, downing, imprisonment, stripping, destruction, map removal and world-pawn GC against Schema V1. | Native run on 1.7.5014 rev1195 with fresh-process reload: all 11 scenario records quarantined. A comp read V1 keys on 7 of 7 projections. [Engine investigation](ENGINE-1.7-GU-V2-INVESTIGATION.md). |
 
-## Prototype milestones
+Evidence and test plans are recorded in the [0.2.4 release](RELEASE-0.2.4.md), [0.2.5 journal](IMPLEMENTATION-0.2.5.md), and [Slice 2 test plan](TEST-SLICE-0.2.5-2.md).
 
-### 0.1 — Aptitude / Aperture (this repository)
-- Persistent per-pawn aptitude, rank and essence.
-- Humanlike pawns on loaded maps initialized periodically.
-- Developer validation via health tooltip.
-- Not yet in-game tested; compilation and smoke-test required.
+## Priorities and dependencies
 
-### 0.2 — Autonomous cultivation
-- New needs: breakthrough ambition, aptitude-limited advancement.
-- Scheduled NPC cultivation (bounded work, no full-map scan every tick).
-- Cultivation journal to record decisions and consequences.
-- World NPCs and caravans coverage.
+Discretionary visual work is frozen following the owner's cavern review. Current development priorities are functional systems and persistence.
 
-### 0.3 — Scarcity and the clan treasury
-- Primeval stone economy, expenditure tracking, reserve budgets.
-- Contribution points and clan reward tiers.
-- Competition among NPC disciples for limited resources.
-- Tests: if supply falls, behavior *changes*.
+1. **Complete the live save baseline.** The current spring branch builds and passes isolated fixtures against actual RimWorld 1.7 assemblies. Verify intentionally empty lists, unresolved species, old-save migration and repeated reloads in a full colony. Native awakening verification covers a depleted Hope Gu cohort after reload.
+2. **Retain the Priority 0 lifecycle baseline.** Use the [lifecycle matrix](UNDERGROUND-INDEPENDENT-LEVELS.md) when extending the independent map and route model to future site kinds. Generated independent levels stay loaded, with an eight-level cap. Map dormancy is deferred.
+3. **0.2.5 is merged and tagged `v0.2.5`.** The owner deferred the outstanding manual checks as open post-merge development checks. [Release readiness](RELEASE-0.2.5.md)
+4. **Reconstruct the individual framework as Schema V2.** Schema V1 is a provisional development foundation. The [reconstruction plan](V2-RECONSTRUCTION-PLAN.md) sequences the V2 record and migration, lifecycle outcomes, cultivator and aperture identity, processes, refinement, capabilities and environments behind owner approval gates. [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md) · [RFC-0005](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md) · [RFC-0006](RFC-0006-PERSISTENT-IMMORTAL-ENVIRONMENTS.md)
+5. **Sequence further gameplay on V2.** Species-specific feeding, refinement, a player cultivation interface, abilities, regional ecology, and genesis policies need scoped designs. Autonomous cultivation, clan economies and politics, and large emergent-society playtests are longer-term directions with no committed release numbering.
 
-### 0.4 — Social hierarchy and politics
-- Ranks: initiate, disciple, elder, clan head (independent of cultivation rank).
-- Faction loyalty, grievances, patronage, succession and reputation.
-- Events: denied promotion, stolen resources, faction split.
-- Tests: NPCs initiate politics without player input.
+Future refinement work must model allegiance independently of biological dormancy and physical custody. Ordinary pickup and drop apply to unrefined dormant Gu. Mortal-aperture storage requires appropriately refined Gu, and introducing an unrefined Gu for refinement is a distinct process. The Development Mode aperture transfer remains a custody fixture. Treat immortal apertures and blessed lands as persistent physical environments that can hold refined and unrefined Gu in active or dormant form. [Approved design](PROJECT-VISION.md) · [Custody and refinement rules](RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md#physical-custody-refinement-and-aperture-rules)
 
-### 0.5 — Gu ecology / refinement
-- Five functional Gu with feeding and decay pressures.
-- Recipe-driven refinement, failure and resource markets.
-- NPC valuation and trading based on needs.
+## Verification gates
 
-### 0.6 — Emergent story playtest
-- One settlement, 15–30 cultivators, a rival faction and a resource shortage.
-- Observe a simulated season without directly intervening.
-- Success when NPCs cultivate, compete, ally, betray and change status plausibly.
-
-## Architecture
-- Data layer: XML Defs for Gu, cultivation paths, clan rules.
-- Persistence: per-pawn aperture Hediff; separate faction/world state components as needed.
-- Decision layer: bounded action scoring for NPC goals; avoid language-model calls at runtime.
-- Events: append-only social events (resource requests, disputes, promotion, theft).
-- UI: pawn cultivation tab + clan treasury panel (later).
-- Testing: deterministic pure logic tests, in-game smoke tests, save/load, performance.
-
-## Avoid premature scope
-No Immortal Gu, Dao marks, hundreds of Gu, gigantic maps, elaborate graphics or online multiplayer until the NPC society loop is compelling.
-
-## First learning sequence
-1. Read `About/About.xml` and `Defs/HediffDefs/GU_Aperture.xml`.
-2. Trace `GuWorldComponent.GameComponentTick()`.
-3. Trace `Hediff_Aperture.Initialize()`, `Tick()`, and `ExposeData()`.
-4. Build, observe a pawn, save/reload, compare aptitude.
-5. Change probability weights, rebuild and test on a *new* pawn.
+For code or Def changes, run relevant structural checks and full compilation against actual 1.7 game assemblies when available. For save or gameplay changes, use focused in-game tests and backed-up regression saves. Record the build, environment, cases and outcome. Separate owner-reported evidence from automated and independently observed results. Cloud checks and harnesses with Verse stubs leave the game-linked gate open. The owner controls gameplay acceptance and any merge into main. Claude review is optional for high-risk architectural choices.
