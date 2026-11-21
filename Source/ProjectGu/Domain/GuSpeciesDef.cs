@@ -13,6 +13,7 @@ namespace ProjectGu.Domain
         public int minRank = 1;
         public int maxRank = 1;
         public bool wildPopulationEnabled;
+        public PawnKindDef wildProjectionKind;
 
         // Extensible metadata only: tags do not execute behaviors.
         public List<string> pathTags = new List<string>();
@@ -34,6 +35,9 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: minRank must be between 1 and 9";
             if (maxRank < minRank || maxRank > 9)
                 yield return $"{defName}: maxRank must be between minRank and 9";
+            if (wildProjectionKind != null && (wildProjectionKind.race?.thingClass is not { } pawnClass
+                || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)))
+                yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race";
             foreach (string error in ValidateTags(pathTags, "pathTags")) yield return error;
             foreach (string error in ValidateTags(habitatTags, "habitatTags")) yield return error;
             foreach (string error in ValidateTags(capabilityTags, "capabilityTags")) yield return error;

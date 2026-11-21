@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BaseHare">
+    <defName>GU_DevTestWildGu</defName>
+    <label>test wild Gu</label>
+    <description>Development projection for testing a wild Gu's individual identity.</description>
+    <thingClass>ProjectGu.Pawn_GuWildProjection</thingClass>
+    <race>
+      <hasGenders>false</hasGenders>
+      <canBePredatorPrey>false</canBePredatorPrey>
+      <lifeStageAges Inherit="False">
+        <li><def>AnimalAdult</def><minAge>0</minAge></li>
+      </lifeStageAges>
+    </race>
+    <tradeTags Inherit="False" />
+  </ThingDef>
+  <PawnKindDef ParentName="AnimalKindBase">
+    <defName>GU_DevTestWildGu</defName>
+    <label>test wild Gu</label>
+    <race>GU_DevTestWildGu</race>
+    <combatPower>1</combatPower>
+    <ecoSystemWeight>0</ecoSystemWeight>
+    <isFighter>false</isFighter>
+    <canArriveManhunter>false</canArriveManhunter>
+    <lifeStages>
+      <li>
+        <bodyGraphicData>
+          <texPath>Things/Pawn/Animal/Hare/Hare</texPath>
+          <drawSize>1</drawSize>
+        </bodyGraphicData>
+        <dessicatedBodyGraphicData>
+          <texPath>Things/Pawn/Animal/Hare/Dessicated_Hare</texPath>
+          <drawSize>1</drawSize>
+        </dessicatedBodyGraphicData>
+      </li>
+    </lifeStages>
+  </PawnKindDef>
+</Defs>
