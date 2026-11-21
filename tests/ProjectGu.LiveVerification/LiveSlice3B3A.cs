@@ -248,6 +248,9 @@ public sealed partial class LiveLifecycleChecks
         var species = DefDatabase<GuSpeciesDef>.GetNamed("GU_DevTestSpringGu");
         var cell = OpenInventoryCell(neighbor);
         Check(registry.TrySpawnDevelopmentGu(species, neighbor.Map, cell, out var wild), "Created the actual development Gu beside the colonist");
+        // Native Pawn generation can age the fixture into a condition that correctly blocks retirement.
+        foreach (Hediff condition in wild.health.hediffSet.hediffs.ToArray())
+            wild.health.RemoveHediff(condition);
         Check(registry.TryMakeDormant(wild, wild.GuRevision, cell, out var thing, out string reason), $"Created the original dormant Thing. {reason}");
         return thing;
     }

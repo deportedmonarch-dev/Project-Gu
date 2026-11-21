@@ -17,7 +17,7 @@ namespace ProjectGu
             dormant = null;
             reason = "The Gu's wild binding or revision is unavailable.";
             if (!Prefs.DevMode || CustodyTransitionInProgress || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
-                || Resolve(pawn) is not { } record || record.Revision != expectedRevision) return false;
+                || Resolve(pawn) is not { } record || record.Revision != expectedRevision || expectedRevision == int.MaxValue) return false;
             if (!GuCustodySaveGuard.Installed || ModsConfig.AnomalyActive)
             {
                 reason = "The native dormancy safeguards are unavailable for this game configuration.";
@@ -29,13 +29,7 @@ namespace ProjectGu
                 reason = "The development Gu must be an unowned, unharmed wild Pawn with empty equipment and inventory.";
                 return false;
             }
-            if (HasConflictingProjection(record, pawn))
-            {
-                reason = "Another projection claims this Gu ID or native owner.";
-                record.Quarantine(reason);
-                Unbind(record, pawn);
-                return false;
-            }
+            if (RejectConflictingProjection(record, pawn, out reason)) return false;
 
             Map map = pawn.Map;
             IntVec3 origin = pawn.Position;
@@ -69,6 +63,7 @@ namespace ProjectGu
                 }
 
                 record.CommitDormancy(staged.GetUniqueLoadID());
+                staged.InitializeBinding(record);
                 committed = true;
                 Unbind(record, pawn);
 

@@ -10,7 +10,7 @@ namespace ProjectGu
     public sealed partial class GuIndividualRegistry : GameComponent
     {
         private List<GuIndividual> individuals = new();
-        private readonly Dictionary<string, Thing> byId = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, (GuIndividual Record, Thing Projection)> byId = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<Thing, GuIndividual> byProjection = new();
         private bool ready;
 
@@ -18,6 +18,8 @@ namespace ProjectGu
 
         internal IReadOnlyList<GuIndividual> Individuals => individuals;
         internal bool CustodyTransitionInProgress { get; private set; }
+        private bool CanUseDevelopmentCustody => Prefs.DevMode && ready && GuCustodySaveGuard.Installed && !CustodyTransitionInProgress
+            && !LongEventHandler.AnyEventNowOrWaiting && Scribe.mode == LoadSaveMode.Inactive;
 
         public override void ExposeData()
         {
@@ -36,21 +38,51 @@ namespace ProjectGu
         {
             byId.Clear();
             byProjection.Clear();
+            byAperture.Clear();
             if (individuals.Count > 0)
             {
                 var records = individuals.Where(record => record != null).ToArray();
                 var recordsById = records.ToLookup(record => record.Id, StringComparer.OrdinalIgnoreCase);
-                var recordsByOwner = records.ToLookup(record => record.Custody.NativeOwnerId, StringComparer.Ordinal);
-                var projections = FindProjections().Distinct().ToArray();
+                var recordsByOwner = records.Where(record => record.Custody.Kind != GuCustodyKind.Aperture)
+                    .ToLookup(record => record.Custody.NativeOwnerId, StringComparer.Ordinal);
+                var apertureClaims = records.Where(record => record.Custody.Kind == GuCustodyKind.Aperture)
+                    .ToLookup(record => record.Custody);
+                var pawns = PawnsFinder.All_AliveOrDead;
+                var hostsById = apertureClaims.Count == 0 ? null
+                    : pawns.Distinct().ToLookup(pawn => pawn.GetUniqueLoadID(), StringComparer.Ordinal);
+                var projections = FindProjections(pawns).Distinct().ToArray();
                 var projectionsById = projections.ToLookup(thing => ((IGuProjection)thing).GuId, StringComparer.OrdinalIgnoreCase);
                 var projectionsByOwner = projections.ToLookup(thing => thing.GetUniqueLoadID(), StringComparer.Ordinal);
 
                 foreach (GuIndividual record in records)
                 {
                     if (record.IsQuarantined) continue;
-                    var endpoints = projectionsByOwner[record.Custody.NativeOwnerId];
                     string error = RecordError(record);
-                    if (error == null && (recordsById[record.Id].Count() != 1 || recordsByOwner[record.Custody.NativeOwnerId].Count() != 1))
+                    if (error == null && recordsById[record.Id].Count() != 1)
+                        error = "Multiple records claim this Gu ID or native owner.";
+                    if (error != null)
+                    {
+                        record.Quarantine(error);
+                        continue;
+                    }
+
+                    var custody = record.Custody;
+                    if (custody.Kind == GuCustodyKind.Aperture)
+                    {
+                        var hosts = hostsById[custody.HolderPawnId];
+                        var aperture = hosts.Count() == 1 ? FindExactAperture(hosts.Single(), custody.NativeOwnerId) : null;
+                        if (apertureClaims[custody].Count() != 1)
+                            record.Quarantine("Multiple records claim this exact aperture slot.");
+                        else if (projectionsById[record.Id].Any())
+                            record.Quarantine("An aperture-held Gu still has a physical projection.");
+                        else if (aperture == null)
+                            record.Quarantine("The exact live aperture and host could not be resolved.");
+                        else BindAperture(record, aperture);
+                        continue;
+                    }
+
+                    var endpoints = projectionsByOwner[custody.NativeOwnerId];
+                    if (recordsByOwner[custody.NativeOwnerId].Count() != 1)
                         error = "Multiple records claim this Gu ID or native owner.";
                     if (error == null && (projectionsById[record.Id].Count() > 1 || endpoints.Count() > 1))
                         error = "Multiple Gu projections claim this Gu ID or native owner.";
@@ -64,13 +96,25 @@ namespace ProjectGu
             ready = true;
         }
 
-        private static bool HasConflictingProjection(GuIndividual record, Thing projection) =>
-            FindProjections().Any(thing => thing != projection && (thing.GetUniqueLoadID() == record.Custody.NativeOwnerId
-                || string.Equals(((IGuProjection)thing).GuId, record.Id, StringComparison.OrdinalIgnoreCase)));
-
-        private static IEnumerable<Thing> FindProjections()
+        private bool RejectConflictingProjection(GuIndividual record, Thing projection, out string reason)
         {
-            var pawns = PawnsFinder.All_AliveOrDead;
+            reason = null;
+            if (!FindProjections().Any(thing => thing != projection && (thing.GetUniqueLoadID() == record.Custody.NativeOwnerId
+                || string.Equals(((IGuProjection)thing).GuId, record.Id, StringComparison.OrdinalIgnoreCase)))) return false;
+
+            reason = "Another projection claims this Gu ID or native owner.";
+            if (projection == null) QuarantineAperture(record, reason);
+            else
+            {
+                record.Quarantine(reason);
+                Unbind(record, projection);
+            }
+            return true;
+        }
+
+        private static IEnumerable<Thing> FindProjections(IEnumerable<Pawn> pawns = null)
+        {
+            pawns ??= PawnsFinder.All_AliveOrDead;
             foreach (var pawn in pawns.OfType<Pawn_GuWildProjection>()) yield return pawn;
             var dormantDefs = DefDatabase<GuSpeciesDef>.AllDefsListForReading.Select(species => species.dormantProjectionDef)
                 .Where(def => def != null).Distinct().ToArray();
@@ -102,6 +146,8 @@ namespace ProjectGu
                     && record.Custody.HolderPawnId == null => null,
                 GuCustodyKind.DormantInventory when record.BiologicalState == GuBiologicalState.Dormant
                     && !string.IsNullOrWhiteSpace(record.Custody.HolderPawnId) => null,
+                GuCustodyKind.Aperture when record.BiologicalState == GuBiologicalState.Dormant
+                    && !string.IsNullOrWhiteSpace(record.Custody.HolderPawnId) => null,
                 _ => "Unsupported or invalid Gu custody."
             };
         }
@@ -132,7 +178,7 @@ namespace ProjectGu
 
         private void Bind(GuIndividual record, Thing projection)
         {
-            byId.Add(record.Id, projection);
+            byId.Add(record.Id, (record, projection));
             byProjection.Add(projection, record);
         }
 
@@ -142,7 +188,11 @@ namespace ProjectGu
             byProjection.Remove(projection);
         }
 
-        internal GuIndividual Resolve(string id) => id != null && byId.TryGetValue(id, out var thing) ? Resolve(thing) : null;
+        internal GuIndividual Resolve(string id)
+        {
+            if (!ready || CustodyTransitionInProgress || id == null || !byId.TryGetValue(id, out var binding)) return null;
+            return binding.Projection == null ? ResolveApertureBinding(binding.Record) : Resolve(binding.Projection);
+        }
 
         internal GuIndividual Resolve(Thing thing)
         {

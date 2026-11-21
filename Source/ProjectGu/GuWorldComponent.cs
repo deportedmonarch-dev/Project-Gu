@@ -17,7 +17,7 @@ namespace ProjectGu
         private readonly HashSet<Pawn> awakeningInProgress = new HashSet<Pawn>();
         private static HediffDef MortalDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_MortalUnawakened");
         private static HediffDef FailedDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_MortalNoAptitude");
-        private static HediffDef ApertureDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_Aperture");
+        internal static HediffDef ApertureDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_Aperture");
 
         public GuWorldComponent(Game game) { }
 

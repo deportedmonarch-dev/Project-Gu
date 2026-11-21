@@ -120,6 +120,7 @@ public sealed partial class LiveLifecycleChecks
             {
                 discardAttempts++;
                 Check(record.Custody.Kind == GuCustodyKind.DormantGround && record.BiologicalState == GuBiologicalState.Dormant
+                    && record.Revision == initial.Revision + 1
                     && !source.Spawned && source.CurJob == null && !cave.reservationManager.IsReserved(target),
                     "Canonical custody committed and reservations cleared before native discard");
                 Check(!registry.TryMakeDormant(source, initial.Revision, target, out _, out _), "Retirement callback cannot reenter the transition");
@@ -131,8 +132,9 @@ public sealed partial class LiveLifecycleChecks
                 && !Find.TaleManager.AnyTaleConcerns(source), "The actual Gu retirement invoked native discard and health cleanup once, without death or a corpse");
             CheckOldPawnAbsent(originalPawnId);
             Check(registry.Resolve(dormant) == record && registry.Resolve(source) == null && dormant.Position == target
-                && Snapshot(record) == initial with { Biology = GuBiologicalState.Dormant, Custody = new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()) },
-                "Dormancy preserves the same record, ID, provenance, species, rank and revision");
+                && Snapshot(record) == initial with { Biology = GuBiologicalState.Dormant, Revision = initial.Revision + 1,
+                    Custody = new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()) },
+                "Dormancy preserves the same record, ID, provenance, species and rank and advances its revision once");
             Check(!registry.TryMakeDormant(source, initial.Revision, target, out _, out _)
                 && discardAttempts == 1 && GroundDormantGu().Single() == dormant, "A repeated action creates no second projection or discard");
             healthy = new(Snapshot(record), originalPawnId, null);

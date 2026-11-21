@@ -5,7 +5,7 @@ namespace ProjectGu.Domain
 {
     public enum GuBiologicalState { Active = 1, Dormant = 2 }
 
-    public enum GuCustodyKind { WildPawn = 1, DormantGround = 2, DormantInventory = 3 }
+    public enum GuCustodyKind { WildPawn = 1, DormantGround = 2, DormantInventory = 3, Aperture = 4 }
 
     public readonly record struct GuCustody(GuCustodyKind Kind, string NativeOwnerId, string HolderPawnId = null);
 
@@ -68,20 +68,20 @@ namespace ProjectGu.Domain
         internal void CommitDormancy(string thingId)
         {
             biologicalState = (int)GuBiologicalState.Dormant;
-            custodyKind = (int)GuCustodyKind.DormantGround;
-            nativeOwnerId = thingId;
+            CommitCustody(new(GuCustodyKind.DormantGround, thingId));
         }
 
-        internal void CommitDormantTransfer(string pawnId)
+        internal void CommitCustody(GuCustody custody)
         {
-            custodyKind = (int)(pawnId == null ? GuCustodyKind.DormantGround : GuCustodyKind.DormantInventory);
-            holderPawnId = pawnId;
+            custodyKind = (int)custody.Kind;
+            nativeOwnerId = custody.NativeOwnerId;
+            holderPawnId = custody.HolderPawnId;
             revision++;
         }
 
         internal string DebugDescription => $"Gu {id ?? "(missing ID)"} | {speciesDefName} rank {rank} | revision {revision}"
             + $"\nCustody: {Custody.Kind} ({nativeOwnerId}) | {BiologicalState}"
-            + (holderPawnId == null ? "" : $"\nInventory holder: {holderPawnId}")
+            + (holderPawnId == null ? "" : $"\nHolder Pawn: {holderPawnId}")
             + (IsQuarantined ? $"\nQuarantined: {quarantineReason}" : "");
 
         public void ExposeData()

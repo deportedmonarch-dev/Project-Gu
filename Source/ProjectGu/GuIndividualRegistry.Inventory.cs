@@ -24,13 +24,14 @@ namespace ProjectGu
         private static bool IsOnCell(Thing thing, Map map, IntVec3 cell) =>
             IsMapOwned(thing) && thing.Map == map && thing.Position == cell && cell.GetThingList(map).Contains(thing);
 
+        private static bool CanPack(Pawn pawn, ThingOwner inventory, Thing thing) =>
+            inventory.CanAcceptAnyOf(thing, false) && MassUtility.CountToPickUpUntilOverEncumbered(pawn, thing) >= 1;
+
         private bool TryMoveDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, IntVec3 cell,
             bool taking, out string reason)
         {
             reason = "The Gu's source custody or revision is unavailable.";
-            if (!Prefs.DevMode || !GuCustodySaveGuard.Installed || CustodyTransitionInProgress
-                || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
-                || Resolve(thing) is not { } record || record.Revision != expectedRevision || expectedRevision == int.MaxValue
+            if (!CanUseDevelopmentCustody || Resolve(thing) is not { } record || record.Revision != expectedRevision || expectedRevision == int.MaxValue
                 || record.Custody.Kind != (taking ? GuCustodyKind.DormantGround : GuCustodyKind.DormantInventory))
                 return false;
 
@@ -41,16 +42,10 @@ namespace ProjectGu
                 && InventoryOf(pawn) == inventory;
             if (!HolderReady() || (taking ? !IsOnCell(thing, map, cell) : !IsInInventory(thing, inventory))) return false;
 
-            bool CanTake() => inventory.CanAcceptAnyOf(thing, false) && MassUtility.CountToPickUpUntilOverEncumbered(pawn, thing) >= 1;
+            bool CanTake() => CanPack(pawn, inventory, thing);
             reason = taking ? "The colonist's inventory has no room for the Gu." : "Choose an open cell for the dormant Gu.";
             if (taking ? !CanTake() : !CanPlaceDormant(map, cell, null)) return false;
-            if (HasConflictingProjection(record, thing))
-            {
-                reason = "Another projection claims this Gu ID or native owner.";
-                record.Quarantine(reason);
-                Unbind(record, thing);
-                return false;
-            }
+            if (RejectConflictingProjection(record, thing, out reason)) return false;
 
             string pawnId = pawn.GetUniqueLoadID();
             bool committed = false;
@@ -79,7 +74,8 @@ namespace ProjectGu
                 }
 
                 // Both writes are field updates. Native callbacks cannot observe a half-committed binding.
-                record.CommitDormantTransfer(taking ? pawnId : null);
+                record.CommitCustody(new(taking ? GuCustodyKind.DormantInventory : GuCustodyKind.DormantGround,
+                    record.Custody.NativeOwnerId, taking ? pawnId : null));
                 thing.InitializeBinding(record);
                 committed = true;
                 reason = null;
