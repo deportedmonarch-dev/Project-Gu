@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -12,7 +13,7 @@ namespace ProjectGu.Springs
     /// stay readable; an explicit migration migrates the old Hope Gu charges once.
     /// No off-map regeneration, and the observable population is currently aggregated.
     /// </summary>
-    public sealed partial class CompGuSpiritSpring : ThingComp
+    public sealed partial class CompGuSpiritSpring : ThingComp, IGuCohortHabitat
     {
         private int nextProductionTick = -1;
         private int lifetimeProduced;
@@ -37,7 +38,7 @@ namespace ProjectGu.Springs
         private string habitatId = "";
         private List<GuPopulationRecord> populations;
         private const string HopeSpecies = "GU_HopeGu";
-        private const string TestSpecies = "GU_DevTestSpringGu";
+        internal const string TestSpecies = "GU_DevTestSpringGu";
         private const int EcologyDay = 60000;
         private const int SafetyRecount = 10000;
         private const int ReservePerStone = 1;
@@ -50,6 +51,14 @@ namespace ProjectGu.Springs
         public string HabitatId => habitatId;
         public int MatureCountFor(string speciesDefName) => populationsReady
             ? GuPopulationLedger.Mature(populations, speciesDefName) : 0;
+
+        Thing IGuCohortHabitat.Anchor => parent;
+        bool IGuCohortHabitat.HasUniqueIdentity => parent?.Spawned == true && !string.IsNullOrEmpty(habitatId)
+            && parent.Map.GetComponent<GuEcologyMapComponent>()?.ContainsSpring(this) == true
+            && !Find.Maps.Any(map => map.GetComponent<GuEcologyMapComponent>()?.HasOtherSpringWithId(this) == true);
+
+        GuPopulationRecord IGuCohortHabitat.CohortFor(string speciesDefName) =>
+            populationsReady ? GuPopulationLedger.Find(populations, speciesDefName) : null;
 
         public override void PostSpawnSetup(bool respawningAfterLoad)
         {
@@ -103,7 +112,7 @@ namespace ProjectGu.Springs
                 (populationSchema == 1 && populations == null) ||
                 GuPopulationLedger.HasDuplicateSpecies(populations) ||
                 (populations != null && populations.Exists(record =>
-                    record.MatureCount < 0 || record.JuvenileCount < 0)))
+                    record.MatureCount < 0 || record.JuvenileCount < 0 || record.Revision < 0)))
             {
                 Log.ErrorOnce("[Project GU] Invalid spring population data; cohort changes disabled: " +
                     habitatId, habitatId.GetHashCode());

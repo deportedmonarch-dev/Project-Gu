@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Verse;
 
 namespace ProjectGu.Springs
@@ -8,6 +9,12 @@ namespace ProjectGu.Springs
     {
         private readonly HashSet<CompGuSpiritSpring> springs = new HashSet<CompGuSpiritSpring>();
         public GuEcologyMapComponent(Map map) : base(map) { }
+
+        internal bool ContainsSpring(CompGuSpiritSpring spring) => springs.Contains(spring);
+
+        internal bool HasOtherSpringWithId(CompGuSpiritSpring spring) => springs.Any(other =>
+            other != spring && other.parent.Spawned && other.parent.Map == map && other.HabitatId == spring.HabitatId);
+
         public void Register(CompGuSpiritSpring spring)
         {
             if (spring == null || !springs.Add(spring)) return;

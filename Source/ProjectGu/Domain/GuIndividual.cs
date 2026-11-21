@@ -12,6 +12,7 @@ namespace ProjectGu.Domain
     public sealed class GuIndividual : IExposable
     {
         internal const int CurrentVersion = 1;
+        internal const string CohortOrigin = "cohort";
         private int version;
         private string id;
         private string speciesDefName;
@@ -25,6 +26,9 @@ namespace ProjectGu.Domain
         private string holderPawnId;
         private int revision;
         private string quarantineReason;
+        private string creationEventKey;
+        private string originNativeId;
+        private bool cohortDebitCommitted;
 
         public int Version => version;
         public string Id => id;
@@ -40,6 +44,9 @@ namespace ProjectGu.Domain
         public int Revision => revision;
         public string QuarantineReason => quarantineReason;
         public bool IsQuarantined => !string.IsNullOrEmpty(quarantineReason);
+        public string CreationEventKey => creationEventKey;
+        public string OriginNativeId => originNativeId;
+        public bool CohortDebitCommitted => cohortDebitCommitted;
 
         public GuIndividual() { }
 
@@ -57,6 +64,15 @@ namespace ProjectGu.Domain
             nativeOwnerId = pawnId;
             revision = 1;
         }
+
+        internal static GuIndividual PrepareFromCohort(string id, GuSpeciesDef species, GuCohortMaterializationRequest request,
+            int tick, string pawnId) => new(id, species, CohortOrigin, request.HabitatId, tick, pawnId)
+            {
+                creationEventKey = request.EventKey,
+                originNativeId = request.SourceNativeId
+            };
+
+        internal void MarkCohortDebitCommitted() => cohortDebitCommitted = true;
 
         internal void Quarantine(string reason)
         {
@@ -88,6 +104,7 @@ namespace ProjectGu.Domain
         internal string DebugDescription => $"Gu {id ?? "(missing ID)"} | {speciesDefName} rank {rank} | revision {revision}"
             + $"\nCustody: {Custody.Kind} ({nativeOwnerId}) | {BiologicalState}"
             + (holderPawnId == null ? "" : $"\nHolder Pawn: {holderPawnId}")
+            + (creationEventKey == null ? "" : $"\nOrigin habitat: {originId} ({originNativeId}) | Event: {creationEventKey} | Adult debited: {cohortDebitCommitted}")
             + (IsQuarantined ? $"\nQuarantined: {quarantineReason}" : "");
 
         public void ExposeData()
@@ -105,6 +122,9 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref holderPawnId, "holderPawnId");
             Scribe_Values.Look(ref revision, "revision");
             Scribe_Values.Look(ref quarantineReason, "quarantineReason");
+            Scribe_Values.Look(ref creationEventKey, "creationEventKey");
+            Scribe_Values.Look(ref originNativeId, "originNativeId");
+            Scribe_Values.Look(ref cohortDebitCommitted, "cohortDebitCommitted");
         }
     }
 }

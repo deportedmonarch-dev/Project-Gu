@@ -14,12 +14,14 @@ namespace ProjectGu.Domain
         private int matureCount;
         private int juvenileCount;
         private int nextEcologyTick = -1;
+        private long revision;
 
         public string SpeciesDefName => speciesDefName;
         public int MatureCount => matureCount;
         public int JuvenileCount => juvenileCount;
         public long TotalCount => (long)matureCount + juvenileCount;
         public int NextEcologyTick => nextEcologyTick;
+        public long Revision => revision;
 
         // Parameterless constructor is required by RimWorld's deep Scribe loading.
         public GuPopulationRecord() { }
@@ -38,6 +40,7 @@ namespace ProjectGu.Domain
         {
             if (count <= 0 || matureCount < count) return false;
             matureCount -= count;
+            AdvanceRevision();
             return true;
         }
 
@@ -49,11 +52,19 @@ namespace ProjectGu.Domain
             matureCount += matured;
             juvenileCount -= matured;
 
+            int born = 0;
             if (canReproduce && birthsPerDay > 0)
             {
                 long freeSpace = Math.Max(0, capacity - TotalCount);
-                juvenileCount += (int)Math.Min(freeSpace, birthsPerDay);
+                born = (int)Math.Min(freeSpace, birthsPerDay);
+                juvenileCount += born;
             }
+            if (matured != 0 || born != 0) AdvanceRevision();
+        }
+
+        private void AdvanceRevision()
+        {
+            if (revision < long.MaxValue) revision++;
         }
 
         public void SetNextEcologyTick(int tick) { nextEcologyTick = tick; }
@@ -64,6 +75,7 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref matureCount, "mature", 0);
             Scribe_Values.Look(ref juvenileCount, "juveniles", 0);
             Scribe_Values.Look(ref nextEcologyTick, "nextEcologyTick", -1);
+            Scribe_Values.Look(ref revision, "revision", 0L);
         }
     }
 }

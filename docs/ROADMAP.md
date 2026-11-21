@@ -24,6 +24,7 @@ Target RimWorld 1.7 Waylith / .NET 10. See [project vision](PROJECT-VISION.md) f
 | 0.2.5 Slice 3B-3A | Development pickup and drop bind the same dormant Thing to the ground or the exact native colonist inventory. | Native rollback, save reentry, stale requests, fresh-process reload and passage travel passed. [Slice 3B-3A verification](IMPLEMENTATION-0.2.5.md#slice-3b-3a--physical-gu-inventory-custody). |
 | 0.2.5 Slice 3B-3B | One-slot record-only aperture custody and native inventory withdrawal at the exact Pawn and Hediff. | Native interruption, endpoint loss, replacement, passage travel and fresh-process reload passed. [Slice 3B-3B verification](IMPLEMENTATION-0.2.5.md#slice-3b-3b--exact-aperture-custody). |
 | 0.2.5 Slice 3B-4 | Active release from exact aperture custody completes the development Gu lifecycle. | The same identity survived release, both fresh-process reloads, interrupted placement and last-access protection. [Slice 3B-4 verification](IMPLEMENTATION-0.2.5.md#slice-3b-4--active-gu-release). |
+| 0.2.5 Slice 3B-5A | A checked habitat debit materializes one adult into a species-defined wild Pawn with stable event provenance. | Exact habitat and revision checks, quarantine, conservation, fresh-process replay and passage travel passed in the native fixture. [Slice 3B-5A verification](IMPLEMENTATION-0.2.5.md#slice-3b-5a--cohort-materialization). |
 
 Evidence and test plans are recorded in the [0.2.4 release](RELEASE-0.2.4.md), [0.2.5 journal](IMPLEMENTATION-0.2.5.md), and [Slice 2 test plan](TEST-SLICE-0.2.5-2.md).
 
@@ -33,7 +34,7 @@ Discretionary visual work is frozen following the owner's cavern review. Current
 
 1. **Complete the live save baseline.** The current spring branch builds and passes isolated fixtures against actual RimWorld 1.7 assemblies. Verify intentionally empty lists, unresolved species, old-save migration and repeated reloads in a full colony. Native awakening verification covers a depleted Hope Gu cohort after reload.
 2. **Retain the Priority 0 lifecycle baseline.** Use the [lifecycle matrix](UNDERGROUND-INDEPENDENT-LEVELS.md) when extending the independent map and route model to future site kinds. Generated independent levels stay loaded, with an eight-level cap. Map dormancy is deferred.
-3. **Review individual custody acceptance.** The development lifecycle now returns the same Gu to a native wild Pawn with verified last-access protection. A separate species-keyed cohort debit remains a future increment. [Slice 3B plan](RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md#slice-3b-implementation-plan).
+3. **Review individual custody and cohort materialization acceptance.** The development lifecycle preserves identity through active release, and the materialization fixture verifies one adult debit through retry and reload. [Slice 3B plan](RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md#slice-3b-implementation-plan).
 4. **Sequence further gameplay after proof of custody.** Species-specific feeding, refinement, a player cultivation interface, abilities, regional ecology, and genesis policies need scoped designs. Autonomous cultivation, clan economies and politics, and large emergent-society playtests are longer-term directions with no committed release numbering.
 
 ## Verification gates

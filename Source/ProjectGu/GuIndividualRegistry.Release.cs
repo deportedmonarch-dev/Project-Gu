@@ -30,9 +30,7 @@ namespace ProjectGu
 
             reason = "The species needs a wild projection covered by the native retirement contract.";
             var kind = record.Species?.wildProjectionKind;
-            if (kind?.race?.thingClass != typeof(Pawn_GuWildProjection)
-                || kind.race.race?.lifeStageAges.FirstOrDefault(stage => stage.def.developmentalStage == DevelopmentalStage.Adult)
-                    is not { } adult) return false;
+            if (FirstAdultProjectionStage(kind) is not { } adult) return false;
 
             var underground = Current.Game.GetComponent<GuPocketProbeComponent>();
             GuCustody source = record.Custody;
@@ -40,7 +38,7 @@ namespace ProjectGu
                 && !host.Downed && host.Position.AdjacentToCardinal(cell) && IsLiveAperture(aperture, source)
                 && CanPlaceDormant(map, cell, staged) && !map.reservationManager.IsReserved(cell)
                 && host.CanReach(cell, PathEndMode.OnCell, Danger.Deadly)
-                && underground?.HasProtectedReleaseRoute(host) == true;
+                && underground?.HasProtectedProjectionRoute(map, host) == true;
 
             reason = "Choose an adjacent open cell on the host's settlement or an independent level with a usable return route.";
             if (!DestinationReady() || RejectConflictingProjection(record, null, out reason)) return false;
@@ -53,17 +51,11 @@ namespace ProjectGu
                 reason = "The native wild Pawn could not be placed safely.";
                 try
                 {
-                    prepared = (Pawn_GuWildProjection)PawnGenerator.GeneratePawn(new PawnGenerationRequest(kind, tile: map.Tile,
-                        forceGenerateNewPawn: true, canGeneratePawnRelations: false, forceNoIdeo: true, forceNoGear: true,
-                        fixedBiologicalAge: adult.minAge, developmentalStages: DevelopmentalStage.Adult));
-                    prepared.SetReleaseSuppressed(true);
+                    prepared = PrepareWildPawn(kind, adult, map);
                     prepared.InitializeBinding(record);
                     if (!CanRestoreDetached(prepared) || !CanRetire(prepared) || !DestinationReady()) return false;
 
-                    if (GenSpawn.Spawn(prepared, cell, map) != prepared || !IsOnCell(prepared, map, cell)
-                        || !prepared.ReleaseSuppressed || prepared.Dead || prepared.kindDef != kind || prepared.CurJob != null
-                        || prepared.GuId != record.Id || prepared.GuRevision != expectedRevision || !CanRetire(prepared)
-                        || !DestinationReady(prepared)) return false;
+                    if (!TryPlaceStagedWildPawn(prepared, record, kind, map, cell) || !DestinationReady(prepared)) return false;
 
                     string pawnId = prepared.GetUniqueLoadID();
                     UnbindAperture(record);
@@ -91,7 +83,7 @@ namespace ProjectGu
                 {
                     if (released == null)
                     {
-                        bool cleared = DiscardFailedReleasePawn(prepared);
+                        bool cleared = DiscardProvisionalWildPawn(prepared);
                         if (committed)
                         {
                             reason = "Active custody committed but the native Pawn binding failed. The Gu was quarantined.";
@@ -109,7 +101,26 @@ namespace ProjectGu
             }
         }
 
-        private static bool DiscardFailedReleasePawn(Pawn_GuWildProjection pawn)
+        private static LifeStageAge FirstAdultProjectionStage(PawnKindDef kind) =>
+            kind?.race?.thingClass == typeof(Pawn_GuWildProjection)
+                ? kind.race.race?.lifeStageAges.FirstOrDefault(stage => stage.def.developmentalStage == DevelopmentalStage.Adult)
+                : null;
+
+        private static Pawn_GuWildProjection PrepareWildPawn(PawnKindDef kind, LifeStageAge adult, Map map)
+        {
+            var pawn = (Pawn_GuWildProjection)PawnGenerator.GeneratePawn(new PawnGenerationRequest(kind, tile: map.Tile,
+                forceGenerateNewPawn: true, canGeneratePawnRelations: false, forceNoIdeo: true, forceNoGear: true,
+                fixedBiologicalAge: adult.minAge, developmentalStages: DevelopmentalStage.Adult));
+            pawn.SetReleaseSuppressed(true);
+            return pawn;
+        }
+
+        private static bool TryPlaceStagedWildPawn(Pawn_GuWildProjection pawn, GuIndividual record, PawnKindDef kind,
+            Map map, IntVec3 cell) => GenSpawn.Spawn(pawn, cell, map) == pawn && IsOnCell(pawn, map, cell)
+                && pawn.ReleaseSuppressed && !pawn.Dead && pawn.kindDef == kind && pawn.CurJob == null
+                && pawn.GuId == record.Id && pawn.GuRevision == record.Revision && CanRetire(pawn);
+
+        private static bool DiscardProvisionalWildPawn(Pawn_GuWildProjection pawn)
         {
             if (pawn == null) return true;
             pawn.SetReleaseSuppressed(true);

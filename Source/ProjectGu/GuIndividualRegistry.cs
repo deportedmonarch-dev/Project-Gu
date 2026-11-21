@@ -39,9 +39,11 @@ namespace ProjectGu
             byId.Clear();
             byProjection.Clear();
             byAperture.Clear();
+            byCreationEvent.Clear();
             if (individuals.Count > 0)
             {
                 var records = individuals.Where(record => record != null).ToArray();
+                RebuildCreationEventBindings(records);
                 var recordsById = records.ToLookup(record => record.Id, StringComparer.OrdinalIgnoreCase);
                 var recordsByOwner = records.Where(record => record.Custody.Kind != GuCustodyKind.Aperture)
                     .ToLookup(record => record.Custody.NativeOwnerId, StringComparer.Ordinal);
@@ -137,6 +139,10 @@ namespace ProjectGu
                 return "Invalid Gu identity, revision or provenance.";
             if (record.Species is not { } species) return "The saved Gu species is unavailable.";
             if (record.Rank < species.minRank || record.Rank > species.maxRank) return "The saved rank is outside the species range.";
+            if ((record.Origin == GuIndividual.CohortOrigin && (string.IsNullOrWhiteSpace(record.CreationEventKey)
+                || string.IsNullOrWhiteSpace(record.OriginNativeId) || !record.CohortDebitCommitted))
+                || (record.Origin != GuIndividual.CohortOrigin && record.CohortDebitCommitted))
+                return "The saved cohort materialization has incomplete provenance or debit evidence.";
             if (string.IsNullOrWhiteSpace(record.Custody.NativeOwnerId)) return "Invalid Gu native owner.";
             return record.Custody.Kind switch
             {

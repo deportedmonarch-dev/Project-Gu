@@ -141,9 +141,13 @@ internal static class ManagedEngineChecks
             var cohorts = SpringField<List<GuPopulationRecord>>(comp, "populations");
             cohorts.Add(new GuPopulationRecord("MissingAddonSpecies", 2, 1, 78000));
             cohorts[0].AdvanceDaily(3, true, 1);
-            Check(cohorts[0].MatureCount == 4 && cohorts[0].JuvenileCount == 2, "Habitat loss conserves Hope Gu");
+            Check(cohorts[0].MatureCount == 4 && cohorts[0].JuvenileCount == 2 && cohorts[0].Revision == 0,
+                "Legacy cohort starts at revision zero and a no-op preserves it");
             cohorts[0].AdvanceDaily(17, true, 1);
-            Check(cohorts[0].MatureCount == 6 && cohorts[0].JuvenileCount == 1, "Mature juveniles before one bounded birth");
+            Check(cohorts[0].MatureCount == 6 && cohorts[0].JuvenileCount == 1 && cohorts[0].Revision == 1,
+                "One daily population change advances the revision once");
+            Check(!cohorts[0].TryConsumeMature(7) && cohorts[0].Revision == 1,
+                "A rejected debit preserves the cohort revision");
 
             typeof(CompGuSpiritSpring).GetField("nextFloraGrowthTick", PrivateInstance).SetValue(comp, 30000);
             ThingWithComps confirmedStack = Stone(stoneDef, 200);
@@ -156,9 +160,11 @@ internal static class ManagedEngineChecks
 
             var (restored, restoredStack, restoredFlora) = Load(current);
             var restoredComp = restored.GetComp<CompGuSpiritSpring>();
-            var savedOther = SpringField<List<GuPopulationRecord>>(restoredComp, "populations")[1];
+            var savedCohorts = SpringField<List<GuPopulationRecord>>(restoredComp, "populations");
+            var savedOther = savedCohorts[1];
             Check(restoredComp.HabitatId == habitat && restoredComp.Reserve == 43 && restoredComp.HopeGuAvailable == 6
                 && restoredComp.HopeGuJuvenile == 1 && SpringField<int>(restoredComp, "nextFloraGrowthTick") == 30000
+                && savedCohorts[0].Revision == 1 && savedOther.Revision == 0
                 && savedOther.SpeciesDefName == "MissingAddonSpecies" && savedOther.TotalCount == 3
                 && restoredStack.stackCount == 200 && restoredStack.def == stoneDef
                 && restoredFlora.Select(plant => plant.def).SequenceEqual(flora.Select(plant => plant.def))

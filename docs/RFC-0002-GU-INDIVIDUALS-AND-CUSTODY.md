@@ -51,6 +51,8 @@ The native owner key is the Thing load ID for physical custody and the Hediff lo
 
 The active-release path stages the species-defined Pawn under the custody guard, verifies native placement and the return route, then commits and activates that Pawn. The map-local custody service derives protection from live registry bindings. The inventory route to active release has its own source Thing retirement and rollback requirements.
 
+Slice 3B-5A debits one adult from a habitat-owned cohort at an expected revision. The canonical individual saves the event key, exact source provenance, and evidence of the debit. A quarantined record with a committed debit still counts toward conservation. An undebited quarantine blocks its event and leaves the population unit in the cohort.
+
 ## 3. Custody and transitions
 
 The diagram shows committed endpoints. Biological activity, nourishment and refinement are separate from custody. Releasing from inventory or an aperture preserves identity. Returning to an aggregate is an explicit retirement permitted only for eligible cohorts and Gu with no state or uniqueness obligation requiring continued individuality.

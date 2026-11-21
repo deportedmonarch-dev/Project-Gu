@@ -49,22 +49,29 @@ namespace ProjectGu.Underground
                 return true;
             });
 
-        internal bool HasProtectedReleaseRoute(Pawn host)
+        internal bool HasProtectedProjectionRoute(Map map, Pawn traveler = null)
         {
             if (!GuUndergroundLifecycleGuards.Installed || OperationInProgress) return false;
-            if (IsSurfaceSettlement(host.Map)) return true;
-            return FindRecoverySite(host, out var site, out var level) && !host.Downed
-                && HasUsableSurfaceRoute(site, level.LevelId, null, host);
+            if (IsSurfaceSettlement(map)) return true;
+            return TryFindIndependentLevel(map, out var site, out var level)
+                && (traveler == null || !traveler.Downed && traveler.Map == map)
+                && HasUsableSurfaceRoute(site, level.LevelId, null, traveler);
         }
 
         private bool FindRecoverySite(Pawn pawn, out GuIndependentSite site, out GuIndependentLevel level)
         {
             site = null;
             level = null;
-            if (pawn?.Spawned != true || pawn.Dead || pawn.Faction != Faction.OfPlayer
-                || pawn.Map.Parent is not GuUndergroundLevelParent parent)
-                return false;
-            site = independentSites.Find(candidate => candidate.Level(parent.LevelId)?.LiveMap == pawn.Map);
+            return pawn?.Spawned == true && !pawn.Dead && pawn.Faction == Faction.OfPlayer
+                && TryFindIndependentLevel(pawn.Map, out site, out level);
+        }
+
+        private bool TryFindIndependentLevel(Map map, out GuIndependentSite site, out GuIndependentLevel level)
+        {
+            site = null;
+            level = null;
+            if (map?.Parent is not GuUndergroundLevelParent parent) return false;
+            site = independentSites.Find(candidate => candidate.Level(parent.LevelId)?.LiveMap == map);
             level = site?.Level(parent.LevelId);
             return level != null;
         }

@@ -2,6 +2,7 @@ using LudeonTK;
 using RimWorld;
 using Verse;
 using ProjectGu.Domain;
+using ProjectGu.Springs;
 using System.Linq;
 
 namespace ProjectGu
@@ -20,6 +21,24 @@ namespace ProjectGu
             var species = DefDatabase<GuSpeciesDef>.GetNamedSilentFail("GU_DevTestSpringGu");
             if (registry?.TrySpawnDevelopmentGu(species, Find.CurrentMap, UI.MouseCell(), out _) != true)
                 Messages.Message("Choose an open cell on a loaded map for the test Gu.", MessageTypeDefOf.RejectInput, false);
+        }
+
+        [DebugAction("Project GU", "Materialize adult Gu from selected spring", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void MaterializeTestGu()
+        {
+            var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+            var spring = Find.Selector.SingleSelectedThing?.TryGetComp<CompGuSpiritSpring>();
+            if (registry == null || spring == null || spring.parent.Map != Find.CurrentMap
+                || !GuIndividualRegistry.TryPrepareMaterializationRequest(spring, CompGuSpiritSpring.TestSpecies,
+                    $"dev-cohort:{spring.HabitatId}:{CompGuSpiritSpring.TestSpecies}", out var request))
+            {
+                Messages.Message("Select a spring with a seeded secondary test cohort, then click an open nearby cell.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            bool success = registry.TryMaterializeCohort(spring, request, Find.CurrentMap, UI.MouseCell(), out _, out string reason);
+            Messages.Message(reason, success ? MessageTypeDefOf.NeutralEvent : MessageTypeDefOf.RejectInput, false);
         }
 
         [DebugAction("Project GU", "Make test Gu dormant", actionType = DebugActionType.ToolMapForPawns,
