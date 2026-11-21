@@ -1,6 +1,6 @@
 # RFC-0002 — Individual Gu identity and custody
 
-**Status** — Slice 3B implemented. The owner reported a rendered pass for the controlled lifecycle. The ordinary inventory follow-up and merge decision remain tracked separately.
+**Status** — Slice 3B implemented as Schema V1. The owner reported rendered passes for the controlled lifecycle and ordinary inventory. The data model and custody validation are superseded by the [RFC-0004 proposal](RFC-0004-GU-FRAMEWORK-V2.md). The transaction discipline, conservation rules and event-key idempotency below carry forward.
 **Target** — RimWorld 1.7 / Waylith / .NET 10
 **Branch** — `feature/spirit-spring-ecology-visual-overhaul`
 

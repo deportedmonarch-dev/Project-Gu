@@ -8,5 +8,5 @@
     <li><packageId>brrainz.harmony</packageId><displayName>Harmony</displayName><steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl></li>
   </modDependencies>
   <loadAfter><li>brrainz.harmony</li></loadAfter>
-  <description>RimWorld 1.7 (Waylith). Project GU 0.2.5 development build with persistent underground spirit springs, native Spirit Grass and Moon Orchid cultivation on primeval qi-rich soil, physical primeval stones, and natural awakening that consumes mature Hope Gu.</description>
+  <description>RimWorld 1.7 (Waylith). Project GU 0.2.5 development build with persistent underground spirit springs, native Spirit Grass and Moon Orchid cultivation on primeval qi-rich soil, physical primeval stones, natural awakening that consumes mature Hope Gu, and a provisional developer-only individual Gu framework.</description>
 </ModMetaData>

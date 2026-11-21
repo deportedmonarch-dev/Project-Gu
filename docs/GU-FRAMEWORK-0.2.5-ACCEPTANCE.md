@@ -1,6 +1,6 @@
 # Project GU 0.2.5 framework technical acceptance
 
-**Status** — Automated technical verification and owner-reported rendered acceptance passed for the controlled lifecycle. Ordinary inventory integration is tracked in the follow-up. [Implementation journal](IMPLEMENTATION-0.2.5.md#owner-acceptance-and-inventory-follow-up)
+**Status** — Automated technical verification and owner-reported rendered acceptance passed for the controlled lifecycle and ordinary inventory. Schema V1 is provisional and scheduled for reconstruction under [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md). [Implementation journal](IMPLEMENTATION-0.2.5.md#owner-acceptance-and-inventory-follow-up)
 
 ## Automated lifecycle verification
 
@@ -79,4 +79,6 @@ Run `scripts/verify-priority0-live.ps1 -Profile Slice3B5BPerf` to reproduce the 
 - **Owner-reported rendered acceptance.** The owner completed Cohort → Wild → Dormant → Inventory → Aperture → Released Wild and reloaded successfully while the Gu was in aperture custody. The final inspection showed an active Rank 1 developer Gu at revision 5 with cohort provenance and its committed adult debit. The owner reported no red errors during that run. An earlier vanilla Gear drop exposed a separate custody mismatch. [Owner acceptance and inventory follow-up](IMPLEMENTATION-0.2.5.md#owner-acceptance-and-inventory-follow-up)
 - **DLC and third-party scope.** The individual lifecycle and performance runs use Core and Harmony. Underground verification additionally covers Core with Ideology and Core with Ideology plus Odyssey. Anomaly remains gated for native cleanup transitions. Broader DLC combinations, including Royalty and Biotech, and third-party lifecycle patches need their own validation.
 - **Future framework work.** Define explicit terminal lifecycle and recovery rules, then validate cohort and individual conservation for those outcomes. Larger aperture capacity, feeding, refinement, abilities and the cultivation interface remain separately scoped.
-- **Merge decision.** Review the ordinary pickup and Gear controls in a rendered disposable colony and obtain owner merge authorization. Recovery and terminal lifecycle scope follow that review.
+- **Ordinary inventory acceptance.** The owner reported 10/10 for the rendered ordinary pickup and Gear controls. [Release readiness](RELEASE-0.2.5.md#ordinary-inventory-acceptance)
+- **Schema status.** Schema V1 is a provisional development foundation scheduled for reconstruction. `V2EngineProbe` verified that ordinary native events quarantine V1 records. [Engine investigation](ENGINE-1.7-GU-V2-INVESTIGATION.md) · [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md)
+- **Merge decision.** Owner merge authorization is pending. [Release readiness and merge strategy](RELEASE-0.2.5.md)
