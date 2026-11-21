@@ -82,9 +82,9 @@ public sealed partial class LiveLifecycleChecks
         var duplicateOwnerA = Spawn("duplicate native owner A", "Multiple records");
         var duplicateOwnerB = Spawn("duplicate native owner B", "Multiple records");
         var duplicateProjectionA = Spawn("duplicate projection A", "Multiple Gu projections");
-        var duplicateProjectionB = Spawn("duplicate projection B", "The exact live map-owned projection");
-        var missingOwner = Spawn("missing native owner", "The exact live map-owned projection");
-        var staleRevision = Spawn("stale revision", "The exact live map-owned projection");
+        var duplicateProjectionB = Spawn("duplicate projection B", "The exact live projection");
+        var missingOwner = Spawn("missing native owner", "The exact live projection");
+        var staleRevision = Spawn("stale revision", "The exact live projection");
         var missingSpecies = Spawn("missing species", "The saved Gu species is unavailable");
         var futureVersion = Spawn("unsupported version", "Unsupported Gu record version");
 

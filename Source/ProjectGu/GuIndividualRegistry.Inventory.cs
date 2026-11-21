@@ -1,0 +1,143 @@
+using System;
+using System.Linq;
+using ProjectGu.Domain;
+using RimWorld;
+using Verse;
+
+namespace ProjectGu
+{
+    public sealed partial class GuIndividualRegistry
+    {
+        internal bool TryTakeDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, out string reason) =>
+            TryMoveDormant(thing, expectedRevision, pawn, thing?.Position ?? IntVec3.Invalid, true, out reason);
+
+        internal bool TryDropDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, IntVec3 cell, out string reason) =>
+            TryMoveDormant(thing, expectedRevision, pawn, cell, false, out reason);
+
+        private static ThingOwner InventoryOf(Pawn pawn) => pawn is { Dead: false, Destroyed: false, IsFreeColonist: true }
+            && pawn.inventory is { } tracker && tracker.ParentHolder == pawn ? tracker.GetDirectlyHeldThings() : null;
+
+        private static bool IsInInventory(Thing thing, ThingOwner inventory) => inventory != null && !thing.Spawned
+            && thing.holdingOwner == inventory && thing.ParentHolder == inventory.Owner
+            && inventory.Count(item => item == thing) == 1;
+
+        private static bool IsOnCell(Thing thing, Map map, IntVec3 cell) =>
+            IsMapOwned(thing) && thing.Map == map && thing.Position == cell && cell.GetThingList(map).Contains(thing);
+
+        private bool TryMoveDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, IntVec3 cell,
+            bool taking, out string reason)
+        {
+            reason = "The Gu's source custody or revision is unavailable.";
+            if (!Prefs.DevMode || !GuCustodySaveGuard.Installed || CustodyTransitionInProgress
+                || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
+                || Resolve(thing) is not { } record || record.Revision != expectedRevision || expectedRevision == int.MaxValue
+                || record.Custody.Kind != (taking ? GuCustodyKind.DormantGround : GuCustodyKind.DormantInventory))
+                return false;
+
+            reason = "Choose a free colonist beside the Gu or the drop cell on the same map.";
+            if (InventoryOf(pawn) is not { } inventory || !IsMapOwned(pawn)) return false;
+            Map map = pawn.Map;
+            bool HolderReady() => IsMapOwned(pawn) && pawn.Map == map && pawn.Position.AdjacentToCardinal(cell)
+                && InventoryOf(pawn) == inventory;
+            if (!HolderReady() || (taking ? !IsOnCell(thing, map, cell) : !IsInInventory(thing, inventory))) return false;
+
+            bool CanTake() => inventory.CanAcceptAnyOf(thing, false) && MassUtility.CountToPickUpUntilOverEncumbered(pawn, thing) >= 1;
+            reason = taking ? "The colonist's inventory has no room for the Gu." : "Choose an open cell for the dormant Gu.";
+            if (taking ? !CanTake() : !CanPlaceDormant(map, cell, null)) return false;
+            if (HasConflictingProjection(record, thing))
+            {
+                reason = "Another projection claims this Gu ID or native owner.";
+                record.Quarantine(reason);
+                Unbind(record, thing);
+                return false;
+            }
+
+            string pawnId = pawn.GetUniqueLoadID();
+            bool committed = false;
+            CustodyTransitionInProgress = true;
+            try
+            {
+                reason = "The native inventory move did not establish the requested custody.";
+                try
+                {
+                    if (taking)
+                    {
+                        thing.DeSpawnOrDeselect(DestroyMode.Vanish);
+                        if (!IsDetached(thing) || !HolderReady() || !CanTake() || !inventory.TryAdd(thing, false)) return false;
+                    }
+                    else if (!inventory.TryDrop(thing, cell, map, ThingPlaceMode.Direct, out Thing placed) || placed != thing)
+                        return false;
+
+                    if (!HolderReady() || pawn.GetUniqueLoadID() != pawnId || !MatchesDormantThing(record, thing)
+                        || (taking ? !IsInInventory(thing, inventory) : !IsOnCell(thing, map, cell))) return false;
+                }
+                catch (Exception exception)
+                {
+                    reason = "A native callback interrupted the Gu inventory move.";
+                    Log.Warning($"[Project GU] {reason} {exception}");
+                    return false;
+                }
+
+                // Both writes are field updates. Native callbacks cannot observe a half-committed binding.
+                record.CommitDormantTransfer(taking ? pawnId : null);
+                thing.InitializeBinding(record);
+                committed = true;
+                reason = null;
+                return true;
+            }
+            finally
+            {
+                try
+                {
+                    if (!committed && !RestoreInventoryTransfer(record, thing, pawn, inventory, map, cell, taking))
+                        reason = "The original Gu custody could not be restored. The binding was quarantined.";
+                }
+                finally { CustodyTransitionInProgress = false; }
+            }
+        }
+
+        private static bool IsDetached(Thing thing) => !thing.Destroyed && !thing.Spawned && thing.holdingOwner == null;
+
+        private bool RestoreInventoryTransfer(GuIndividual record, Thing_GuDormantProjection thing, Pawn pawn,
+            ThingOwner inventory, Map map, IntVec3 cell, bool taking)
+        {
+            bool SourceRestored() => MatchesProjection(record, thing)
+                && (taking ? IsOnCell(thing, map, cell) : IsInInventory(thing, inventory));
+
+            try
+            {
+                if (SourceRestored()) return true;
+                if (taking && IsInInventory(thing, inventory)) inventory.Remove(thing);
+                else if (!taking && IsOnCell(thing, map, cell) && InventoryOf(pawn) == inventory
+                    && inventory.CanAcceptAnyOf(thing, false)) thing.DeSpawnOrDeselect(DestroyMode.Vanish);
+
+                if (!taking && IsDetached(thing) && InventoryOf(pawn) == inventory) inventory.TryAdd(thing, false);
+            }
+            catch (Exception exception)
+            {
+                Log.Warning($"[Project GU] Gu inventory rollback was interrupted. {exception}");
+            }
+
+            // Keep a detached Thing in the native save graph even if its original owner cannot accept it.
+            if (IsDetached(thing))
+            {
+                try
+                {
+                    IntVec3 recovery = CanPlaceDormant(map, cell, null) ? cell : GenRadial.RadialCellsAround(cell, 6f, false)
+                        .FirstOrDefault(candidate => CanPlaceDormant(map, candidate, null), IntVec3.Invalid);
+                    if (recovery.IsValid) GenPlace.TryPlaceThing(thing, recovery, map, ThingPlaceMode.Direct, out _);
+                }
+                catch (Exception exception)
+                {
+                    Log.Warning($"[Project GU] Gu inventory recovery placement was interrupted. {exception}");
+                }
+            }
+
+            if (SourceRestored()) return true;
+            record.Quarantine($"Gu inventory rollback could not restore {record.Custody.Kind}."
+                + $" Observed holder: {thing.ParentHolder}; map: {thing.MapHeld?.GetUniqueLoadID()}; cell: {thing.PositionHeld}.");
+            Unbind(record, thing);
+            return false;
+        }
+    }
+}

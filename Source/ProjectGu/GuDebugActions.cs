@@ -32,6 +32,46 @@ namespace ProjectGu
                 Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
         }
 
+        [DebugAction("Project GU", "Put selected dormant Gu in inventory", actionType = DebugActionType.ToolMapForPawns,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void TakeDormantGu(Pawn pawn)
+        {
+            if (Find.Selector.SingleSelectedThing is not Thing_GuDormantProjection thing
+                || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry)
+            {
+                Messages.Message("Select a dormant Gu, then click the adjacent colonist.", MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            if (!registry.TryTakeDormant(thing, thing.GuRevision, pawn, out string reason))
+                Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
+        }
+
+        [DebugAction("Project GU", "Drop dormant Gu from selected colonist", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void DropDormantGu()
+        {
+            var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+            if (Find.Selector.SingleSelectedThing is not Pawn pawn || pawn.Map != Find.CurrentMap
+                || pawn.inventory?.GetDirectlyHeldThings() is not { } inventory || registry == null)
+            {
+                Messages.Message("Select a colonist with a dormant Gu, then click an adjacent open cell.", MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            IntVec3 cell = UI.MouseCell();
+            var options = inventory.OfType<Thing_GuDormantProjection>().Where(thing => registry.Resolve(thing) != null).Select(thing =>
+            {
+                int revision = thing.GuRevision;
+                return new FloatMenuOption($"{thing.LabelCap} ({thing.GuId})", () =>
+                {
+                    if (!registry.TryDropDormant(thing, revision, pawn, cell, out string reason))
+                        Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
+                });
+            }).ToList();
+            if (options.Count == 0)
+                Messages.Message("The selected colonist has no Gu with a valid inventory binding.", MessageTypeDefOf.RejectInput, false);
+            else Find.WindowStack.Add(new FloatMenu(options));
+        }
+
         [DebugAction("Project GU", "Log Gu individual records", allowedGameStates = AllowedGameStates.PlayingOnMap)]
         private static void LogIndividuals()
         {

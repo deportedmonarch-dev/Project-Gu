@@ -17,13 +17,14 @@ namespace ProjectGu
         public GuIndividualRegistry(Game game) { }
 
         internal IReadOnlyList<GuIndividual> Individuals => individuals;
+        internal bool CustodyTransitionInProgress { get; private set; }
 
         public override void ExposeData()
         {
             base.ExposeData();
             if (Scribe.mode == LoadSaveMode.LoadingVars) ready = false;
-            if (Scribe.mode == LoadSaveMode.Saving && DormancyInProgress)
-                throw new InvalidOperationException("Wait for the Gu dormancy transition to finish before saving.");
+            if (Scribe.mode == LoadSaveMode.Saving && CustodyTransitionInProgress)
+                throw new InvalidOperationException("Wait for the Gu custody transition to finish before saving.");
             Scribe_Collections.Look(ref individuals, "guIndividualRecordsV1", LookMode.Deep);
             individuals ??= new();
         }
@@ -54,7 +55,7 @@ namespace ProjectGu
                     if (error == null && (projectionsById[record.Id].Count() > 1 || endpoints.Count() > 1))
                         error = "Multiple Gu projections claim this Gu ID or native owner.";
                     if (error == null && !MatchesProjection(record, endpoints.SingleOrDefault()))
-                        error = "The exact live map-owned projection and revision could not be resolved.";
+                        error = "The exact live projection, native holder and revision could not be resolved.";
 
                     if (error != null) record.Quarantine(error);
                     else Bind(record, endpoints.Single());
@@ -62,6 +63,10 @@ namespace ProjectGu
             }
             ready = true;
         }
+
+        private static bool HasConflictingProjection(GuIndividual record, Thing projection) =>
+            FindProjections().Any(thing => thing != projection && (thing.GetUniqueLoadID() == record.Custody.NativeOwnerId
+                || string.Equals(((IGuProjection)thing).GuId, record.Id, StringComparison.OrdinalIgnoreCase)));
 
         private static IEnumerable<Thing> FindProjections()
         {
@@ -91,8 +96,12 @@ namespace ProjectGu
             if (string.IsNullOrWhiteSpace(record.Custody.NativeOwnerId)) return "Invalid Gu native owner.";
             return record.Custody.Kind switch
             {
-                GuCustodyKind.WildPawn when record.BiologicalState == GuBiologicalState.Active => null,
-                GuCustodyKind.DormantGround when record.BiologicalState == GuBiologicalState.Dormant => null,
+                GuCustodyKind.WildPawn when record.BiologicalState == GuBiologicalState.Active
+                    && record.Custody.HolderPawnId == null => null,
+                GuCustodyKind.DormantGround when record.BiologicalState == GuBiologicalState.Dormant
+                    && record.Custody.HolderPawnId == null => null,
+                GuCustodyKind.DormantInventory when record.BiologicalState == GuBiologicalState.Dormant
+                    && !string.IsNullOrWhiteSpace(record.Custody.HolderPawnId) => null,
                 _ => "Unsupported or invalid Gu custody."
             };
         }
@@ -101,13 +110,23 @@ namespace ProjectGu
             && thing.Map is { Disposed: false } map && Find.Maps.Contains(map)
             && thing.holdingOwner == map.GetDirectlyHeldThings() && thing.ParentHolder == map;
 
+        private static bool MatchesIdentity(GuIndividual record, Thing thing) =>
+            thing is IGuProjection tag && !thing.Destroyed && thing.GetUniqueLoadID() == record.Custody.NativeOwnerId
+            && tag.GuId == record.Id && tag.GuRevision == record.Revision;
+
+        private static bool MatchesDormantThing(GuIndividual record, Thing_GuDormantProjection thing) =>
+            MatchesIdentity(record, thing) && thing.stackCount == 1 && thing.def == record.Species?.dormantProjectionDef
+            && Thing_GuDormantProjection.IsConfigured(thing.def);
+
         private static bool MatchesProjection(GuIndividual record, Thing thing) =>
-            thing is IGuProjection tag && IsMapOwned(thing) && thing.GetUniqueLoadID() == record.Custody.NativeOwnerId
-            && tag.GuId == record.Id && tag.GuRevision == record.Revision && (record.Custody.Kind, thing) switch
+            (record.Custody.Kind, thing) switch
             {
-                (GuCustodyKind.WildPawn, Pawn_GuWildProjection pawn) => !pawn.Dead && pawn.kindDef == record.Species?.wildProjectionKind,
-                (GuCustodyKind.DormantGround, Thing_GuDormantProjection dormant) => dormant.stackCount == 1
-                    && dormant.def == record.Species?.dormantProjectionDef && Thing_GuDormantProjection.IsConfigured(dormant.def),
+                (GuCustodyKind.WildPawn, Pawn_GuWildProjection pawn) => MatchesIdentity(record, pawn) && IsMapOwned(pawn)
+                    && !pawn.Dead && pawn.kindDef == record.Species?.wildProjectionKind,
+                (GuCustodyKind.DormantGround, Thing_GuDormantProjection dormant) => MatchesDormantThing(record, dormant) && IsMapOwned(dormant),
+                (GuCustodyKind.DormantInventory, Thing_GuDormantProjection dormant) => MatchesDormantThing(record, dormant)
+                    && dormant.ParentHolder is Pawn_InventoryTracker tracker && tracker.ParentHolder is Pawn holder
+                    && holder.GetUniqueLoadID() == record.Custody.HolderPawnId && IsInInventory(dormant, InventoryOf(holder)),
                 _ => false
             };
 
@@ -127,7 +146,7 @@ namespace ProjectGu
 
         internal GuIndividual Resolve(Thing thing)
         {
-            if (!ready || thing == null || !byProjection.TryGetValue(thing, out var record) || DormancyInProgress) return null;
+            if (!ready || thing == null || !byProjection.TryGetValue(thing, out var record) || CustodyTransitionInProgress) return null;
             if (!record.IsQuarantined && MatchesProjection(record, thing)) return record;
 
             record.Quarantine("The bound Gu projection is no longer live in its expected native custody.");
@@ -140,7 +159,7 @@ namespace ProjectGu
             if (!Prefs.DevMode || thing is not IGuProjection tag) return native;
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
             var record = registry?.Resolve(thing);
-            string custody = registry?.DormancyInProgress == true ? "transition in progress" : "quarantined, no authorized binding";
+            string custody = registry?.CustodyTransitionInProgress == true ? "transition in progress" : "quarantined, no authorized binding";
             string binding = record?.DebugDescription ?? $"Gu {tag.GuId ?? "(missing ID)"} | revision {tag.GuRevision}\nCustody: {custody}";
             return string.IsNullOrEmpty(native) ? binding : native + "\n" + binding;
         }
@@ -148,7 +167,7 @@ namespace ProjectGu
         internal bool TrySpawnDevelopmentGu(GuSpeciesDef species, Map map, IntVec3 cell, out Pawn_GuWildProjection pawn)
         {
             pawn = null;
-            if (!Prefs.DevMode || !ready || DormancyInProgress || LongEventHandler.AnyEventNowOrWaiting
+            if (!Prefs.DevMode || !ready || CustodyTransitionInProgress || LongEventHandler.AnyEventNowOrWaiting
                 || species?.wildProjectionKind is not { race.thingClass: { } pawnClass } kind
                 || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)
                 || map?.Disposed != false || !Find.Maps.Contains(map) || !cell.InBounds(map)

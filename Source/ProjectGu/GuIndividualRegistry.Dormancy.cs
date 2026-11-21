@@ -11,16 +11,14 @@ namespace ProjectGu
 {
     public sealed partial class GuIndividualRegistry
     {
-        internal bool DormancyInProgress { get; private set; }
-
         internal bool TryMakeDormant(Pawn_GuWildProjection pawn, int expectedRevision, IntVec3 destination,
             out Thing_GuDormantProjection dormant, out string reason)
         {
             dormant = null;
             reason = "The Gu's wild binding or revision is unavailable.";
-            if (!Prefs.DevMode || DormancyInProgress || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
+            if (!Prefs.DevMode || CustodyTransitionInProgress || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
                 || Resolve(pawn) is not { } record || record.Revision != expectedRevision) return false;
-            if (!GuDormancySaveGuard.Installed || ModsConfig.AnomalyActive)
+            if (!GuCustodySaveGuard.Installed || ModsConfig.AnomalyActive)
             {
                 reason = "The native dormancy safeguards are unavailable for this game configuration.";
                 return false;
@@ -31,8 +29,7 @@ namespace ProjectGu
                 reason = "The development Gu must be an unowned, unharmed wild Pawn with empty equipment and inventory.";
                 return false;
             }
-            if (FindProjections().Any(thing => thing != pawn && (thing.GetUniqueLoadID() == record.Custody.NativeOwnerId
-                || string.Equals(((IGuProjection)thing).GuId, record.Id, StringComparison.OrdinalIgnoreCase))))
+            if (HasConflictingProjection(record, pawn))
             {
                 reason = "Another projection claims this Gu ID or native owner.";
                 record.Quarantine(reason);
@@ -49,7 +46,7 @@ namespace ProjectGu
             reason = "Dormancy staging could not establish a safe binding.";
             Thing_GuDormantProjection staged = null;
             bool committed = false;
-            DormancyInProgress = true;
+            CustodyTransitionInProgress = true;
             try
             {
                 try
@@ -105,7 +102,7 @@ namespace ProjectGu
                     if (!committed && !RestoreWildAfterFailedDormancy(record, pawn, staged, map, origin, rotation))
                         reason = "Dormancy rollback could not restore the wild binding. The Gu was quarantined.";
                 }
-                finally { DormancyInProgress = false; }
+                finally { CustodyTransitionInProgress = false; }
             }
         }
 

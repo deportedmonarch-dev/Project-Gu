@@ -24,7 +24,7 @@ public sealed partial class LiveLifecycleChecks
 
     private static void ExerciseSlice3B2()
     {
-        Check(GuDormancySaveGuard.Installed, "The native save entry is guarded");
+        Check(GuCustodySaveGuard.Installed, "The native save entry is guarded");
         Map home = Find.CurrentMap;
         Pawn traveler = home.mapPawns.FreeColonistsSpawned.First();
         var site = OpenIndependentSite(traveler, home);
@@ -85,7 +85,7 @@ public sealed partial class LiveLifecycleChecks
             Thing lateBlocker = null;
             afterDormancyDespawn = () =>
             {
-                Check(!source.Spawned && registry.DormancyInProgress && registry.Resolve(record.Id) == null
+                Check(!source.Spawned && registry.CustodyTransitionInProgress && registry.Resolve(record.Id) == null
                     && !registry.TryMakeDormant(source, initial.Revision, target, out _, out _), "Reentry cannot authorize either projection during staging");
                 GameDataSaveLoader.SaveGame(reentrySave);
                 Check(!File.Exists(GenFilePaths.FilePathForSavedGame(reentrySave)), "The native save entry did not serialize staging");

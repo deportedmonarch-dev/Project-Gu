@@ -26,4 +26,4 @@ The save-integrity follow-up preserves recoverable cohort data and disables muta
 
 ## Proposed boundaries
 
-Slice 3 uses record-backed identity with verified development Pawn and dormant ground Thing bindings. Inventory and aperture transitions build on the same native owner validation and custody record. [Slice 3B plan](docs/RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md#slice-3b-implementation-plan).
+Slice 3 uses record-backed identity with development Pawn and dormant Thing projections. The [inventory transfer](Source/ProjectGu/GuIndividualRegistry.Inventory.cs) moves the same Thing between the map and a colonist's exact native inventory. The registry retains the Thing load ID, records the holder Pawn's load ID while held, and advances the binding revision on each committed inventory move. [Slice 3B plan](docs/RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md#slice-3b-implementation-plan).

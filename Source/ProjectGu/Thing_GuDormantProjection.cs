@@ -20,7 +20,7 @@ namespace ProjectGu
 
         internal static bool IsConfigured(ThingDef def) => def?.thingClass == typeof(Thing_GuDormantProjection)
             && def.category == ThingCategory.Item && def.stackLimit == 1 && def.tickerType == TickerType.Never
-            && !def.EverHaulable && !def.IsIngestible && def.tradeability == Tradeability.None;
+            && !def.EverHaulable && !def.IsIngestible && !def.destroyOnDrop && def.tradeability == Tradeability.None;
 
         internal void InitializeBinding(GuIndividual individual)
         {

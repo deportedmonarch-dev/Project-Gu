@@ -5,9 +5,9 @@ namespace ProjectGu.Domain
 {
     public enum GuBiologicalState { Active = 1, Dormant = 2 }
 
-    public enum GuCustodyKind { WildPawn = 1, DormantGround = 2 }
+    public enum GuCustodyKind { WildPawn = 1, DormantGround = 2, DormantInventory = 3 }
 
-    public readonly record struct GuCustody(GuCustodyKind Kind, string NativeOwnerId);
+    public readonly record struct GuCustody(GuCustodyKind Kind, string NativeOwnerId, string HolderPawnId = null);
 
     public sealed class GuIndividual : IExposable
     {
@@ -22,6 +22,7 @@ namespace ProjectGu.Domain
         private int biologicalState;
         private int custodyKind;
         private string nativeOwnerId;
+        private string holderPawnId;
         private int revision;
         private string quarantineReason;
 
@@ -35,7 +36,7 @@ namespace ProjectGu.Domain
         public string OriginId => originId;
         public int CreatedTick => createdTick;
         public GuBiologicalState BiologicalState => (GuBiologicalState)biologicalState;
-        public GuCustody Custody => new((GuCustodyKind)custodyKind, nativeOwnerId);
+        public GuCustody Custody => new((GuCustodyKind)custodyKind, nativeOwnerId, holderPawnId);
         public int Revision => revision;
         public string QuarantineReason => quarantineReason;
         public bool IsQuarantined => !string.IsNullOrEmpty(quarantineReason);
@@ -71,8 +72,16 @@ namespace ProjectGu.Domain
             nativeOwnerId = thingId;
         }
 
+        internal void CommitDormantTransfer(string pawnId)
+        {
+            custodyKind = (int)(pawnId == null ? GuCustodyKind.DormantGround : GuCustodyKind.DormantInventory);
+            holderPawnId = pawnId;
+            revision++;
+        }
+
         internal string DebugDescription => $"Gu {id ?? "(missing ID)"} | {speciesDefName} rank {rank} | revision {revision}"
             + $"\nCustody: {Custody.Kind} ({nativeOwnerId}) | {BiologicalState}"
+            + (holderPawnId == null ? "" : $"\nInventory holder: {holderPawnId}")
             + (IsQuarantined ? $"\nQuarantined: {quarantineReason}" : "");
 
         public void ExposeData()
@@ -87,6 +96,7 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref biologicalState, "biologicalState");
             Scribe_Values.Look(ref custodyKind, "custodyKind");
             Scribe_Values.Look(ref nativeOwnerId, "nativeOwnerId");
+            Scribe_Values.Look(ref holderPawnId, "holderPawnId");
             Scribe_Values.Look(ref revision, "revision");
             Scribe_Values.Look(ref quarantineReason, "quarantineReason");
         }
