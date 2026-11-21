@@ -112,6 +112,23 @@ namespace ProjectGu
                 Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
         }
 
+        [DebugAction("Project GU", "Release active Gu from selected colonist", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void ReleaseActiveGu()
+        {
+            var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+            if (Find.Selector.SingleSelectedThing is not Pawn host || host.Map != Find.CurrentMap
+                || SingleDevelopmentAperture(host) is not { } aperture
+                || registry?.ResolveApertureOccupant(aperture) is not { } record)
+            {
+                Messages.Message("Select a colonist with an authorized aperture Gu, then click an adjacent open cell.",
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            if (!registry.TryReleaseActive(record.Id, record.Revision, host, aperture, Find.CurrentMap, UI.MouseCell(), out _, out string reason))
+                Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
+        }
+
         [DebugAction("Project GU", "Inspect aperture Gu custody", actionType = DebugActionType.ToolMapForPawns,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         private static void InspectApertureCustody(Pawn host)

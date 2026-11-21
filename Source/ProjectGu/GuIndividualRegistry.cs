@@ -168,7 +168,7 @@ namespace ProjectGu
             (record.Custody.Kind, thing) switch
             {
                 (GuCustodyKind.WildPawn, Pawn_GuWildProjection pawn) => MatchesIdentity(record, pawn) && IsMapOwned(pawn)
-                    && !pawn.Dead && pawn.kindDef == record.Species?.wildProjectionKind,
+                    && !pawn.Dead && !pawn.ReleaseSuppressed && pawn.kindDef == record.Species?.wildProjectionKind,
                 (GuCustodyKind.DormantGround, Thing_GuDormantProjection dormant) => MatchesDormantThing(record, dormant) && IsMapOwned(dormant),
                 (GuCustodyKind.DormantInventory, Thing_GuDormantProjection dormant) => MatchesDormantThing(record, dormant)
                     && dormant.ParentHolder is Pawn_InventoryTracker tracker && tracker.ParentHolder is Pawn holder

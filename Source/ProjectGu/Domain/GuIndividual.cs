@@ -71,6 +71,12 @@ namespace ProjectGu.Domain
             CommitCustody(new(GuCustodyKind.DormantGround, thingId));
         }
 
+        internal void CommitActiveRelease(string pawnId)
+        {
+            biologicalState = (int)GuBiologicalState.Active;
+            CommitCustody(new(GuCustodyKind.WildPawn, pawnId));
+        }
+
         internal void CommitCustody(GuCustody custody)
         {
             custodyKind = (int)custody.Kind;

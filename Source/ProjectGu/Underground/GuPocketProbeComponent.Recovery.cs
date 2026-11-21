@@ -8,7 +8,7 @@ using Verse.AI;
 
 namespace ProjectGu.Underground
 {
-    /// <summary>Optional map-local custody service for future persistent individuals.</summary>
+    /// <summary>Optional map-local protection for persistent custody.</summary>
     public interface IGuUndergroundCustodyProtection
     {
         bool HasProtectedCustody { get; }
@@ -48,6 +48,14 @@ namespace ProjectGu.Underground
                     return traveler.CanReach(end.Anchor, PathEndMode.Touch, Danger.Deadly);
                 return true;
             });
+
+        internal bool HasProtectedReleaseRoute(Pawn host)
+        {
+            if (!GuUndergroundLifecycleGuards.Installed || OperationInProgress) return false;
+            if (IsSurfaceSettlement(host.Map)) return true;
+            return FindRecoverySite(host, out var site, out var level) && !host.Downed
+                && HasUsableSurfaceRoute(site, level.LevelId, null, host);
+        }
 
         private bool FindRecoverySite(Pawn pawn, out GuIndependentSite site, out GuIndependentLevel level)
         {

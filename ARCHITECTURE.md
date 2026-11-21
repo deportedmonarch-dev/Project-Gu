@@ -27,3 +27,5 @@ The save-integrity follow-up preserves recoverable cohort data and disables muta
 ## Proposed boundaries
 
 Slice 3 uses record-backed identity with development Pawn and dormant Thing projections. The [inventory transfer](Source/ProjectGu/GuIndividualRegistry.Inventory.cs) moves the same Thing between the map and a colonist's exact native inventory. The [aperture transfer](Source/ProjectGu/GuIndividualRegistry.Aperture.cs) commits record-only custody before retiring that Thing and can stage a fresh native inventory projection for the same Gu on withdrawal. Each committed custody move advances the revision once. [Slice 3B plan](docs/RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md#slice-3b-implementation-plan).
+
+[Active release](Source/ProjectGu/GuIndividualRegistry.Release.cs) stages a suppressed wild Pawn and validates placement before committing the exact native binding. [Map custody protection](Source/ProjectGu/GuIndividualMapCustody.cs) derives its result from live registry bindings and plugs into the independent underground route guards.

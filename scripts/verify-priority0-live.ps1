@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = ''
@@ -100,6 +100,7 @@ try {
             'Slice3B2' { '-guslice3b2' }
             'Slice3B3A' { '-guslice3b3a' }
             'Slice3B3B' { '-guslice3b3b' }
+            'Slice3B4' { '-guslice3b4' }
             'Legacy31' { '-gulegacy31' }
             'Legacy39' { '-gulegacy39' }
             default { '' }
@@ -140,6 +141,9 @@ try {
             Invoke-LiveStage $saveData 'new' $true $false $probe
         }
         Invoke-LiveStage $saveData 'reload' $false $Rendered.IsPresent $probe
+        if ($name -eq 'Slice3B4') {
+            Invoke-LiveStage $saveData 'released' $false $Rendered.IsPresent "$probe -guslice3b4released"
+        }
         Write-Host "PASS $name disposable generation and fresh-process reload. Evidence in $saveData"
         Get-Content -LiteralPath (Join-Path $saveData 'priority0-result.txt')
     }
