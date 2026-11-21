@@ -5,7 +5,7 @@ namespace ProjectGu.Domain
 {
     public enum GuBiologicalState { Active = 1, Dormant = 2 }
 
-    public enum GuCustodyKind { WildPawn = 1 }
+    public enum GuCustodyKind { WildPawn = 1, DormantGround = 2 }
 
     public readonly record struct GuCustody(GuCustodyKind Kind, string NativeOwnerId);
 
@@ -62,6 +62,13 @@ namespace ProjectGu.Domain
             if (IsQuarantined) return;
             quarantineReason = reason;
             Log.Warning($"[Project GU] Quarantined Gu individual {id ?? "(missing ID)"} ({nativeOwnerId ?? "missing owner"}). {reason}");
+        }
+
+        internal void CommitDormancy(string thingId)
+        {
+            biologicalState = (int)GuBiologicalState.Dormant;
+            custodyKind = (int)GuCustodyKind.DormantGround;
+            nativeOwnerId = thingId;
         }
 
         internal string DebugDescription => $"Gu {id ?? "(missing ID)"} | {speciesDefName} rank {rank} | revision {revision}"

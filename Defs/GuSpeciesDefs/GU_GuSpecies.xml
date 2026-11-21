@@ -31,6 +31,7 @@
     <maxRank>1</maxRank>
     <wildPopulationEnabled>true</wildPopulationEnabled>
     <wildProjectionKind>GU_DevTestWildGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DevTestDormantGu</dormantProjectionDef>
     <habitatTags><li>spirit_spring</li></habitatTags>
     <capabilityTags><li>development_test</li></capabilityTags>
   </ProjectGu.Domain.GuSpeciesDef>

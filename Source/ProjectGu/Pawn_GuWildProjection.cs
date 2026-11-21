@@ -3,13 +3,13 @@ using Verse;
 
 namespace ProjectGu
 {
-    public class Pawn_GuWildProjection : Pawn
+    public class Pawn_GuWildProjection : Pawn, IGuProjection
     {
         private string guId;
         private int guRevision;
 
-        internal string GuId => guId;
-        internal int GuRevision => guRevision;
+        public string GuId => guId;
+        public int GuRevision => guRevision;
 
         internal void InitializeBinding(GuIndividual individual)
         {
@@ -24,14 +24,6 @@ namespace ProjectGu
             Scribe_Values.Look(ref guRevision, "guBindingRevision");
         }
 
-        public override string GetInspectString()
-        {
-            string native = base.GetInspectString();
-            if (!Prefs.DevMode) return native;
-            var individual = Current.Game?.GetComponent<GuIndividualRegistry>()?.Resolve(this);
-            string binding = individual?.DebugDescription
-                ?? $"Gu {guId ?? "(missing ID)"} | revision {guRevision}\nCustody: quarantined, no authorized binding";
-            return string.IsNullOrEmpty(native) ? binding : native + "\n" + binding;
-        }
+        public override string GetInspectString() => GuIndividualRegistry.InspectProjection(this, base.GetInspectString());
     }
 }

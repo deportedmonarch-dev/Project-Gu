@@ -14,6 +14,7 @@ namespace ProjectGu.Domain
         public int maxRank = 1;
         public bool wildPopulationEnabled;
         public PawnKindDef wildProjectionKind;
+        public ThingDef dormantProjectionDef;
 
         // Extensible metadata only: tags do not execute behaviors.
         public List<string> pathTags = new List<string>();
@@ -38,6 +39,8 @@ namespace ProjectGu.Domain
             if (wildProjectionKind != null && (wildProjectionKind.race?.thingClass is not { } pawnClass
                 || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)))
                 yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race";
+            if (dormantProjectionDef != null && !Thing_GuDormantProjection.IsConfigured(dormantProjectionDef))
+                yield return $"{defName}: dormantProjectionDef requires an inert, unstackable Gu Thing";
             foreach (string error in ValidateTags(pathTags, "pathTags")) yield return error;
             foreach (string error in ValidateTags(habitatTags, "habitatTags")) yield return error;
             foreach (string error in ValidateTags(capabilityTags, "capabilityTags")) yield return error;

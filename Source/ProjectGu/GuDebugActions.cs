@@ -22,6 +22,16 @@ namespace ProjectGu
                 Messages.Message("Choose an open cell on a loaded map for the test Gu.", MessageTypeDefOf.RejectInput, false);
         }
 
+        [DebugAction("Project GU", "Make test Gu dormant", actionType = DebugActionType.ToolMapForPawns,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void MakeTestGuDormant(Pawn selected)
+        {
+            if (selected is not Pawn_GuWildProjection pawn
+                || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry) return;
+            if (!registry.TryMakeDormant(pawn, pawn.GuRevision, pawn.Position, out _, out string reason))
+                Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
+        }
+
         [DebugAction("Project GU", "Log Gu individual records", allowedGameStates = AllowedGameStates.PlayingOnMap)]
         private static void LogIndividuals()
         {

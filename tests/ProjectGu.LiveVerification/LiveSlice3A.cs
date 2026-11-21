@@ -104,14 +104,7 @@ public sealed partial class LiveLifecycleChecks
         {
             observedRetirement = pawn;
             killCalls = makeCorpseCalls = discardCleanupCalls = corpseDestructionCalls = 0;
-            observer.Patch(AccessTools.Method(typeof(Pawn), nameof(Pawn.Kill)),
-                prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ObserveKill)));
-            var corpseFactories = AccessTools.GetDeclaredMethods(typeof(Pawn)).Where(method => method.Name == "MakeCorpse").ToArray();
-            Check(corpseFactories.Length > 0, "The installed assembly exposes its native corpse factories");
-            var observeCorpse = new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ObserveCorpse));
-            foreach (var factory in corpseFactories) observer.Patch(factory, prefix: observeCorpse);
-            observer.Patch(AccessTools.Method(typeof(Corpse), "PostCorpseDestroy"),
-                prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ObserveCorpseCleanup)));
+            InstallRetirementObservers(observer);
             pawn.DeSpawnOrDeselect(DestroyMode.Vanish);
             Check(pawn.CurJob == null && !map.reservationManager.IsReserved(reserved),
                 "Despawn stopped the job and released the reservation");
@@ -128,6 +121,18 @@ public sealed partial class LiveLifecycleChecks
             observer.UnpatchAll(observer.Id);
             observedRetirement = null;
         }
+    }
+
+    private static void InstallRetirementObservers(Harmony observer)
+    {
+        observer.Patch(AccessTools.Method(typeof(Pawn), nameof(Pawn.Kill)),
+            prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ObserveKill)));
+        var corpseFactories = AccessTools.GetDeclaredMethods(typeof(Pawn)).Where(method => method.Name == "MakeCorpse").ToArray();
+        Check(corpseFactories.Length > 0, "The installed assembly exposes its native corpse factories");
+        var observeCorpse = new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ObserveCorpse));
+        foreach (var factory in corpseFactories) observer.Patch(factory, prefix: observeCorpse);
+        observer.Patch(AccessTools.Method(typeof(Corpse), "PostCorpseDestroy"),
+            prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ObserveCorpseCleanup)));
     }
 
     private static void ObserveKill(Pawn __instance)

@@ -131,3 +131,21 @@ Verification used the production code from `ec9889c` on Windows RimWorld 1.7.501
 | `Legacy31` and `Legacy39` | PASS. Both disposable copies restored their original map owner, terrain, Building flora, reserve, adult Hope Gu and physical stones. Each loaded an empty individual registry. Both original SHA-256 hashes matched Phase F. |
 
 Run `scripts/verify-priority0-live.ps1 -Profile Slice3B1` and provide `-Legacy31Save` and `-Legacy39Save` to include the reference saves. Local evidence is in `tests/obj/Priority0-371574e2cc204230bc1dbaf1c77c813f` under the three profile directories. The native run exercised the spawn and inspect methods headlessly. Rendered UI acceptance is an owner check. The actual-projection retirement proof belongs to Slice 3B-2. [Retirement limits](#native-retirement-limits).
+
+## Slice 3B-2 — wild Gu dormancy
+
+In Development Mode, use **Project GU → Make test Gu dormant** on a wild test Gu standing on a clear cell. The registry checks the exact live native owner, Gu ID, revision, and retirement eligibility. The operation stages one inert, unstackable Thing on the same map. The Gu ID, species, rank, provenance and revision carry through the transition. The record changes to dormant ground custody before explicit native Pawn discard.
+
+The transaction guards reentry and the native game-save entry while staging. Failure before commit clears the provisional Thing and restores the original Pawn, using the existing Pawn placement recovery if its original cell is blocked. A discard failure after commit quarantines the dormant record and retains the former Pawn load ID in the reason. Reload binds only healthy projections and keeps quarantined records inspectable through **Log Gu individual records**.
+
+| Check | Result |
+|---|---|
+| Placement and rollback | PASS. Occupied placement, carried inventory and a stale requested revision preserved the wild record. A callback blocked placement after despawn. An injected exception after the native Thing spawned removed that Thing. Both staging failures restored the same Pawn in its original cell. |
+| Reentry and repeat actions | PASS. Native callback attempts to run the transition again or save during staging were rejected. A repeated action after success created one dormant projection in total and made one discard attempt. |
+| Actual Gu retirement | PASS. The actual development Gu stopped its job and released its reservation. The fixture observed the committed ground custody before discard, one discard cleanup and one health cleanup, and zero kill calls, corpse creations or death tales. |
+| Cleanup failure and fresh-process reload | PASS. An exception injected into native discard cleanup quarantined the already committed dormant record. Reload restored one healthy and one quarantined Thing with their exact identities, revisions and map owners. Neither former Pawn nor its corpse appeared in the native world. |
+| Existing systems | PASS. The original colonist returned through the saved independent passage while both dormant Things stayed underground. The Slice 3B-1 regression and both historical saves passed, with matching source hashes for the 31×31 and 39×39 originals. |
+
+`scripts/verify.ps1 -Focused` passed structural, assembly-linked compilation and managed checks on Windows RimWorld 1.7.5014 rev1195, Core, Harmony 3.0.4 and .NET SDK 10.0.401. The final `scripts/verify-priority0-live.ps1 -Profile Slice3B2` run passed new-game and fresh-process reload stages. Its evidence is under `tests/obj/Priority0-b946352731f74bf3804d941483d58a08/Slice3B2`. The Slice 3B-1 and historical evidence is under `tests/obj/Priority0-b2f5dee91397490bbb921f9c21adc9e0`. The placement and cleanup exceptions were deliberate fixture warnings.
+
+The development path admits an empty, unowned test projection without Hediffs, relations, quest or ownership claims. Anomaly games reject the action because native Pawn destruction has a DLC death-notification path. Rendered interaction and additional DLC or third-party cleanup behavior remain acceptance checks.
