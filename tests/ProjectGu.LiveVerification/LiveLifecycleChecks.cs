@@ -30,12 +30,12 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static bool Botanical => GenCommandLine.CommandLineArgPassed("gubotanical");
     private static bool CargoPrototype => GenCommandLine.CommandLineArgPassed("gucargoprototype");
     private static bool AutomaticHauling => GenCommandLine.CommandLineArgPassed("guautomatichauling");
-    private Action NewCheck => Slice3B5A ? ExerciseSlice3B5A
+    private Action NewCheck => Slice3B5BPerf ? PrepareGuRegistryBenchmark : Slice3B5A || Slice3B5B ? ExerciseSlice3B5A
         : Slice3B4 ? ExerciseSlice3B4 : Slice3B3B ? ExerciseSlice3B3B : Slice3B3A ? ExerciseSlice3B3A : Slice3B2 ? ExerciseSlice3B2
         : Slice3B1 ? ExerciseSlice3B1 : Slice3A ? ExerciseSlice3A : EmptyCavernReset ? ExerciseEmptyCavernReset
         : AwakeningSafety ? ExerciseAwakening : Botanical ? ExerciseBotanical
         : CargoPrototype ? ExerciseCargoPrototype : AutomaticHauling ? ExerciseAutomaticHauling : GenerateAndExercise;
-    private Action ReloadCheck => Slice3B5A ? VerifySlice3B5AReload
+    private Action ReloadCheck => Slice3B5A || Slice3B5B ? VerifySlice3B5AReload
         : Slice3B4 ? ReleaseAfterReload : Slice3B3B ? VerifySlice3B3BReload : Slice3B3A ? VerifySlice3B3AReload : Slice3B2 ? VerifySlice3B2Reload
         : Slice3B1 ? VerifySlice3B1Reload : Slice3A ? VerifySlice3AReload
         : GenCommandLine.CommandLineArgPassed("gulegacy31") ? () => VerifyHistoricalSpring(31)
@@ -57,6 +57,9 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     public override void LoadedGame() => pending = () =>
     {
         if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(NewCheck, "new");
+        else if (GuRegistryLoadTiming.Stage is { } benchmarkStage) Run(MeasureGuRegistryBenchmark, benchmarkStage);
+        else if (GenCommandLine.CommandLineArgPassed("guslice3b5baperture")) Run(ReleaseIntegratedCohort, "aperture");
+        else if (GenCommandLine.CommandLineArgPassed("guslice3b5breleased")) Run(VerifyIntegratedCohortRelease, "released");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b4released")) Run(VerifyReleasedReload, "released");
         else Run(ReloadCheck, "reload");
     };

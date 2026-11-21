@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = ''
@@ -102,6 +102,8 @@ try {
             'Slice3B3B' { '-guslice3b3b' }
             'Slice3B4' { '-guslice3b4' }
             'Slice3B5A' { '-guslice3b5a' }
+            'Slice3B5B' { '-guslice3b5b' }
+            'Slice3B5BPerf' { '-guslice3b5bperf' }
             'Legacy31' { '-gulegacy31' }
             'Legacy39' { '-gulegacy39' }
             default { '' }
@@ -134,6 +136,19 @@ try {
             Get-Content -LiteralPath (Join-Path $saveData 'priority0-result.txt')
             continue
         }
+        if ($name -eq 'Slice3B5BPerf') {
+            Invoke-LiveStage $saveData 'new' $true $false $probe
+            $sample = 0
+            foreach ($variant in @('empty', 'contained', 'contained', 'empty', 'empty', 'contained')) {
+                $sample += 1
+                $stage = "perf-$variant-$sample"
+                Copy-Item -LiteralPath (Join-Path $saveData "Saves/gu-perf-$variant.rws") -Destination (Join-Path $saveData 'Saves/autostart.rws') -Force
+                Invoke-LiveStage $saveData $stage $false $false "$probe -guperf-stage=$stage"
+            }
+            Write-Host "PASS $name matched native benchmark. Raw JSON samples in $saveData"
+            Get-Content -LiteralPath (Join-Path $saveData 'priority0-result.txt')
+            continue
+        }
         if ($Rendered) {
             # Stock graphical quick-start can stall in the entry scene. Load a seeded disposable colony.
             Invoke-LiveStage $saveData 'bootstrap' $true $false '-gupriority0bootstrap'
@@ -144,6 +159,10 @@ try {
         Invoke-LiveStage $saveData 'reload' $false $Rendered.IsPresent $probe
         if ($name -eq 'Slice3B4') {
             Invoke-LiveStage $saveData 'released' $false $Rendered.IsPresent "$probe -guslice3b4released"
+        }
+        if ($name -eq 'Slice3B5B') {
+            Invoke-LiveStage $saveData 'aperture' $false $Rendered.IsPresent "$probe -guslice3b5baperture"
+            Invoke-LiveStage $saveData 'released' $false $Rendered.IsPresent "$probe -guslice3b5breleased"
         }
         Write-Host "PASS $name disposable generation and fresh-process reload. Evidence in $saveData"
         Get-Content -LiteralPath (Join-Path $saveData 'priority0-result.txt')

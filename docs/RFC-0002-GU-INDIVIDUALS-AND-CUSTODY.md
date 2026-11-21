@@ -1,8 +1,8 @@
 # RFC-0002 — Individual Gu identity and custody
 
-**Status** — Proposed for owner approval. Independent Claude Opus review is optional.
+**Status** — Slice 3B implemented. Owner-rendered acceptance and merge authorization are pending.
 **Target** — RimWorld 1.7 / Waylith / .NET 10
-**Branch** — `feature/gu-framework-0.2.5`
+**Branch** — `feature/spirit-spring-ecology-visual-overhaul`
 
 ## 1. Scope and existing code
 
@@ -43,7 +43,7 @@ Use one developer species, one aperture slot and controlled Development Mode act
 3. **Complete the held and aperture moves.** Capture the same unstackable Thing into the exact Pawn inventory using native holder APIs. Support placing it back into the map's native holder. Storing validates the live host, the exact Hediff instance and available capacity before removing the physical projection. Withdrawal prepares a Thing for native inventory. Release prepares an active Pawn on a valid cell and rebinds the same record. Host death or aperture removal keeps the ID in recoverable custody. A same-Def replacement requires an explicit new binding.
 4. **Verify the transaction and its saves.** Use one coordinator with expected custody and revision, staged placement, a reentry guard and a single commit. Prove each synchronous transition is safe against save reentry before enabling it. Add a durable transition record if a supported operation can leave a save between ownership changes. Fresh-process reload each stable state and cross the existing passage with both inventory and aperture custody. Test replay, blocked release, full holders, missing routes, missing projections and aperture loss. Verify last-access removal through `IGuUndergroundCustodyProtection`, including a level whose protected occupant is the Gu. [Underground custody guard](../Source/ProjectGu/Underground/GuPocketProbeComponent.Recovery.cs).
 
-5. **Verify conservation and compatibility.** After the full round trip works, materialize one adult from a developer-species cohort through a checked debit and stable event key. Prove the cohort count plus all non-retired individuals stays constant across retries and reload. Run the existing Awakening and CargoPrototype regressions and load disposable copies of the historical saves. Compare the 120-record aperture fixture with an empty aperture for save/load cost and tick time. Aperture custody allocates zero Pawn projections.
+5. **Verify conservation and compatibility.** After the full round trip works, materialize one adult from a developer-species cohort through a checked debit and stable event key. Prove the cohort count plus its debit-backed non-retired individuals stays constant across retries and reload. Run the existing Awakening and CargoPrototype regressions and load disposable copies of the historical saves. Compare the same 120 hosts with empty apertures and with one record per aperture for save, load and tick cost. Aperture custody allocates zero Pawn or Thing projections.
 
 Each new custody commit advances the binding revision once and copies it to the live projection when there is one. This includes wild-to-dormant as of Slice 3B-3B. Rejections, successful rollbacks, reload, and native passage travel preserve the revision. Earlier saves retain their recorded revision.
 
@@ -52,6 +52,8 @@ The native owner key is the Thing load ID for physical custody and the Hediff lo
 The active-release path stages the species-defined Pawn under the custody guard, verifies native placement and the return route, then commits and activates that Pawn. The map-local custody service derives protection from live registry bindings. The inventory route to active release has its own source Thing retirement and rollback requirements.
 
 Slice 3B-5A debits one adult from a habitat-owned cohort at an expected revision. The canonical individual saves the event key, exact source provenance, and evidence of the debit. A quarantined record with a committed debit still counts toward conservation. An undebited quarantine blocks its event and leaves the population unit in the cohort.
+
+Slice 3B-5B joins materialization to the full custody lifecycle in the native game. The same cohort-origin ID persists through wild, dormant, inventory, aperture and released wild custody at revisions one through five. The performance fixture compares equal populations of 120 real aperture hosts with zero and 120 authorized individual records. Each populated aperture holds one Gu. [Technical acceptance report](GU-FRAMEWORK-0.2.5-ACCEPTANCE.md)
 
 ## 3. Custody and transitions
 
