@@ -98,6 +98,21 @@ The three probes are complete in the disposable verification mod. `scripts/verif
 | Unstackable Thing | Two distinct unit stacks survived merge-enabled inventory operations. Rejected placement preserved the held Thing. Fresh-process reload resolved the same Thing references under the native map and inventory owners, and return travel and drop preserved the held instance. The fixture was corrected to account for the map owning spawned Things. |
 | Exact aperture binding | The saved Pawn and Hediff reference pair resolved across passage travel and reload. A same-Def replacement and host death invalidated their original bindings. |
 
-The follow-up `Awakening` and `CargoPrototype` regression profiles were interrupted before completion and remain unverified for this checkpoint. Native discard can invoke cleanup on held assets and Hediffs, so the result applies to the tested empty, unowned Core Pawn. Other Pawn configurations and DLC callback behavior remain open.
+### Slice 3A regression rerun
 
-To resume, run `scripts/verify-priority0-live.ps1` with `-Profile @('Awakening','CargoPrototype')` from PowerShell and record both fresh-process results. Review the discard callback limits and exact native holder rules before proposing production custody transitions.
+The two profiles interrupted at the checkpoint passed when rerun from `1c52ace`. The disposable runner compiled Project GU and the verification mod against the installed Windows RimWorld 1.7.5014 rev1195 assemblies with zero warnings and errors. It ran headless with Core and Harmony 3.0.4 via `scripts/verify-priority0-live.ps1 -Profile @('Awakening','CargoPrototype')` in PowerShell.
+
+| Profile | New | Fresh-process reload | Evidence |
+|---|---|---|---|
+| `Awakening` | PASS | PASS | Rejection, the injected `PostAdd` failure, late depletion and reentry preserved counts and Pawn state. Each completed outcome debited one adult Hope Gu. Reload restored the depleted cohorts and preserved once-only awakening. The injected exception was the expected error log entry. |
+| `CargoPrototype` | PASS | PASS | The original 37-stone stack crossed the passage in native Pawn inventory. Reload restored the same held stack once, and native hauling delivered all 37 stones into the filtered surface stockpile. |
+
+The disposable run wrote `Awakening/priority0-result.txt` and `CargoPrototype/priority0-result.txt` under `tests/obj/Priority0-abea2d6343614549a992b1f51b4e2c1f`. The 31×31 and 39×39 historical saves matched their Phase F SHA-256 hashes. The regressions cleared the compatibility gate for planning Slice 3B. [Slice 3B implementation plan](RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md#slice-3b-implementation-plan).
+
+### Native retirement limits
+
+The Slice 3A fixture observed that despawning the wild Hare stopped its job and released its reservation. Explicit discard produced zero calls to `Pawn.Kill` and the corpse factories. The one `Corpse.PostCorpseDestroy` call carried the discard flag, and the Pawn stayed out of the map and world registries after reload.
+
+Inspection of the installed 1.7.5014 assembly shows that `WorldPawns.PassToWorld(..., Discard)` runs native destruction and discard. `Pawn.Discard` clears relations and notifies play and battle logs, tales, quests and memories. Its corpse-cleanup path can remove ownership, destroy equipment, inventory and apparel, and notify Hediffs. `Pawn.Destroy` also has a DLC-dependent Anomaly death-notification path. The Core fixture establishes the outcome for an empty, unowned, unrelated Pawn of the tested kind. Custom Hediffs, third-party callbacks and DLC behavior remain verification gates for the production projection.
+
+Slice 3B should admit only known Gu projections whose ownership, contents and callbacks satisfy a checked retirement contract. Treat native discard as irreversible. Use despawn for reversible staging, test respawning the same Pawn on failure, and prove guarded binding and cleanup with the actual Gu projection before enabling the wild-to-dormant transition. A failed cleanup needs a recoverable record binding that blocks duplicate interaction and retains the original Gu ID.
