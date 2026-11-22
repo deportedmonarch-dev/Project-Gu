@@ -18,13 +18,13 @@ namespace ProjectGu
             reason = "The Gu's wild binding or revision is unavailable.";
             if (!Prefs.DevMode || CustodyTransitionInProgress || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
                 || Resolve(pawn) is not { } record || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue) return false;
-            if (!GuCustodySaveGuard.Installed || ModsConfig.AnomalyActive)
+            if (!GuCustodySaveGuard.Installed)
             {
                 reason = "The native dormancy safeguards are unavailable for this game configuration.";
                 return false;
             }
             var def = record.Species?.dormantProjectionDef;
-            if (record.SpeciesDefName != "GU_DevTestSpringGu" || !Thing_GuDormantProjection.IsConfigured(def) || !CanRetire(pawn))
+            if (record.Species?.capabilityTags?.Contains("development_test") != true || !Thing_GuDormantProjection.IsConfigured(def) || !CanRetire(pawn))
             {
                 reason = "The development Gu must be an unowned, unharmed wild Pawn with empty equipment and inventory.";
                 return false;
@@ -102,7 +102,15 @@ namespace ProjectGu
             }
         }
 
-        private static bool CanRetire(Pawn_GuWildProjection pawn) => pawn.GetType() == typeof(Pawn_GuWildProjection)
+        /// <summary>
+        /// Anomaly adds death and discard notifications for unnatural corpses, mutants, creepjoiners, duplicates and hypnosis.
+        /// A Gu projection carrying none of these is outside every Anomaly path (Phase 2 investigation). Others are refused.
+        /// </summary>
+        private static bool IsOutsideAnomalyLifecycle(Pawn pawn) => !ModsConfig.AnomalyActive
+            || (!pawn.IsMutant && !pawn.IsCreepJoiner && !pawn.IsDuplicate && Find.Anomaly?.PawnHasUnnaturalCorpse(pawn) != true
+                && Find.Anomaly?.IsPawnHypnotized(pawn) != true);
+
+        private static bool CanRetire(Pawn_GuWildProjection pawn) => pawn.GetType() == typeof(Pawn_GuWildProjection) && IsOutsideAnomalyLifecycle(pawn)
             && pawn.Faction == null && !pawn.Downed && !pawn.IsPrisoner && !pawn.IsSlave && pawn.GetLord() == null
             && !Find.WorldPawns.Contains(pawn) && !QuestUtility.IsQuestLodger(pawn) && pawn.questTags?.Count is not > 0
             && pawn.relations?.RelatedToAnyoneOrAnyoneRelatedToMe != true && !Find.TaleManager.AnyTaleConcerns(pawn)

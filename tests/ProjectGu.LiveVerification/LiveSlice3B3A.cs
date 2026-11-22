@@ -214,12 +214,12 @@ public sealed partial class LiveLifecycleChecks
         Verify(fixture.Recovery, home.GetDirectlyHeldThings());
         // The wrong-holder move from V1 is now ordinary native movement. The Gu stays authorized in the other inventory.
         Verify(fixture.WrongHolder, otherInventory);
-        // The destroyed projection is demonstrated evidence. Phase 1 keeps the record unresolved and never terminal.
+        // Phase 2 (owner decisions §1): demonstrated physical destruction is a terminal outcome. Phase 1 kept it unresolved.
         var missing = registry.Individuals.Single(entry => entry.Id == fixture.Missing.Id);
-        Check(!missing.IsQuarantined && missing.Existence == GuExistence.Living && missing.Unresolved == GuUnresolvedCause.ProjectionEnded
-            && missing.TerminalEvidence == GuTerminalEvidence.Destroyed && missing.CustodyRevision == fixture.Missing.Revision
-            && missing.ProjectionId == fixture.Missing.Custody.NativeOwnerId && registry.Resolve(missing.Id) == null,
-            "The destroyed projection left an unresolved record with Destroyed evidence and all data retained");
+        Check(!missing.IsQuarantined && missing.Existence == GuExistence.Terminal && missing.TerminalOutcome == GuTerminalOutcome.Destroyed
+            && !missing.IsUnresolved && missing.CustodyRevision == fixture.Missing.Revision && missing.Id == fixture.Missing.Id
+            && missing.SpeciesDefName == fixture.Missing.Species && missing.LastKnown?.HolderId == fixture.Missing.Custody.HolderPawnId
+            && registry.Resolve(missing.Id) == null, "The destroyed Gu ended as Destroyed with its identity, provenance and last holder retained");
 
         var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef).OfType<Building_GuPocketProbeEndpoint>().Single();
         Check(JobDriver_GuPocketProbeTravel.TryTravel(holder, exit, out string reason) && holder.Map == home
@@ -232,7 +232,7 @@ public sealed partial class LiveLifecycleChecks
             && Snapshot(registry.Resolve(held)) == fixture.Held with {
                 Custody = new(GuCustodyKind.DormantGround, fixture.Held.Custody.NativeOwnerId)
             }, $"After reload and travel a drop placed the original Thing on the ground without changing revisions. {reason}");
-        Report("Fresh-process reload rebound the ground, inventory, recovered and externally moved Gu, and kept the destroyed projection unresolved with Destroyed evidence. The original holder returned through the saved passage and dropped the same Gu.");
+        Report("Fresh-process reload rebound the ground, inventory, recovered and externally moved Gu, and kept the destroyed Gu as a Destroyed tombstone. The original holder returned through the saved passage and dropped the same Gu.");
     }
 
     private static bool IsEmptyInventoryCell(Map map, IntVec3 cell) =>

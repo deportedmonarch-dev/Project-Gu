@@ -1,12 +1,16 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
     # Saves written by the v0.2.5 Schema V1 build. Each is copied, never modified, and checked by SHA-256.
-    [string[]]$V1Saves = @()
+    [string[]]$V1Saves = @(),
+    # Keep the disposable game copy after the run for debugging. It is removed by default.
+    [switch]$KeepGameCopy,
+    # Extra official expansions for any profile, for example royalty, biotech, anomaly, odyssey.
+    [ValidateSet('royalty', 'ideology', 'biotech', 'anomaly', 'odyssey')][string[]]$Expansions = @()
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -91,6 +95,7 @@ try {
         $dlc = ''
         if ($name -in @('IdeologyOdyssey', 'IdeologyReset')) { $dlc = '<li>ludeon.rimworld.ideology</li>' }
         if ($name -eq 'IdeologyOdyssey') { $dlc += '<li>ludeon.rimworld.odyssey</li>' }
+        foreach ($expansion in $Expansions) { if ($dlc -notlike "*ludeon.rimworld.$expansion*") { $dlc += "<li>ludeon.rimworld.$expansion</li>" } }
         $probe = switch ($name) {
             'IdeologyReset' { '-guemptycavernreset' }
             'Awakening' { '-guawakeningsafety' }
@@ -108,6 +113,9 @@ try {
             'Slice3B5BPerf' { '-guslice3b5bperf' }
             'VanillaGuInventory' { '-guvanillainventory' }
             'V2EngineProbe' { '-guv2engine' }
+            'Phase2Lifecycle' { '-guphase2lifecycle' }
+            'DormantHauling' { '-gudormanthauling' }
+            'ManifestationProbe' { '-gumanifestprobe' }
             'Legacy31' { '-gulegacy31' }
             'Legacy39' { '-gulegacy39' }
             default { '' }
@@ -192,4 +200,8 @@ try {
 }
 finally {
     $env:VK_LOADER_LAYERS_DISABLE = $originalLayerSetting
+    # The game copy is disposable and large. Evidence (saves, logs, results) lives beside it and is kept.
+    if (!$KeepGameCopy -and (Test-Path -LiteralPath (Join-Path $game 'RimWorld.exe'))) {
+        Remove-Item -LiteralPath $game -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }

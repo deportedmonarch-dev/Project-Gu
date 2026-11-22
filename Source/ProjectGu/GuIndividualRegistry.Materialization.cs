@@ -42,7 +42,7 @@ namespace ProjectGu
         {
             individual = null;
             reason = "The native cohort materialization safeguards are unavailable for this game configuration.";
-            if (!CanUseDevelopmentCustody || ModsConfig.AnomalyActive) return false;
+            if (!CanUseDevelopmentCustody) return false;
             reason = "The cohort materialization request has no exact habitat or event.";
             if (string.IsNullOrWhiteSpace(request.EventKey) || string.IsNullOrWhiteSpace(request.HabitatId)
                 || string.IsNullOrWhiteSpace(request.SpeciesDefName) || request.ExpectedRevision < 0

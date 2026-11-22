@@ -4,7 +4,14 @@ using Verse;
 
 namespace ProjectGu.Domain
 {
-    public enum GuExistence { Living = 1, Terminal = 2, Transformed = 3, Aggregated = 4 }
+    /// <summary>Retired: removed from individual simulation under a declared accounting policy. Not a biological ending.</summary>
+    public enum GuExistence { Living = 1, Terminal = 2, Transformed = 3, Aggregated = 4, Retired = 5 }
+
+    /// <summary>Why a terminal record ended (RFC-0004 §3.2). Set only from a demonstrated event or an explicit operation.</summary>
+    public enum GuTerminalOutcome { None = 0, Died = 1, Destroyed = 2, DeliberatelyDestroyed = 3, Consumed = 4, Lost = 5, Sacrificed = 6 }
+
+    /// <summary>Abandonment policy when a Gu loses its native representation without dying (owner decisions §4).</summary>
+    public enum GuPreservationPolicy { Individual = 0, ReturnToPopulation = 1, RetireFromSimulation = 2 }
 
     public enum GuCondition { Active = 1, Dormant = 2 }
 
@@ -12,7 +19,7 @@ namespace ProjectGu.Domain
 
     public enum GuManifestationKind { Pawn = 1, Thing = 2 }
 
-    public enum GuContainerKind { MortalAperture = 1 }
+    public enum GuContainerKind { MortalAperture = 1, WorldSite = 2 }
 
     /// <summary>Why an otherwise living record cannot currently be acted on. None means resolved.</summary>
     public enum GuUnresolvedCause
@@ -23,11 +30,13 @@ namespace ProjectGu.Domain
         ProjectionEnded = 3,
         HostDead = 4,
         HostUnavailable = 5,
-        ApertureMissing = 6
+        ApertureMissing = 6,
+        HostCorpseDestroyed = 7,
+        MapRemoved = 8
     }
 
-    /// <summary>A demonstrated native event. Phase 1 records it as evidence and never makes the record terminal.</summary>
-    public enum GuTerminalEvidence { None = 0, Destroyed = 1, Killed = 2, MapRemoved = 3, Discarded = 4 }
+    /// <summary>A demonstrated native event attached to an unresolved record. Death and destruction become terminal outcomes instead.</summary>
+    public enum GuTerminalEvidence { None = 0, Destroyed = 1, Killed = 2, MapRemoved = 3, Discarded = 4, HostCorpseDestroyed = 5 }
 
     /// <summary>Optional, species-specific persistent state. Created on demand by a capability.</summary>
     public abstract class GuStateComponent : IExposable
@@ -94,6 +103,15 @@ namespace ProjectGu.Domain
         private int unresolvedSinceTick = -1;
         private string unresolvedDetail;
 
+        // Lifecycle outcome and evidence (Phase 2). A terminal record is a tombstone: identity, provenance and accounting stay.
+        private GuTerminalOutcome terminalOutcome;
+        private int endedTick = -1;
+        private string endEventKey;
+        private string endActorId;
+        private GuLocation lastKnown;
+        private List<GuLifecycleEvent> history = new();
+        private bool compacted;
+
         // Evidential integrity
         private string quarantineReason;
         private string legacyQuarantineReason;
@@ -134,6 +152,14 @@ namespace ProjectGu.Domain
         public string QuarantineReason => quarantineReason;
         public bool IsQuarantined => !string.IsNullOrEmpty(quarantineReason);
         public string LegacyQuarantineReason => legacyQuarantineReason;
+        public GuTerminalOutcome TerminalOutcome => terminalOutcome;
+        public int EndedTick => endedTick;
+        public string EndEventKey => endEventKey;
+        public string EndActorId => endActorId;
+        public GuLocation LastKnown => lastKnown;
+        public IReadOnlyList<GuLifecycleEvent> History => history;
+        public bool IsCompacted => compacted;
+        public bool IsLiving => existence == GuExistence.Living;
         public int CustodyRevision => custodyRevision;
         public int StateRevision => stateRevision;
 
@@ -223,8 +249,13 @@ namespace ProjectGu.Domain
             Log.Warning($"[Project GU] Quarantined Gu {id ?? "(missing ID)"}. {reason}");
         }
 
-        internal void MarkUnresolved(GuUnresolvedCause cause, GuTerminalEvidence evidence, string detail, int tick)
+        /// <summary>Operator recovery only, after the registry re-checks that the contradiction no longer holds.</summary>
+        internal void LiftQuarantine() => quarantineReason = null;
+
+        internal void MarkUnresolved(GuUnresolvedCause cause, GuTerminalEvidence evidence, string detail, int tick, GuLocation location = null)
         {
+            if (existence != GuExistence.Living) return;
+            NoteLocation(location);
             // A demonstrated terminal event is never overwritten by a weaker, absence-of-evidence cause.
             if (IsUnresolved && terminalEvidence != GuTerminalEvidence.None && evidence == GuTerminalEvidence.None) return;
             if (unresolved == cause && terminalEvidence == evidence) return;
@@ -232,6 +263,8 @@ namespace ProjectGu.Domain
             terminalEvidence = evidence;
             unresolvedDetail = detail;
             if (unresolvedSinceTick < 0) unresolvedSinceTick = tick;
+            AddHistory(new(tick, GuLifecycleEventKind.Unresolved, cause.ToString(), null, null, location,
+                evidence == GuTerminalEvidence.None ? detail : $"Evidence {evidence}. {detail}"));
             Log.Message($"[Project GU] Gu {id} is unresolved: {cause}"
                 + (evidence == GuTerminalEvidence.None ? "" : $" (evidence: {evidence})") + $". {detail}");
         }
@@ -281,14 +314,125 @@ namespace ProjectGu.Domain
 
         internal void UpdateAnchorHint(string anchor) => anchorHint = anchor;
 
+        internal const int MaxHistory = 8;
+
+        internal void AddHistory(GuLifecycleEvent entry)
+        {
+            history ??= new();
+            history.Add(entry);
+            // The newest entries are kept. The entry that ended the record is never dropped.
+            while (history.Count > MaxHistory)
+            {
+                int index = history.FindIndex(item => item.Kind is not (GuLifecycleEventKind.Terminal or GuLifecycleEventKind.Retired));
+                if (index < 0) break;
+                history.RemoveAt(index);
+            }
+        }
+
+        internal void NoteLocation(GuLocation location)
+        {
+            if (location != null) lastKnown = location;
+        }
+
+        /// <summary>Ends the individual after a demonstrated event or explicit operation. Identity and accounting remain.</summary>
+        internal void EndLife(GuTerminalOutcome outcome, string eventKey, string actorId, GuLocation location, string detail, int tick)
+        {
+            if (existence != GuExistence.Living || outcome == GuTerminalOutcome.None) return;
+            existence = GuExistence.Terminal;
+            terminalOutcome = outcome;
+            endedTick = tick;
+            endEventKey = eventKey;
+            endActorId = actorId;
+            NoteLocation(location);
+            ClearUnresolved();
+            stateRevision++;
+            AddHistory(new(tick, GuLifecycleEventKind.Terminal, outcome.ToString(), eventKey, actorId, location, detail));
+            Log.Message($"[Project GU] Gu {id} ended: {outcome}. {detail}");
+        }
+
+        /// <summary>Removes the individual from simulation under a declared accounting policy. It is not a death.</summary>
+        internal void Retire(string cause, GuLocation location, string detail, int tick)
+        {
+            if (existence != GuExistence.Living) return;
+            existence = GuExistence.Retired;
+            endedTick = tick;
+            NoteLocation(location);
+            ClearUnresolved();
+            stateRevision++;
+            AddHistory(new(tick, GuLifecycleEventKind.Retired, cause, null, null, location, detail));
+            Log.Message($"[Project GU] Gu {id} retired from individual simulation: {cause}. {detail}");
+        }
+
+        internal static string WorldSiteId(GuLocation location) => $"site:{location.Layer}:{location.Tile}";
+
+        /// <summary>Abstract world-location custody for a Gu whose native map or holder is gone (owner decisions §4).</summary>
+        internal void CommitWorldSite(GuLocation location, string cause, string detail, int tick)
+        {
+            CommitContainment(GuContainerKind.WorldSite, WorldSiteId(location), location.MapId ?? WorldSiteId(location));
+            lastKnown = location;
+            ClearUnresolved();
+            AddHistory(new(tick, GuLifecycleEventKind.Abstracted, cause, null, null, location, detail));
+            Log.Message($"[Project GU] Gu {id} is held at an abstract world location: {location.Describe()}. {detail}");
+        }
+
+        /// <summary>
+        /// Compacts a terminal or retired record after the retention period (owner decisions §5). Keeps what replay,
+        /// conservation and uniqueness need: identity, species, provenance, event keys, debit, outcome and end tick.
+        /// </summary>
+        internal bool Compact()
+        {
+            if (existence == GuExistence.Living || compacted || IsQuarantined) return false;
+            projectionId = null;
+            containerId = null;
+            anchorHint = null;
+            legacyApertureLoadId = null;
+            refinement = null;
+            state?.Clear();
+            lastKnown = null;
+            unresolvedDetail = null;
+            legacyQuarantineReason = null;
+            // A terminal record already stores its outcome, tick, key and actor. Only a retirement keeps its cause in history.
+            var ending = existence == GuExistence.Retired ? history?.FindLast(item => item.Kind == GuLifecycleEventKind.Retired) : null;
+            history = new();
+            if (ending != null)
+            {
+                ending.Summarize();
+                history.Add(ending);
+            }
+            compacted = true;
+            return true;
+        }
+
+        /// <summary>Summarizes narrative detail older than the cutoff on a living record. Facts, causes and keys stay.</summary>
+        internal int SummarizeHistoryBefore(int cutoffTick)
+        {
+            int count = 0;
+            if (history == null) return 0;
+            for (int index = 0; index < history.Count - 1; index++)
+            {
+                var entry = history[index];
+                if (entry.Tick >= cutoffTick || (entry.Detail == null && entry.Location == null)) continue;
+                entry.Summarize();
+                count++;
+            }
+            return count;
+        }
+
         internal string DebugDescription => $"Gu {id ?? "(missing ID)"} | {speciesDefName} rank {rank} | custody revision {custodyRevision} | state revision {stateRevision}"
             + $"\n{existence} | {condition} | " + (placement == GuPlacementKind.Manifested
                 ? $"manifested as {manifestation} ({projectionId})"
                 : $"contained in {containerKind} {containerId ?? "(unassigned)"} (anchor {anchorHint})")
             + (creationEventKey == null ? "" : $"\nOrigin habitat: {originId} ({originNativeId}) | Event: {creationEventKey} | Adult debited: {cohortDebitCommitted}")
             + (IsUnresolved ? $"\nUnresolved: {unresolved}" + (terminalEvidence == GuTerminalEvidence.None ? "" : $", evidence {terminalEvidence}") + $" since {unresolvedSinceTick}. {unresolvedDetail}" : "")
+            + (existence == GuExistence.Living ? "" : $"\nEnded: {existence}"
+                + (terminalOutcome == GuTerminalOutcome.None ? "" : $" ({terminalOutcome})") + $" at {endedTick}"
+                + (endEventKey == null ? "" : $" key {endEventKey}") + (compacted ? " [compacted]" : ""))
+            + (lastKnown == null ? "" : $"\nLast known location: {lastKnown.Describe()}")
             + (IsQuarantined ? $"\nQuarantined: {quarantineReason}" : "")
             + (legacyQuarantineReason == null ? "" : $"\nV1 quarantine before migration: {legacyQuarantineReason}");
+
+        internal string HistoryDescription => history == null || history.Count == 0 ? "No lifecycle evidence."
+            : string.Join("\n", history.ConvertAll(entry => "- " + entry.Describe()));
 
         public void ExposeData()
         {
@@ -318,16 +462,24 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref terminalEvidence, "terminalEvidence", GuTerminalEvidence.None);
             Scribe_Values.Look(ref unresolvedSinceTick, "unresolvedSinceTick", -1);
             Scribe_Values.Look(ref unresolvedDetail, "unresolvedDetail");
+            Scribe_Values.Look(ref terminalOutcome, "terminalOutcome", GuTerminalOutcome.None);
+            Scribe_Values.Look(ref endedTick, "endedTick", -1);
+            Scribe_Values.Look(ref endEventKey, "endEventKey");
+            Scribe_Values.Look(ref endActorId, "endActorId");
+            Scribe_Deep.Look(ref lastKnown, "lastKnown");
+            Scribe_Collections.Look(ref history, "history", LookMode.Deep);
+            Scribe_Values.Look(ref compacted, "compacted");
             Scribe_Values.Look(ref quarantineReason, "quarantineReason");
             Scribe_Values.Look(ref legacyQuarantineReason, "legacyQuarantineReason");
             Scribe_Values.Look(ref custodyRevision, "custodyRevision");
             Scribe_Values.Look(ref stateRevision, "stateRevision");
             state ??= new();
+            history ??= new();
         }
     }
 
     /// <summary>Observed form of a record, derived from placement and the native graph. Never saved.</summary>
-    public enum GuObservedForm { Unavailable = 0, ActivePawn = 1, GroundThing = 2, HeldThing = 3, OtherHolder = 4, Contained = 5, WorldPawn = 6 }
+    public enum GuObservedForm { Unavailable = 0, ActivePawn = 1, GroundThing = 2, HeldThing = 3, OtherHolder = 4, Contained = 5, WorldPawn = 6, ContainedInDeceased = 7, WorldSite = 8 }
 
     /// <summary>Immutable read model (RFC-0004 §5.4).</summary>
     public readonly record struct GuView(string Id, string SpeciesDefName, int Rank, GuExistence Existence, GuCondition Condition,

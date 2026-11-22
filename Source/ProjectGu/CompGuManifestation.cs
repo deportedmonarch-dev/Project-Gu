@@ -21,9 +21,33 @@ namespace ProjectGu
 
         private string guId;
         private int guRevision;
+        // Where this object last left a map. Native state, not canonical: used as evidence once the map is gone.
+        private int lastTile = -1;
+        private int lastLayer = -1;
+        private IntVec3 lastCell = IntVec3.Invalid;
+        private string lastMapId;
 
         public string GuId => guId;
         public int GuRevision => guRevision;
+        // Transient: location captured by the projection class just before native destruction removes its holder.
+        private GuLocation endingLocation;
+
+        internal void CaptureEndingLocation()
+        {
+            if (!string.IsNullOrEmpty(guId)) endingLocation = GuIndividualRegistry.LocationOf(parent);
+        }
+
+        internal GuLocation TakeEndingLocation()
+        {
+            var location = endingLocation;
+            endingLocation = null;
+            return location;
+        }
+
+        internal bool HasLastLocation => lastTile >= 0;
+
+        internal GuLocation LastLocation(int tick) =>
+            GuLocation.FromTile(lastTile, lastLayer, lastCell, lastMapId, null, tick);
 
         /// <summary>Transient. Set by the registry when this tag claims an ID without being the authorized manifestation.</summary>
         internal bool Rogue { get; set; }
@@ -39,7 +63,22 @@ namespace ProjectGu
         {
             Scribe_Values.Look(ref guId, "guIndividualId");
             Scribe_Values.Look(ref guRevision, "guBindingRevision");
+            Scribe_Values.Look(ref lastTile, "guLastTile", -1);
+            Scribe_Values.Look(ref lastLayer, "guLastLayer", -1);
+            Scribe_Values.Look(ref lastCell, "guLastCell", IntVec3.Invalid);
+            Scribe_Values.Look(ref lastMapId, "guLastMapId");
             if (Scribe.mode == LoadSaveMode.PostLoadInit && !string.IsNullOrEmpty(guId)) LoadBuffer.Add(this);
+        }
+
+        public override void PostDeSpawn(Map map, DestroyMode mode = DestroyMode.Vanish)
+        {
+            base.PostDeSpawn(map, mode);
+            if (map == null) return;
+            var location = GuLocation.Capture(map, parent.Position, null, -1);
+            lastTile = location.Tile;
+            lastLayer = location.Layer;
+            lastCell = parent.Position;
+            lastMapId = map.GetUniqueLoadID();
         }
 
         // Native lifecycle hooks only enqueue. The registry applies events after the native callback returns.

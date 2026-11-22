@@ -17,6 +17,8 @@
 
 **Contained Gu — approved.** A mortal cultivator's death does not automatically destroy the Gu in their aperture. Instant death, or death without a meaningful chance to act, generally leaves surviving aperture Gu recoverable from the deceased.
 
+**Clarified 2026-11-22.** A mortal cultivator's aperture (rank 5 and below) is never an item and never drops. Only physical Gu fall from a mortal body. Aperture Gu stay in the body until they are deliberately extracted. No species slips out of a dead host on its own. Only an immortal leaves anything aperture-related: the Blessed Land Root (RFC-0006 §9).
+
 **Phase 2 boundary.** Implement the lifecycle operations, recoverable deceased-host custody and durable event evidence that the future behavior needs. Keep resurrection recovery. Extraction or destruction before resurrection is never reversed by resurrection and never duplicates occupants. Investigate corpse destruction, disappearance of the original host and recovery anchors. Recovered Gu are not refined by whoever recovers them.
 
 **Future — not in Phase 2.** A dying hostile cultivator may deliberately destroy some or all of their Gu to deny them to enemies.

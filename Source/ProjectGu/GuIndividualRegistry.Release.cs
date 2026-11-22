@@ -20,7 +20,7 @@ namespace ProjectGu
         {
             released = null;
             reason = "The native active-release safeguards are unavailable for this game configuration.";
-            if (!CanUseDevelopmentCustody || ModsConfig.AnomalyActive) return false;
+            if (!CanUseDevelopmentCustody) return false;
 
             reason = "The Gu's aperture containment or revision is unavailable.";
             if (Resolve(id) is not { } record || record.Placement != GuPlacementKind.Contained
@@ -90,7 +90,7 @@ namespace ProjectGu
                         else
                         {
                             if (!cleared) MarkRogue(prepared?.GuTag(), "A failed release could not discard its provisional Pawn.");
-                            if (!IsLiveAperture(aperture, record)) ApplyApertureState(record, host, Find.TickManager.TicksGame);
+                            if (!IsBoundAperture(aperture, record)) ApplyApertureState(record, host, Find.TickManager.TicksGame);
                         }
                     }
                 }

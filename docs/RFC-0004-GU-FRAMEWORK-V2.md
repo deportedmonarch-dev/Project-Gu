@@ -1,6 +1,6 @@
 # RFC-0004 — Gu Framework V2
 
-**Status** — Accepted with the gate G1 amendments in [section 15](#15-gate-g1-amendments). Phase 1 implementation is authorized on `feature/gu-framework-v2`. Later phases and gameplay policies remain unapproved.
+**Status** — Phase 2 implementation notes in [§16](#16-phase-2-lifecycle-as-implemented). Accepted with the gate G1 amendments in [section 15](#15-gate-g1-amendments). Phase 1 implementation is authorized on `feature/gu-framework-v2`. Later phases and gameplay policies remain unapproved.
 **Target** — RimWorld 1.7 Waylith / .NET 10
 **Supersedes** — The data model and custody validation in [RFC-0002](RFC-0002-GU-INDIVIDUALS-AND-CUSTODY.md). RFC-0002's transaction discipline, conservation rules and event-key idempotency carry forward.
 **Companions** — [RFC-0005 cultivators and apertures](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md) · [RFC-0006 immortal environments](RFC-0006-PERSISTENT-IMMORTAL-ENVIRONMENTS.md) · [Engine investigation](ENGINE-1.7-GU-V2-INVESTIGATION.md) · [System assessment](V2-SYSTEM-ASSESSMENT.md) · [Reconstruction plan](V2-RECONSTRUCTION-PLAN.md)
@@ -383,3 +383,46 @@ Phase 1 must migrate V1 aperture custody before Phase 3 builds cultivator and ap
 - Phase 3 `ApertureRecord` and `CultivatorRecord` adopt the same `guApertureId` without migrating Gu records again.
 
 Capacity stays one Gu per aperture in the Phase 1 developer fixture. The container data model already supports many occupants. Final capacity is a later balance decision.
+
+## 16. Phase 2 lifecycle as implemented
+
+The owner authorized Phase 2 on 2026-11-22 ([decisions](V2-PHASE2-OWNER-DECISIONS.md)). This section records how the implementation realizes sections 3.2, 3.4, 9 and 11. It takes precedence over earlier sections where they differ.
+
+### 16.1 Outcomes
+
+| Source | Result |
+|---|---|
+| Authorized wild Pawn killed | `Terminal(Died)` |
+| Authorized dormant Thing destroyed, in any destroy mode, outside a holder or map teardown | `Terminal(Destroyed)` |
+| Explicit operation by a cultivator, process or sacrifice | `Terminal(DeliberatelyDestroyed / Consumed / Sacrificed)` with an idempotent event key |
+| Operator decision on an unresolved record | `Terminal(Lost)`, actor `operator` |
+| Map removal, world-pawn GC, discard, holder teardown | Never terminal. The species preservation policy decides (16.3). |
+| Missing species, host, aperture or projection | `Unresolved` as before |
+
+A record is ended and unbound before its native object is retired, so the retirement is never reported as a second, physical ending. Terminal records keep identity, species, rank, provenance, creation key, cohort debit, uniqueness key, outcome, end tick, end key and actor. A species may declare a `terminalEffectWorker` for residue. It runs once after commit and cannot change the record.
+
+### 16.2 Deceased-host custody
+
+Host death no longer unbinds contained Gu. The binding rule is the exact aperture on its anchored host, which may be dead (a killed Pawn is natively `Destroyed` until resurrection). Actions that need the host to act still require a living host. Resurrection therefore needs no recovery step, and any extraction or destruction before resurrection is already committed and cannot be reversed. Destroying the corpse sets `Unresolved(HostCorpseDestroyed)` with the corpse's captured location until owner-approved species host-loss defaults exist. A discarded living host is `Unresolved(HostUnavailable)` with `Discarded` evidence.
+
+### 16.3 Preservation policy and world locations
+
+`GuSpeciesDef.abandonmentPolicy` is `Individual`, `ReturnToPopulation` or `RetireFromSimulation`. A uniqueness key, a refinement bond or a rank at or above `individualPreservationMinRank` (default 6) always forces `Individual`. A missing species also preserves the individual.
+
+- **Individual** with a known location → `Contained(WorldSite)` keyed by tile and layer, with a structured `GuLocation`. Recoverable on a map at the same tile.
+- **RetireFromSimulation** → `GuExistence.Retired`. Not a death. Accounting fields are kept.
+- **ReturnToPopulation** → `Unresolved(MapRemoved)` with evidence, because no regional population can yet receive the Gu. An active Gu of this policy stays a retained world Pawn.
+
+Locations are captured before native teardown by a `MapDeiniter.Deinit` prefix, a `Corpse.Destroy` prefix, the projection classes just before destruction, and the comp's last spawned location. Pocket maps use their source map's tile. World-pawn GC retains Pawns that are, hold or host Gu that must keep their identity, until reconciliation abstracts them.
+
+### 16.4 Physical Gu and their holders
+
+Gu in a native inventory follow native behavior. When native teardown would destroy a dead or vanished holder's inventory (corpse destruction, non-lethal Pawn destruction), authorized Gu are placed where the body stood if that is a live map. Otherwise their end is recorded as the holder's teardown and handled by 16.3.
+
+### 16.5 Retention and compaction
+
+After one in-game year an ended record is compacted. Placement fields, refinement, species state, last location, narrative detail and history are cleared. A retirement keeps its cause. Records are never deleted. Creation keys, terminal keys and cohort debits stay in the record, so replay protection, conservation and uniqueness need no separate ledger. Living records keep their facts and have only narrative detail older than a year summarized. Deleting tombstones would require a compact event ledger. That is an owner decision (Phase 2 report).
+
+### 16.6 Operator recovery
+
+Read-only inspection reports state, observed form, evidence history, rogue candidates and the actions the evidence supports. Repairs require Development Mode, re-check their evidence when they run, and write an audit entry: adopt the sole live rogue candidate of a record whose projection is missing (custody revision advances and the tag is rewritten), declare an unresolved record lost, or lift a quarantine whose contradiction no longer holds. A lifted record becomes unresolved, never directly actionable. Retained V1 transaction failures cannot be lifted.

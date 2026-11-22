@@ -133,7 +133,7 @@ namespace ProjectGu
                 {
                     if (!committed && staged != null && !DestroyApertureTransferThing(staged))
                         MarkRogue(staged.GuTag(), "A failed withdrawal could not retire its provisional Thing.");
-                    if (!committed && !IsLiveAperture(aperture, record))
+                    if (!committed && !IsBoundAperture(aperture, record))
                         ApplyApertureState(record, host, Find.TickManager.TicksGame);
                 }
                 finally { CustodyTransitionInProgress = false; }

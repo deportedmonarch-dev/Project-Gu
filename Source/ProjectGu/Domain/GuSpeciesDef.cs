@@ -8,6 +8,15 @@ namespace ProjectGu.Domain
     /// Data-only Gu species declaration. Not a Gu instance, population or ability.
     /// Verse DefDatabase is the canonical species catalog; addons can supply XML.
     /// </summary>
+    /// <summary>
+    /// Species hook that runs once after a terminal outcome commits, outside the transaction. It may place residue or
+    /// materials. It must not change the record. Exceptions are logged and do not undo the outcome.
+    /// </summary>
+    public abstract class GuTerminalEffectWorker
+    {
+        public abstract void Apply(GuRecord record, GuTerminalOutcome outcome, GuLocation location, Map map);
+    }
+
     public sealed class GuSpeciesDef : Def
     {
         public int minRank = 1;
@@ -15,6 +24,14 @@ namespace ProjectGu.Domain
         public bool wildPopulationEnabled;
         public PawnKindDef wildProjectionKind;
         public ThingDef dormantProjectionDef;
+
+        // Lifecycle policy (owner decisions §1, §4). Values are provisional until the owner approves species defaults.
+        /// <summary>What happens to an ordinary individual whose native map or holder is removed without it dying.</summary>
+        public GuPreservationPolicy abandonmentPolicy = GuPreservationPolicy.Individual;
+        /// <summary>Individuals at or above this rank always keep their identity (Immortal Gu by default).</summary>
+        public int individualPreservationMinRank = 6;
+        /// <summary>Optional species effect after a terminal outcome, such as residue. Most species leave nothing.</summary>
+        public Type terminalEffectWorker;
 
         // Extensible metadata only: tags do not execute behaviors.
         public List<string> pathTags = new List<string>();
@@ -42,7 +59,9 @@ namespace ProjectGu.Domain
                 || !wildProjectionKind.race.HasComp(typeof(CompGuManifestation)) || !wildProjectionKind.race.notifyMapRemoved))
                 yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race with CompGuManifestation and notifyMapRemoved";
             if (dormantProjectionDef != null && !Thing_GuDormantProjection.IsConfigured(dormantProjectionDef))
-                yield return $"{defName}: dormantProjectionDef requires an inert, unstackable Gu Thing with CompGuManifestation and notifyMapRemoved";
+                yield return $"{defName}: dormantProjectionDef requires an inert, unstackable, untradeable Gu Thing with CompGuManifestation and notifyMapRemoved";
+            if (terminalEffectWorker != null && !typeof(GuTerminalEffectWorker).IsAssignableFrom(terminalEffectWorker))
+                yield return $"{defName}: terminalEffectWorker must derive from ProjectGu.Domain.GuTerminalEffectWorker";
             foreach (string error in ValidateTags(pathTags, "pathTags")) yield return error;
             foreach (string error in ValidateTags(habitatTags, "habitatTags")) yield return error;
             foreach (string error in ValidateTags(capabilityTags, "capabilityTags")) yield return error;

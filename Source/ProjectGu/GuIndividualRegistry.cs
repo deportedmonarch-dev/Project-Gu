@@ -94,11 +94,20 @@ namespace ProjectGu
 
         internal static bool IsAuthorized(GuRecord record, Thing thing) => record?.IsActionable == true && MatchesManifestation(record, thing);
 
-        private static bool IsLiveAperture(Hediff_Aperture aperture, GuRecord record) =>
-            aperture?.pawn is { Dead: false, Destroyed: false, Discarded: false } host && aperture.def == GuWorldComponent.ApertureDef
+        /// <summary>
+        /// The record is held by this exact aperture on its anchored host. Host death does not break the binding: a slain
+        /// cultivator's aperture Gu stay recoverable from the body (owner decisions §2). A killed Pawn is natively Destroyed
+        /// until resurrection, so only a discarded host, or a destroyed living one, ends the binding.
+        /// </summary>
+        private static bool IsBoundAperture(Hediff_Aperture aperture, GuRecord record) =>
+            aperture?.pawn is { Discarded: false } host && (host.Dead || !host.Destroyed) && aperture.def == GuWorldComponent.ApertureDef
             && record?.Placement == GuPlacementKind.Contained && record.ContainerKind == GuContainerKind.MortalAperture
             && aperture.ApertureId != null && aperture.ApertureId == record.ContainerId
             && host.GetUniqueLoadID() == record.AnchorHint && host.health?.hediffSet?.hediffs.Contains(aperture) == true;
+
+        /// <summary>Bound and the host is alive. Actions that need the host to act use this.</summary>
+        private static bool IsLiveAperture(Hediff_Aperture aperture, GuRecord record) =>
+            IsBoundAperture(aperture, record) && !aperture.pawn.Dead;
 
         private static Hediff_Aperture FindAperture(Pawn host, string apertureId)
         {
@@ -127,7 +136,8 @@ namespace ProjectGu
                 return null;
             if (record.Placement == GuPlacementKind.Manifested)
                 return projectionOf.TryGetValue(record.Id, out var thing) && MatchesManifestation(record, thing) ? record : null;
-            return apertureOf.TryGetValue(record.Id, out var aperture) && IsLiveAperture(aperture, record) ? record : null;
+            if (record.ContainerKind == GuContainerKind.WorldSite) return record.LastKnown?.HasTile == true ? record : null;
+            return apertureOf.TryGetValue(record.Id, out var aperture) && IsBoundAperture(aperture, record) ? record : null;
         }
 
         /// <summary>Looks up a record by ID whatever its state, for inspection and tests.</summary>
@@ -139,7 +149,7 @@ namespace ProjectGu
         internal IEnumerable<GuRecord> ApertureOccupants(Hediff_Aperture aperture) =>
             !ready || CustodyTransitionInProgress || aperture?.ApertureId == null ? Enumerable.Empty<GuRecord>()
                 : apertureOf.Where(binding => binding.Value == aperture && byId.TryGetValue(binding.Key, out var record)
-                    && record.IsActionable && IsLiveAperture(aperture, record)).Select(binding => byId[binding.Key]);
+                    && record.IsActionable && IsBoundAperture(aperture, record)).Select(binding => byId[binding.Key]);
 
         internal GuRecord ResolveApertureOccupant(Hediff_Aperture aperture)
         {
@@ -153,9 +163,13 @@ namespace ProjectGu
             if (record == null || record.Existence != GuExistence.Living) return (GuObservedForm.Unavailable, null, null, null);
             if (record.Placement == GuPlacementKind.Contained)
             {
-                bool live = !record.IsUnresolved && apertureOf.TryGetValue(record.Id, out var aperture) && IsLiveAperture(aperture, record);
-                return (live ? GuObservedForm.Contained : GuObservedForm.Unavailable, record.ContainerId, record.AnchorHint,
-                    live ? apertureOf[record.Id].pawn.MapHeld : null);
+                if (record.ContainerKind == GuContainerKind.WorldSite)
+                    return (record.IsUnresolved ? GuObservedForm.Unavailable : GuObservedForm.WorldSite, record.ContainerId, null, null);
+                bool bound = !record.IsUnresolved && apertureOf.TryGetValue(record.Id, out var aperture) && IsBoundAperture(aperture, record);
+                if (!bound) return (GuObservedForm.Unavailable, record.ContainerId, record.AnchorHint, null);
+                var host = apertureOf[record.Id].pawn;
+                return (host.Dead ? GuObservedForm.ContainedInDeceased : GuObservedForm.Contained, record.ContainerId, record.AnchorHint,
+                    host.Dead ? host.Corpse?.MapHeld : host.MapHeld);
             }
             if (!projectionOf.TryGetValue(record.Id, out var thing) || !MatchesManifestation(record, thing))
                 return (GuObservedForm.Unavailable, record.ProjectionId, null, null);
@@ -240,6 +254,7 @@ namespace ProjectGu
 
         private void UnbindAll(GuRecord record)
         {
+            criticalCacheTick = -1;
             if (projectionOf.TryGetValue(record.Id, out var thing))
             {
                 projectionOf.Remove(record.Id);

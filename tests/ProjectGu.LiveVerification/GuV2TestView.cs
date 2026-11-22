@@ -7,7 +7,7 @@ using Verse;
 /// Test-side observation of a Schema V2 record in the vocabulary of the 0.2.5 fixtures. Custody is derived from the
 /// native graph through the registry's pure <c>Observe</c> query. It is not stored by V2. Revision means custody revision.
 /// </summary>
-internal enum GuCustodyKind { Unavailable = 0, WildPawn = 1, DormantGround = 2, DormantInventory = 3, Aperture = 4, OtherHolder = 5 }
+internal enum GuCustodyKind { Unavailable = 0, WildPawn = 1, DormantGround = 2, DormantInventory = 3, Aperture = 4, OtherHolder = 5, DeceasedAperture = 6, WorldSite = 7 }
 
 internal enum GuBiologicalState { Active = 1, Dormant = 2 }
 
@@ -34,6 +34,8 @@ internal static class GuV2TestView
                     GuObservedForm.HeldThing => new(GuCustodyKind.DormantInventory, observed.NativeId, observed.HolderId),
                     GuObservedForm.Contained => new(GuCustodyKind.Aperture, observed.NativeId, observed.HolderId),
                     GuObservedForm.OtherHolder => new(GuCustodyKind.OtherHolder, observed.NativeId, observed.HolderId),
+                    GuObservedForm.ContainedInDeceased => new(GuCustodyKind.DeceasedAperture, observed.NativeId, observed.HolderId),
+                    GuObservedForm.WorldSite => new(GuCustodyKind.WorldSite, observed.NativeId),
                     // Unbound records keep their stored identifiers, which are stable across reload.
                     _ => new(GuCustodyKind.Unavailable, record.ProjectionId ?? record.ContainerId ?? record.LegacyApertureLoadId, record.AnchorHint)
                 };

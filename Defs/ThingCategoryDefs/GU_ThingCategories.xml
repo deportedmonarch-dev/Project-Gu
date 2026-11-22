@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Dormant Gu are living individuals carried as goods. Storage never implies ownership or refinement. -->
+  <ThingCategoryDef>
+    <defName>GU_DormantGu</defName>
+    <label>dormant Gu</label>
+    <parent>Items</parent>
+  </ThingCategoryDef>
+</Defs>

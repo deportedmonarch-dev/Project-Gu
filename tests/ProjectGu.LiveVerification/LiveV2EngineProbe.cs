@@ -71,7 +71,7 @@ public sealed partial class LiveLifecycleChecks
 
     /// <summary>
     /// V2 acceptance form of the engine probe. Each scenario that quarantined a V1 record now has an asserted V2 outcome:
-    /// ordinary movement stays bound, demonstrated endings stay unresolved with evidence, and nothing is quarantined.
+    /// ordinary movement stays bound, demonstrated death and destruction are terminal (Phase 2), lost maps and world Pawns keep identity at world locations, and nothing is quarantined.
     /// </summary>
     private static void ExerciseV2EngineProbe()
     {
@@ -90,15 +90,28 @@ public sealed partial class LiveLifecycleChecks
             Report($"OBS {name}: {Holder(projection)}; {State(record)}");
         }
 
-        void ExpectUnresolved(string name, GuIndividual record, GuUnresolvedCause cause, params GuTerminalEvidence[] evidence)
+        void ExpectTerminal(string name, GuIndividual record, GuTerminalOutcome outcome)
         {
             registry.ApplyPendingEvents();
             registry.Sweep(int.MaxValue);
-            Check(!record.IsQuarantined && record.Existence == GuExistence.Living && record.Unresolved == cause
-                && evidence.Contains(record.TerminalEvidence) && registry.Resolve(record.Id) == null,
-                $"{name}: unresolved {cause} with evidence {string.Join("/", evidence)}, never terminal or quarantined. Observed {State(record)} {record.Unresolved}/{record.TerminalEvidence}");
-            expectations.Add(new(name, record.Id, "unresolved", cause.ToString(), record.TerminalEvidence.ToString()));
-            Report($"OBS {name}: unresolved {record.Unresolved}, evidence {record.TerminalEvidence}");
+            Check(!record.IsQuarantined && record.Existence == GuExistence.Terminal && record.TerminalOutcome == outcome
+                && !record.IsUnresolved && registry.Resolve(record.Id) == null && record.History.Any(entry => entry.Kind == GuLifecycleEventKind.Terminal),
+                $"{name}: the demonstrated event ended the Gu as {outcome} with evidence. Observed {record.Existence}/{record.TerminalOutcome} {record.Unresolved}/{record.TerminalEvidence}");
+            expectations.Add(new(name, record.Id, "terminal", outcome.ToString(), null));
+            Report($"OBS {name}: terminal {record.TerminalOutcome}; last known {record.LastKnown?.Describe()}");
+        }
+
+        void ExpectWorldSite(string name, GuIndividual record, Map removed)
+        {
+            registry.ApplyPendingEvents();
+            registry.Sweep(int.MaxValue);
+            Check(!record.IsQuarantined && record.IsActionable && record.Existence == GuExistence.Living
+                && record.Placement == GuPlacementKind.Contained && record.ContainerKind == GuContainerKind.WorldSite
+                && record.LastKnown?.HasTile == true && (removed == null || record.LastKnown.MapId == removed.GetUniqueLoadID())
+                && registry.Resolve(record.Id) == record && record.Custody.Kind == GuCustodyKind.WorldSite,
+                $"{name}: the Gu kept its identity at an abstract world location, never terminal. Observed {record.Placement}/{record.ContainerKind} {record.Unresolved} {record.LastKnown?.Describe()}");
+            expectations.Add(new(name, record.Id, "worldsite", null, record.LastKnown.Tile.ToString()));
+            Report($"OBS {name}: world location {record.LastKnown.Describe()}");
         }
 
         // 1. A downed holder drops its inventory natively. Inspection must not change the record.
@@ -139,12 +152,14 @@ public sealed partial class LiveLifecycleChecks
         var aperture = AddProbeAperture(host);
         var stored = StoreFixtureGu(host, aperture);
         host.Kill(null);
-        ExpectUnresolved("aperture-host-death", stored, GuUnresolvedCause.HostDead, GuTerminalEvidence.None);
-        expectations.RemoveAt(expectations.Count - 1);
+        registry.ApplyPendingEvents();
+        // Phase 2: the slain cultivator's aperture Gu stay contained and recoverable from the body.
+        Check(stored.IsActionable && stored.Custody.Kind == GuCustodyKind.DeceasedAperture && registry.ResolveApertureOccupant(aperture) == stored,
+            $"aperture-host-death: deceased-host custody, not unresolved. Observed {stored.Custody.Kind} {stored.Unresolved}");
+        Report($"OBS aperture-host-death: deceased-host custody; {State(stored)}");
         Check(ResurrectionUtility.TryResurrect(host) && host.health.hediffSet.hediffs.Contains(aperture), "Resurrection kept the same aperture Hediff");
-        registry.Sweep(int.MaxValue);
         Check(stored.IsActionable && registry.ResolveApertureOccupant(aperture) == stored && stored.Custody.Kind == GuCustodyKind.Aperture,
-            "Resurrection recovered the same contained Gu through the scheduled sweep");
+            "Resurrection found the same contained Gu with no recovery step");
         expectations.Add(new("aperture-resurrection", stored.Id, "bound", null, null));
         Report($"OBS aperture-resurrection: recovered; {State(stored)}");
 
@@ -154,7 +169,7 @@ public sealed partial class LiveLifecycleChecks
         int destroyBefore = CompV2IdentityProbe.PostDestroyCalls;
         groundGu.Destroy(DestroyMode.KillFinalize);
         Check(CompV2IdentityProbe.PostDestroyCalls - destroyBefore == 1, "Destruction reached the projection comps once");
-        ExpectUnresolved("dormant-destroyed", groundRecord, GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.Killed, GuTerminalEvidence.Destroyed);
+        ExpectTerminal("dormant-destroyed", groundRecord, GuTerminalOutcome.Destroyed);
 
         // 6. A wild Gu killed.
         var species = DefDatabase<GuSpeciesDef>.GetNamed("GU_DevTestSpringGu");
@@ -162,7 +177,7 @@ public sealed partial class LiveLifecycleChecks
             "Spawned a wild Gu to kill");
         var wildRecord = registry.Resolve(wild);
         wild.Kill(null);
-        ExpectUnresolved("wild-killed", wildRecord, GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.Killed);
+        ExpectTerminal("wild-killed", wildRecord, GuTerminalOutcome.Died);
 
         // 7. A wild Gu Pawn passed to the world and collected by native world-pawn GC.
         Check(registry.TrySpawnDevelopmentGu(species, home, EmptyCargoCell(home, colonists[0].Position, null, 5), out var drifter),
@@ -173,8 +188,11 @@ public sealed partial class LiveLifecycleChecks
         Check(registry.Resolve(drifter) == drifterRecord && drifterRecord.Custody.Kind == GuCustodyKind.WildPawn,
             "A living world Pawn is still the authorized manifestation before GC");
         Find.WorldPawns.gc.RunGC();
-        Check(drifter.Discarded, "Native world-pawn GC discarded the unprotected Gu Pawn");
-        ExpectUnresolved("world-gc", drifterRecord, GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.Destroyed, GuTerminalEvidence.Discarded);
+        // Phase 2: GC retains Pawns with Gu custody until reconciliation abstracts the Gu by its preservation policy.
+        Check(!drifter.Discarded && registry.Resolve(drifter) == drifterRecord, "Native world-pawn GC retained the authorized Gu Pawn");
+        ExpectWorldSite("world-gc", drifterRecord, null);
+        Check(drifter.Discarded && drifterRecord.LastKnown.MapId == home.GetUniqueLoadID(),
+            "The registry retired the former world Pawn and kept the map it last left as evidence");
 
         // 8. Removal of an unprotected map that holds a dormant Gu and an active Gu.
         var generator = DefDatabase<MapGeneratorDef>.GetNamed("GU_PocketProbeCavern");
@@ -191,9 +209,9 @@ public sealed partial class LiveLifecycleChecks
         var pocketActiveRecord = registry.Resolve(pocketActive);
         PocketMapUtility.DestroyPocketMap(pocket);
         Check(!Find.Maps.Contains(pocket), "The unprotected pocket map was removed");
-        ExpectUnresolved("map-removal-dormant", pocketDormantRecord, GuUnresolvedCause.ProjectionEnded,
-            GuTerminalEvidence.MapRemoved, GuTerminalEvidence.Discarded);
-        ExpectBound("map-removal-active-world-pawn", pocketActiveRecord, pocketActive, GuCustodyKind.WildPawn);
+        ExpectWorldSite("map-removal-dormant", pocketDormantRecord, pocket);
+        ExpectWorldSite("map-removal-active-world-pawn", pocketActiveRecord, pocket);
+        Check(pocketActive.Discarded, "The wild Gu Pawn passed to the world was retired after abstraction");
 
         // 9. Native Strip redistributes a living colonist's inventory.
         var stripTarget = ExtraColonist(home, colonists[0].Position);
@@ -239,10 +257,16 @@ public sealed partial class LiveLifecycleChecks
             Check(record != null && !record.IsQuarantined, $"{expected.Case}: the record survived reload without quarantine");
             if (expected.Outcome == "bound")
                 Check(registry.Resolve(record.Id) == record, $"{expected.Case}: rebound after a fresh-process reload. {State(record)}");
+            else if (expected.Outcome == "terminal")
+                Check(record.Existence == GuExistence.Terminal && record.TerminalOutcome.ToString() == expected.Cause && registry.Resolve(record.Id) == null,
+                    $"{expected.Case}: the terminal outcome persisted. {record.Existence}/{record.TerminalOutcome}");
+            else if (expected.Outcome == "worldsite")
+                Check(registry.Resolve(record.Id) == record && record.Custody.Kind == GuCustodyKind.WorldSite
+                    && record.LastKnown?.Tile.ToString() == expected.Evidence, $"{expected.Case}: the world location persisted. {record.LastKnown?.Describe()}");
             else
                 Check(record.Unresolved.ToString() == expected.Cause && record.TerminalEvidence.ToString() == expected.Evidence
                     && registry.Resolve(record.Id) == null, $"{expected.Case}: unresolved cause and evidence persisted. {record.Unresolved}/{record.TerminalEvidence}");
-            Report($"OBS reload {expected.Case}: {(registry.Resolve(record.Id) != null ? "bound " + record.Custody.Kind : $"unresolved {record.Unresolved}/{record.TerminalEvidence}")}");
+            Report($"OBS reload {expected.Case}: {expected.Outcome} {record.Existence}/{record.TerminalOutcome} {record.Custody.Kind} {record.Unresolved}");
         }
         Check(registry.Individuals.All(record => !record.IsQuarantined), "No record is quarantined after reload");
     }

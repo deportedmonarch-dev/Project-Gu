@@ -174,10 +174,13 @@ public sealed partial class LiveLifecycleChecks
         var death = StoreFixtureGu(dyingHost, dyingAperture);
         var deathSnapshot = Snapshot(death);
         dyingHost.Kill(null);
-        Check(dyingHost.Dead && registry.Resolve(death.Id) == null, "A dead host cannot authorize its aperture occupant");
         registry.ApplyPendingEvents();
-        Check(death.Unresolved == GuUnresolvedCause.HostDead && !death.IsQuarantined && SameClaim(death, deathSnapshot),
-            "Native host death leaves the record unresolved with its revision and containment preserved");
+        // Phase 2 (owner decisions §2): host death keeps the Gu contained and recoverable from the body. Phase 1 left it unresolved.
+        Check(dyingHost.Dead && registry.Resolve(death.Id) == death && !death.IsUnresolved && !death.IsQuarantined
+            && SameClaim(death, deathSnapshot) && death.Custody.Kind == GuCustodyKind.DeceasedAperture
+            && death.History.Any(entry => entry.Kind == GuLifecycleEventKind.HostDied)
+            && !registry.TryWithdrawDormant(death.Id, death.Revision, dyingHost, dyingAperture, out _, out _),
+            "Native host death keeps deceased-host custody with its revision and containment. A dead host cannot withdraw the Gu");
 
         var destroyedHost = PawnGenerator.GeneratePawn(new PawnGenerationRequest(PawnKindDefOf.Colonist, Faction.OfPlayer,
             tile: home.Tile, forceGenerateNewPawn: true));
@@ -200,7 +203,7 @@ public sealed partial class LiveLifecycleChecks
         Check(ActuallyProjectedGu().Single() == packed, "All aperture Gu are records only");
         var fixture = new ApertureFixture(cave.GetUniqueLoadID(), stored, packedSnapshot, new[] {
             interrupted, new(Snapshot(replaced), GuUnresolvedCause.ApertureMissing), new(Snapshot(missing), GuUnresolvedCause.ApertureMissing),
-            new(Snapshot(death), GuUnresolvedCause.HostDead), new(Snapshot(destroyed), GuUnresolvedCause.HostUnavailable)
+            new(Snapshot(death), GuUnresolvedCause.None), new(Snapshot(destroyed), GuUnresolvedCause.HostUnavailable)
         });
         File.WriteAllText(ApertureFixturePath, JsonSerializer.Serialize(fixture));
         GameDataSaveLoader.SaveGame(SaveName);
@@ -228,6 +231,12 @@ public sealed partial class LiveLifecycleChecks
         foreach (var expected in fixture.Lost)
         {
             var lost = registry.Individuals.Single(entry => entry.Id == expected.Record.Id);
+            if (expected.Cause == GuUnresolvedCause.None)
+            {
+                Check(lost.IsActionable && Snapshot(lost) == expected.Record && registry.Resolve(lost.Id) == lost
+                    && lost.Custody.Kind == GuCustodyKind.DeceasedAperture, "Reload rebound the Gu held in the deceased host's aperture");
+                continue;
+            }
             Check(!lost.IsQuarantined && lost.Unresolved == expected.Cause && lost.TerminalEvidence == GuTerminalEvidence.None
                 && Snapshot(lost) == expected.Record && registry.Resolve(lost.Id) == null,
                 $"Reload keeps the lost claim unresolved ({expected.Cause}) with its data and rejects the missing native pair");

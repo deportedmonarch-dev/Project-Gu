@@ -11,7 +11,11 @@
     </comps>
     <stackLimit>1</stackLimit>
     <tickerType>Never</tickerType>
-    <alwaysHaulable>false</alwaysHaulable>
+    <!-- Ordinary hauling and storage move the same authorized Thing without changing custody or allegiance. -->
+    <alwaysHaulable>true</alwaysHaulable>
+    <thingCategories>
+      <li>GU_DormantGu</li>
+    </thingCategories>
     <tradeability>None</tradeability>
     <graphicData>
       <texPath>Things/Item/Resource/Silver</texPath>

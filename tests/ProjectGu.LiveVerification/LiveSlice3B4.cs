@@ -81,8 +81,10 @@ public sealed partial class LiveLifecycleChecks
         IntVec3 deathCell = OpenInventoryCell(dyingHost);
         dyingHost.Kill(null);
         registry.ApplyPendingEvents();
-        Check(death.Unresolved == GuUnresolvedCause.HostDead && !death.IsQuarantined && !registry.TryReleaseActive(death.Id, death.Revision, dyingHost, dyingAperture,
-            home, deathCell, out _, out _), "A dead host cannot release a Gu");
+        // Phase 2: deceased-host custody keeps the Gu contained and bound. Release still needs a living host.
+        Check(!death.IsUnresolved && !death.IsQuarantined && death.Custody.Kind == GuCustodyKind.DeceasedAperture
+            && !registry.TryReleaseActive(death.Id, death.Revision, dyingHost, dyingAperture, home, deathCell, out _, out _),
+            "A dead host keeps its aperture Gu in deceased-host custody but cannot release it");
 
         var missingHost = PawnGenerator.GeneratePawn(new PawnGenerationRequest(PawnKindDefOf.Colonist, Faction.OfPlayer,
             tile: home.Tile, forceGenerateNewPawn: true));
@@ -164,7 +166,7 @@ public sealed partial class LiveLifecycleChecks
         Check(!missing.IsQuarantined && !ActuallyProjectedGu().Any() && registry.Individuals.Count == 5,
             "The pre-release save has five records and zero physical Gu");
         var fixture = new ReleaseFixture(cave.GetUniqueLoadID(), surface.GetUniqueLoadID(), stored, new[] {
-            new ApertureClaim(Snapshot(replaced), GuUnresolvedCause.ApertureMissing), new(Snapshot(death), GuUnresolvedCause.HostDead),
+            new ApertureClaim(Snapshot(replaced), GuUnresolvedCause.ApertureMissing), new(Snapshot(death), GuUnresolvedCause.None),
             new(Snapshot(missing), GuUnresolvedCause.HostUnavailable), new(Snapshot(late), GuUnresolvedCause.ProjectionMissing)
         });
         WriteReleaseFixture(fixture);
@@ -250,6 +252,12 @@ public sealed partial class LiveLifecycleChecks
         foreach (var expected in fixture.Lost)
         {
             var record = registry.Individuals.Single(entry => entry.Id == expected.Record.Id);
+            if (expected.Cause == GuUnresolvedCause.None)
+            {
+                Check(Snapshot(record) == expected.Record && record.IsActionable && record.Custody.Kind == GuCustodyKind.DeceasedAperture,
+                    "The Gu in the dead host's aperture stays in deceased-host custody and is never released");
+                continue;
+            }
             Check(Snapshot(record) == expected.Record && registry.Resolve(record.Id) == null && !record.IsQuarantined
                 && record.Unresolved == expected.Cause && record.TerminalEvidence == GuTerminalEvidence.None,
                 $"Lost hosts, replaced apertures and failed committed claims stay unresolved ({expected.Cause}) and never authorize another release");

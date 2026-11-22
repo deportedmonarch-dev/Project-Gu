@@ -17,11 +17,17 @@ namespace ProjectGu
         internal static bool IsConfigured(ThingDef def) => def?.thingClass == typeof(Thing_GuDormantProjection)
             && def.HasComp(typeof(CompGuManifestation)) && def.notifyMapRemoved
             && def.category == ThingCategory.Item && def.stackLimit == 1 && def.tickerType == TickerType.Never
-            && !def.EverHaulable && !def.IsIngestible && !def.destroyOnDrop && def.tradeability == Tradeability.None;
+            && !def.IsIngestible && !def.destroyOnDrop && def.tradeability == Tradeability.None;
 
         internal void InitializeBinding(GuRecord record) => this.GuTag()?.Bind(record);
 
         public override bool CanStackWith(Thing other) => false;
+
+        public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
+        {
+            this.GuTag()?.CaptureEndingLocation();
+            base.Destroy(mode);
+        }
 
         public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
         {

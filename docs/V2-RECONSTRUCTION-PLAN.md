@@ -122,3 +122,17 @@ Saves written by V2 are not supported by V1 builds. The release notes will say s
 - Changes that remove a feature, change gameplay or change a save key are presented to the owner first with alternatives, benefits, migration and cost.
 - Routine fixes, diagnostics and verified preparatory work inside an approved phase proceed without separate approval.
 - Merges into `main` require explicit owner authorization.
+
+### Phase 2 decisions still required
+
+Raised by the Phase 2 implementation. Each has a provisional engineering default that is safe to keep until the owner decides. [Phase 2 report](IMPLEMENTATION-V2.md#phase-2--lifecycle-outcomes-recovery-and-hauling)
+
+| # | Decision | Current provisional behavior | Recommendation |
+|---|---|---|---|
+| D2.7 | Species host-loss outcomes when a cultivator's corpse is destroyed or the host disappears (`Die`, `Escape`, `Remain`). | `Unresolved(HostCorpseDestroyed)` with the corpse's location. Nothing is invented. | Owner ruled out Gu slipping out of a dead host on their own. Remaining choice when the body itself is destroyed: the Gu `Remain` at the location as a world-location record, or `Die`. Recommendation: `Remain` for rare and refined Gu. |
+| D2.8 | Preservation policy values per species. | Every species defaults to `Individual`. Rank 6 and above, unique and refined Gu always stay individual. | Keep `Individual` for rare species. Set common species to `ReturnToPopulation` once regional populations exist. |
+| D2.9 | Regional population target for `ReturnToPopulation`. | Unresolved with evidence. Active Gu stay retained world Pawns. | Design with the regional ecology work. Credit the regional cohort with an idempotent event. |
+| D2.10 | Tombstone deletion. | Tombstones are compacted after one year and never deleted. | Keep compaction. Approve deletion only with a compact event ledger for creation keys, terminal keys and debits. |
+| D2.11 | A dead wild Gu Pawn revived by native resurrection. | The record stays `Died`. A revived Pawn is never authorized and is reported as a rogue projection on load. | Keep death terminal. A species may later declare revival as an explicit operation. |
+| D2.12 | Physical Gu of a destroyed corpse or vanished holder. | Placed where the body stood. Otherwise handled by the preservation policy. | Confirm. It follows "physical Gu survive their holder". |
+| D2.13 | Anomaly gate on development dormancy, release and materialization. | Replaced by a per-Pawn check for mutants, creepjoiners, duplicates, unnatural corpses and hypnosis. | Confirm after the native Anomaly runs recorded in the report. |

@@ -83,6 +83,14 @@ namespace ProjectGu
             Current.Game?.GetComponent<GuIndividualRegistry>()?.EnqueueApertureEvent(this, GuUnresolvedCause.HostDead, "The aperture host died.");
         }
 
+        // Called when the corpse is destroyed and also when a living or dead host Pawn is discarded.
+        public override void Notify_PawnCorpseDestroyed()
+        {
+            base.Notify_PawnCorpseDestroyed();
+            Current.Game?.GetComponent<GuIndividualRegistry>()?.EnqueueApertureEvent(this, GuUnresolvedCause.HostCorpseDestroyed,
+                pawn?.Dead == true ? "The aperture host's corpse was destroyed." : "The aperture host was discarded.");
+        }
+
         public override string TipStringExtra =>
             "Aptitude: " + AptitudeGrade + (HasExtremePhysique
                 ? " (" + ExtremePhysiqueId + ")"

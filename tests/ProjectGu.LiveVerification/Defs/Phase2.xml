@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Test-only species for Phase 2 preservation policies. They reuse the developer projections. -->
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_TestRetireGu</defName>
+    <label>retiring test Gu</label>
+    <description>Test species that retires from individual simulation when abandoned and leaves residue when destroyed.</description>
+    <wildProjectionKind>GU_DevTestWildGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DevTestDormantGu</dormantProjectionDef>
+    <abandonmentPolicy>RetireFromSimulation</abandonmentPolicy>
+    <terminalEffectWorker>Phase2TestResidueWorker</terminalEffectWorker>
+    <capabilityTags><li>development_test</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_TestPopulationGu</defName>
+    <label>population test Gu</label>
+    <description>Test species that returns to a regional population when abandoned.</description>
+    <wildProjectionKind>GU_DevTestWildGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DevTestDormantGu</dormantProjectionDef>
+    <abandonmentPolicy>ReturnToPopulation</abandonmentPolicy>
+    <capabilityTags><li>development_test</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_TestImmortalGu</defName>
+    <label>immortal test Gu</label>
+    <description>Rank six test species. Its rank overrides a retiring policy.</description>
+    <minRank>6</minRank>
+    <maxRank>6</maxRank>
+    <wildProjectionKind>GU_DevTestWildGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DevTestDormantGu</dormantProjectionDef>
+    <abandonmentPolicy>RetireFromSimulation</abandonmentPolicy>
+    <capabilityTags><li>development_test</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
+</Defs>

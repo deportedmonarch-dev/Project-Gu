@@ -101,6 +101,28 @@ Run `scripts/verify-priority0-live.ps1 -Profile V2EngineProbe`. The final eviden
 - **Source-derived.** Odyssey's `Gravship` and `GravshipPlacementUtility.PlaceGravshipInMap` capture a structure from one map and place it on another. This is a DLC feature.
 - **Hypothesis.** The Gravship path may inform future environment materialization. It does not establish a Core-only way to unload a map and restore it later.
 
+### F10. Native teardown order hides the holder and map
+
+- **Source-derived.** `Thing.Destroy` removes the Thing from its holder before `ThingComp.PostDestroy` runs. `Thing.Notify_MyMapRemoved` clears the map index before comps receive `Notify_MapRemoved`. `Corpse.Destroy` clears its contents before `Corpse.PostCorpseDestroy`, which destroys the dead Pawn's inventory. `Pawn.Destroy` with any mode other than `KillFinalize` destroys the whole inventory. `Pawn.Discard` runs the same corpse cleanup, and Hediffs receive `Notify_PawnCorpseDestroyed` for a living discarded Pawn as well.
+- **Consequence.** Location evidence must be captured before teardown: a `MapDeiniter.Deinit` prefix, a `Corpse.Destroy` prefix, overrides on the projection classes, and the comp's last spawned location ([RFC-0004 §16.3](RFC-0004-GU-FRAMEWORK-V2.md#163-preservation-policy-and-world-locations)).
+
+### F11. A killed Pawn is natively destroyed until resurrection
+
+- **Source-derived.** `Pawn.Kill` ends in `Thing.Kill`, which calls `Destroy(KillFinalize)`. The dead Pawn reports `Destroyed` until `ResurrectionUtility` calls `ForceSetStateToUnspawned`. A binding rule that rejects destroyed hosts therefore rejects every dead host.
+- **Consequence.** Deceased-host custody accepts a destroyed host only when it is dead and not discarded.
+
+### F12. Pocket maps have no world tile
+
+- **Native fixture.** `V2EngineProbe` saw `Map.Tile` invalid on a removed pocket map. Its `PocketMapParent.sourceMap` supplies the reachable surface tile.
+
+### F13. World Pawns have no holder
+
+- **Native fixture.** A world Pawn's `ParentHolder` is null, not `WorldPawns`. Detection uses `IsWorldPawn()`, no caravan and no holding owner.
+
+### F14. Anomaly lifecycle paths
+
+- **Source-derived.** Anomaly adds a death notification in `Pawn.Destroy` and `Pawn.Kill` that acts only on Pawns with a tracked unnatural corpse. Pawn generation applies a mutant only when the request or kind declares one. Other Anomaly branches concern mutants, creepjoiners, duplicates and hypnosis. A freshly generated, empty Gu projection carries none of these. The blanket Anomaly gate is replaced by a per-Pawn check, pending native Anomaly runs.
+
 ## Earlier evidence that remains valid
 
 - Explicit `WorldPawns.PassToWorld(..., Discard)` retires an empty, unowned Core Pawn without kill calls, corpses or tales. It clears relations and notifies logs, tales, quests and memories. [Native retirement limits](IMPLEMENTATION-0.2.5.md#native-retirement-limits)

@@ -106,7 +106,7 @@ The framework provides the states and hooks. The owner set the direction on 2026
 | Event | Framework state | Owner direction |
 |---|---|---|
 | Holder of physical inventory Gu dies | Nothing changes for the Gu. The engine drops or keeps the Thing. | **Approved.** Physical Gu survive unless independently killed or destroyed. Allegiance does not change. |
-| Host killed | Contained Gu stay `Contained` in a deceased-host aperture, recoverable from the corpse. | **Approved.** Instant death, or death without a chance to act, leaves aperture Gu recoverable. Resurrection restores the occupants that remain. |
+| Host killed | Contained Gu stay `Contained` in a deceased-host aperture, recoverable from the corpse. | **Approved.** Instant death, or death without a chance to act, leaves aperture Gu recoverable. They stay in the body until extracted, and none slip out on their own. A mortal aperture never drops. Resurrection restores the occupants that remain. |
 | Gu extracted or destroyed before resurrection | Terminal outcome or new placement, recorded with an event key. | **Approved.** Resurrection never reverses it or duplicates occupants. |
 | Host corpse destroyed, or the host disappears | Unresolved with captured location evidence. | Species `HostLoss` outcome (`Die`, `Escape`, `Remain`). Defaults pending owner approval. |
 | Dying hostile cultivator | Deliberate destruction is a terminal outcome with cause `DeliberateDestruction`. | **Future.** Probability rises with certainty of death, led by bleeding out. Preliminary curve 15% at 4 h, 35% at 8 h, 80% at 10 h. Most valuable Gu first. No per-tick rolls. |

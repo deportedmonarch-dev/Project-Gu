@@ -44,6 +44,12 @@ namespace ProjectGu
             if (!releaseSuppressed) base.TickInterval(delta);
         }
 
+        public override void Kill(DamageInfo? dinfo = null, Hediff exactCulprit = null)
+        {
+            this.GuTag()?.CaptureEndingLocation();
+            base.Kill(dinfo, exactCulprit);
+        }
+
         public override IEnumerable<Gizmo> GetGizmos() => releaseSuppressed ? Array.Empty<Gizmo>() : base.GetGizmos();
         public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn) =>
             releaseSuppressed ? Array.Empty<FloatMenuOption>() : base.GetFloatMenuOptions(selPawn);

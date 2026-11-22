@@ -60,6 +60,8 @@ namespace ProjectGu
         private static string RecordError(GuRecord record)
         {
             if (record.Version != GuRecord.CurrentVersion) return "Unsupported Gu record version.";
+            if (!record.IsLiving && record.Existence is not (GuExistence.Terminal or GuExistence.Retired))
+                return "Unsupported Gu existence.";
             if (!Guid.TryParseExact(record.Id, "N", out _) || record.CustodyRevision < 1 || record.StateRevision < 1
                 || string.IsNullOrWhiteSpace(record.Origin) || string.IsNullOrWhiteSpace(record.OriginId) || record.CreatedTick < 0)
                 return "Invalid Gu identity, revision or provenance.";
@@ -69,8 +71,13 @@ namespace ProjectGu
                 return "The saved cohort materialization has incomplete provenance or debit evidence.";
             if (record.Species is { } species && (record.Rank < species.minRank || record.Rank > species.maxRank))
                 return "The saved rank is outside the species range.";
+            // A terminal or retired record is a tombstone. Compaction clears its placement fields.
+            if (!record.IsLiving) return null;
             return record.Placement switch
             {
+                GuPlacementKind.Contained when record.ContainerKind == GuContainerKind.WorldSite
+                    => string.IsNullOrWhiteSpace(record.ContainerId) || record.LastKnown?.HasTile != true
+                        ? "An abstract world-location Gu has no location." : null,
                 GuPlacementKind.Manifested when string.IsNullOrWhiteSpace(record.ProjectionId) => "A manifested Gu has no native object ID.",
                 GuPlacementKind.Manifested when (record.Manifestation == GuManifestationKind.Pawn) != (record.Condition == GuCondition.Active)
                     => "The manifestation form contradicts the biological condition.",
@@ -91,12 +98,14 @@ namespace ProjectGu
             lastProjection.Clear();
             rogues.Clear();
             byCreationEvent.Clear();
+            byEndEvent.Clear();
             records.RemoveAll(record => record == null);
             int tick = Find.TickManager?.TicksGame ?? 0;
 
             // Evidential integrity: contradictions that need outside evidence to repair. Duplicate creation events are
             // checked first so that the shared contradiction, not a derived field error, is the recorded reason.
             RebuildCreationEventBindings(records);
+            RebuildEndEventBindings(records);
             foreach (var record in records.Where(record => !record.IsQuarantined))
                 if (RecordError(record) is { } error) record.Quarantine(error);
             foreach (var group in records.Where(record => record.Id != null).GroupBy(record => record.Id, StringComparer.OrdinalIgnoreCase))
@@ -118,8 +127,23 @@ namespace ProjectGu
             foreach (var record in records)
             {
                 foreach (var tag in tags[record.Id ?? ""]) claimed.Add(tag);
-                if (record.IsQuarantined || record.Existence != GuExistence.Living) continue;
-                // Demonstrated terminal evidence stays until an approved Phase 2 policy resolves it.
+                if (record.IsQuarantined) continue;
+                if (!record.IsLiving)
+                {
+                    // An ended individual can never be manifested again, for example by native resurrection of its old Pawn.
+                    foreach (var tag in tags[record.Id ?? ""].Where(tag => tag.parent is not Pawn { Dead: true }))
+                        MarkRogue(tag, $"The individual has ended ({record.Existence}).");
+                    continue;
+                }
+                // Phase 1 recorded demonstrated death and destruction as evidence on unresolved records. The owner approved
+                // explicit outcomes, so those become terminal. Map removal and discards stay unresolved: they never establish death.
+                if (record.IsUnresolved && record.TerminalEvidence is GuTerminalEvidence.Killed or GuTerminalEvidence.Destroyed)
+                {
+                    var outcome = record.Manifestation == GuManifestationKind.Pawn && record.TerminalEvidence == GuTerminalEvidence.Killed
+                        ? GuTerminalOutcome.Died : GuTerminalOutcome.Destroyed;
+                    record.EndLife(outcome, null, null, null, $"Converted from Phase 1 evidence: {record.UnresolvedDetail}", tick);
+                    continue;
+                }
                 if (record.TerminalEvidence != GuTerminalEvidence.None) continue;
                 if (record.Species == null)
                 {
@@ -154,6 +178,7 @@ namespace ProjectGu
                 }
 
                 foreach (var tag in tags[record.Id]) MarkRogue(tag, "The Gu is held in record-only containment.");
+                if (record.ContainerKind == GuContainerKind.WorldSite) continue;
                 pawns ??= PawnsByLoadId();
                 if (!pawns.TryGetValue(record.AnchorHint, out var host))
                 {
@@ -178,7 +203,7 @@ namespace ProjectGu
         private void ApplyApertureState(GuRecord record, Pawn host, int tick)
         {
             var aperture = FindAperture(host, record.ContainerId);
-            if (aperture != null && IsLiveAperture(aperture, record))
+            if (aperture != null && IsBoundAperture(aperture, record))
             {
                 record.ClearUnresolved();
                 BindAperture(record, aperture);
@@ -186,9 +211,9 @@ namespace ProjectGu
             }
             UnbindAll(record);
             lastHost[record.Id] = host;
-            if (host.Dead)
-                record.MarkUnresolved(GuUnresolvedCause.HostDead, GuTerminalEvidence.None, $"Aperture host {record.AnchorHint} is dead.", tick);
-            else if (host.Destroyed || host.Discarded)
+            // A dead host with its aperture stays bound above (deceased-host custody). Only a discarded host, or a destroyed
+            // living one, is unavailable.
+            if (host.Discarded || (host.Destroyed && !host.Dead))
                 record.MarkUnresolved(GuUnresolvedCause.HostUnavailable, GuTerminalEvidence.None, $"Aperture host {record.AnchorHint} was removed.", tick);
             else
                 record.MarkUnresolved(GuUnresolvedCause.ApertureMissing, GuTerminalEvidence.None,

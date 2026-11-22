@@ -180,6 +180,110 @@ namespace ProjectGu
                 + (registry.LastMigrationSummary == null ? "" : "\n\n" + registry.LastMigrationSummary));
         }
 
+        // ---- Phase 2 lifecycle and operator recovery (Development Mode only) ----------------------------------
+
+        private static GuIndividualRegistry LifecycleRegistry => Prefs.DevMode ? Current.Game?.GetComponent<GuIndividualRegistry>() : null;
+
+        private static void Report(bool success, string reason, string done) =>
+            Messages.Message(success ? reason ?? done : reason, success ? MessageTypeDefOf.NeutralEvent : MessageTypeDefOf.RejectInput, false);
+
+        private static void ChooseRecord(System.Collections.Generic.IEnumerable<GuRecord> candidates, System.Action<GuRecord> act, string none)
+        {
+            var options = candidates.Select(record => new FloatMenuOption($"{record.SpeciesDefName} {record.Id}"
+                + (record.IsQuarantined ? " (quarantined)" : record.IsUnresolved ? $" ({record.Unresolved})" : ""), () => act(record))).ToList();
+            if (options.Count == 0) Messages.Message(none, MessageTypeDefOf.RejectInput, false);
+            else Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        [DebugAction("Project GU", "Inspect unresolved and quarantined Gu", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void InspectRecordsNeedingReview()
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            // Read-only: inspection never changes records.
+            var review = registry.RecordsNeedingReview.ToArray();
+            Log.Message(review.Length == 0 ? "[Project GU] No unresolved or quarantined Gu."
+                : $"[Project GU] {review.Length} Gu need review:\n\n" + string.Join("\n\n", review.Select(registry.DescribeForOperator)));
+        }
+
+        [DebugAction("Project GU", "Recovery: adopt selected rogue projection", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void AdoptRogue()
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            var tag = Find.Selector.SingleSelectedThing?.GuTag();
+            bool success = registry.TryAdoptRogue(tag, null, out string reason);
+            Report(success, reason, "The operator adopted the rogue projection.");
+        }
+
+        [DebugAction("Project GU", "Recovery: declare unresolved Gu lost", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void DeclareLost()
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            ChooseRecord(registry.RecordsNeedingReview.Where(record => !record.IsQuarantined), record =>
+                Report(registry.TryDeclareLost(record.Id, null, out string reason), reason, $"Gu {record.Id} was declared lost."),
+                "No unresolved Gu can be declared lost.");
+        }
+
+        [DebugAction("Project GU", "Recovery: lift resolved quarantine", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void LiftQuarantine()
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            ChooseRecord(registry.RecordsNeedingReview.Where(record => record.IsQuarantined), record =>
+                Report(registry.TryLiftQuarantine(record.Id, null, out string reason), reason, $"Quarantine lifted on Gu {record.Id}."),
+                "No quarantined Gu.");
+        }
+
+        [DebugAction("Project GU", "Recover world-location Gu here", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void RecoverWorldSite()
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            Map map = Find.CurrentMap;
+            IntVec3 cell = UI.MouseCell();
+            ChooseRecord(registry.WorldSiteRecordsAt(map), record =>
+                Report(registry.TryRecoverFromWorldSite(record.Id, record.CustodyRevision, map, cell, out _, out string reason), reason,
+                    $"Recovered Gu {record.Id}."), "No Gu is held at this map's world location.");
+        }
+
+        [DebugAction("Project GU", "Extract dormant Gu from selected corpse", actionType = DebugActionType.ToolMapForPawns,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void ExtractFromCorpse(Pawn recipient)
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            if (Find.Selector.SingleSelectedThing is not Corpse { InnerPawn: { } host }
+                || SingleDevelopmentAperture(host) is not { } aperture)
+            {
+                Messages.Message("Select a cultivator's corpse, then click an adjacent colonist.", MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+            ChooseRecord(registry.Records.Where(record => record != null && record.IsActionable && record.ContainerId == aperture.ApertureId
+                && record.ContainerKind == GuContainerKind.MortalAperture), record =>
+                Report(registry.TryExtractFromDeceased(record.Id, record.CustodyRevision, recipient, out _, out string reason), reason,
+                    $"Extracted Gu {record.Id}."), "The corpse's aperture holds no authorized Gu.");
+        }
+
+        [DebugAction("Project GU", "Deliberately destroy a held or contained Gu", actionType = DebugActionType.ToolMapForPawns,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void DestroyDeliberately(Pawn actor)
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            var aperture = SingleDevelopmentAperture(actor);
+            var held = actor.inventory?.GetDirectlyHeldThings().Select(registry.Resolve).Where(record => record != null)
+                ?? Enumerable.Empty<GuRecord>();
+            var contained = aperture == null ? Enumerable.Empty<GuRecord>() : registry.ApertureOccupants(aperture);
+            ChooseRecord(held.Concat(contained), record =>
+                Report(registry.TryEndLife(record.Id, record.CustodyRevision, GuTerminalOutcome.DeliberatelyDestroyed,
+                    $"dev-destroy:{record.Id}", actor, "Destroyed by its cultivator (Development Mode).", out string reason), reason,
+                    $"Gu {record.Id} was destroyed."), "This Pawn holds no authorized Gu and its aperture is empty.");
+        }
+
+        [DebugAction("Project GU", "Log Gu history of all records", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void LogHistory()
+        {
+            if (LifecycleRegistry is not { } registry) return;
+            Log.Message("[Project GU] Gu lifecycle evidence:\n\n" + string.Join("\n\n", registry.Records.Where(record => record != null)
+                .Select(record => record.DebugDescription + "\n" + record.HistoryDescription)));
+        }
+
         [DebugAction("Project GU", "Inspect hidden cultivation potential", actionType = DebugActionType.ToolMapForPawns,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         private static void Inspect(Pawn pawn)
