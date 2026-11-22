@@ -9,11 +9,11 @@ namespace ProjectGu
 {
     public sealed partial class GuIndividualRegistry
     {
-        private readonly Dictionary<string, GuIndividual> byCreationEvent = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, GuRecord> byCreationEvent = new(StringComparer.Ordinal);
 
-        private void RebuildCreationEventBindings(IEnumerable<GuIndividual> records)
+        private void RebuildCreationEventBindings(IEnumerable<GuRecord> source)
         {
-            foreach (var claims in records.Where(record => !string.IsNullOrWhiteSpace(record.CreationEventKey))
+            foreach (var claims in source.Where(record => !string.IsNullOrWhiteSpace(record.CreationEventKey))
                 .GroupBy(record => record.CreationEventKey, StringComparer.Ordinal))
             {
                 var claimants = claims.ToArray();
@@ -38,7 +38,7 @@ namespace ProjectGu
         }
 
         internal bool TryMaterializeCohort(IGuCohortHabitat habitat, GuCohortMaterializationRequest request, Map map, IntVec3 cell,
-            out GuIndividual individual, out string reason)
+            out GuRecord individual, out string reason)
         {
             individual = null;
             reason = "The native cohort materialization safeguards are unavailable for this game configuration.";
@@ -83,17 +83,17 @@ namespace ProjectGu
             if (!SourceAndPlacementReady()) return false;
 
             string id = Guid.NewGuid().ToString("N");
-            if (individuals.Any(entry => string.Equals(entry?.Id, id, StringComparison.OrdinalIgnoreCase))) return false;
+            if (byId.ContainsKey(id)) return false;
             int tick = Find.TickManager.TicksGame;
             Pawn_GuWildProjection prepared = null;
-            GuIndividual record = null;
+            GuRecord record = null;
             bool debited = false;
             CustodyTransitionInProgress = true;
             try
             {
                 reason = "Native placement or the exact cohort changed during materialization.";
                 prepared = PrepareWildPawn(species.wildProjectionKind, adult, map);
-                record = GuIndividual.PrepareFromCohort(id, species, request, tick, prepared.GetUniqueLoadID());
+                record = GuRecord.PrepareFromCohort(id, species, request, tick, prepared.GetUniqueLoadID());
                 prepared.InitializeBinding(record);
                 if (!CanRestoreDetached(prepared) || !CanRetire(prepared) || !SourceAndPlacementReady()
                     || !TryPlaceStagedWildPawn(prepared, record, species.wildProjectionKind, map, cell)
@@ -103,11 +103,12 @@ namespace ProjectGu
                 if (!cohort.TryConsumeMature(1)) return false;
                 debited = true;
                 record.MarkCohortDebitCommitted();
-                individuals.Add(record);
+                records.Add(record);
+                byId[record.Id] = record;
                 byCreationEvent.Add(request.EventKey, record);
-                Bind(record, prepared);
+                BindProjection(record, prepared);
                 prepared.SetReleaseSuppressed(false);
-                if (!MatchesProjection(record, prepared) || !IsOnCell(prepared, map, cell)) return false;
+                if (!MatchesManifestation(record, prepared) || !IsOnCell(prepared, map, cell)) return false;
 
                 individual = record;
                 reason = $"Materialized Gu {record.Id}.";
@@ -127,17 +128,18 @@ namespace ProjectGu
                     {
                         if (debited)
                         {
-                            reason = "The cohort debit committed but the native Pawn binding failed. The event was quarantined.";
-                            record.Quarantine(reason);
-                            Unbind(record, prepared);
+                            reason = "The cohort debit committed but the native Pawn binding failed. The individual is unresolved and still counted.";
+                            UnbindAll(record);
                             DiscardProvisionalWildPawn(prepared);
+                            record.MarkUnresolved(GuUnresolvedCause.ProjectionMissing, GuTerminalEvidence.None, reason, tick);
                         }
                         else if (!DiscardProvisionalWildPawn(prepared))
                         {
                             reason = "Provisional Pawn cleanup could not be verified. The event was quarantined without a cohort debit.";
-                            record ??= GuIndividual.PrepareFromCohort(id, species, request, tick, null);
+                            record ??= GuRecord.PrepareFromCohort(id, species, request, tick, "unplaced");
                             record.Quarantine(reason);
-                            individuals.Add(record);
+                            records.Add(record);
+                            byId[record.Id] = record;
                             byCreationEvent.Add(request.EventKey, record);
                         }
                     }

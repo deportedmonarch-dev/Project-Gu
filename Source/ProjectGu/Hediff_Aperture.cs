@@ -16,6 +16,15 @@ namespace ProjectGu
         public float Essence { get; private set; } = 0f;
         public string ExtremePhysiqueId { get; private set; } = "";
 
+        // Transitional durable aperture identity (RFC-0004 §15.5). Assigned once and never changed.
+        private string apertureId;
+
+        /// <summary>The durable aperture ID, or null until a coordinator operation assigns it. Reads never assign it.</summary>
+        public string ApertureId => apertureId;
+
+        /// <summary>Assigns the ID once. Called only by registry operations and migration.</summary>
+        internal string EnsureApertureId() => apertureId ??= Guid.NewGuid().ToString("N");
+
         public bool HasExtremePhysique => !string.IsNullOrEmpty(ExtremePhysiqueId);
 
         public string AptitudeGrade
@@ -65,13 +74,13 @@ namespace ProjectGu
         public override void PostRemoved()
         {
             base.PostRemoved();
-            Current.Game?.GetComponent<GuIndividualRegistry>()?.NotifyApertureLost(this, "The bound aperture was removed.");
+            Current.Game?.GetComponent<GuIndividualRegistry>()?.EnqueueApertureEvent(this, GuUnresolvedCause.ApertureMissing, "The aperture Hediff was removed.");
         }
 
         public override void Notify_PawnDied(DamageInfo? dinfo, Hediff culprit)
         {
             base.Notify_PawnDied(dinfo, culprit);
-            Current.Game?.GetComponent<GuIndividualRegistry>()?.NotifyApertureLost(this, "The aperture host died.");
+            Current.Game?.GetComponent<GuIndividualRegistry>()?.EnqueueApertureEvent(this, GuUnresolvedCause.HostDead, "The aperture host died.");
         }
 
         public override string TipStringExtra =>
@@ -94,6 +103,7 @@ namespace ProjectGu
             Scribe_Values.Look(ref rank, "guRank", 1);
             Scribe_Values.Look(ref essence, "guEssence", 0f);
             Scribe_Values.Look(ref physique, "guExtremePhysiqueId", "");
+            Scribe_Values.Look(ref apertureId, "guApertureId");
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 // Preserve previously saved aptitude and essence. Old 0.1 grades

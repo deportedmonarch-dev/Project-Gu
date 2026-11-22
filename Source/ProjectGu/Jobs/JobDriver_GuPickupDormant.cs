@@ -14,7 +14,7 @@ namespace ProjectGu.Jobs
             if (job.targetA.Thing is not Thing_GuDormantProjection thing
                 || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry) return false;
             int revision = expectedRevision < 0 ? thing.GuRevision : expectedRevision;
-            if (!registry.CanOrderDormantPickup(thing, revision, pawn) || !pawn.Reserve(thing, job, 1, -1, null, errorOnFailed))
+            if (thing.GuRevision != revision || !registry.CanOrderDormantPickup(thing, pawn) || !pawn.Reserve(thing, job, 1, -1, null, errorOnFailed))
                 return false;
             expectedRevision = revision;
             return true;

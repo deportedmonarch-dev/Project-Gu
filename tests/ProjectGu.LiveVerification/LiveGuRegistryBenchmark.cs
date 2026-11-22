@@ -86,14 +86,16 @@ public sealed partial class LiveLifecycleChecks
         // Synthetic development-origin records isolate persistence and indexing from population changes and native spawning.
         // Each record refers to a different real aperture. The normal load validator must accept every binding.
         var registry = IndividualRegistry;
-        var records = (List<GuIndividual>)AccessTools.Field(typeof(GuIndividualRegistry), "individuals").GetValue(registry);
+        var records = (List<GuRecord>)AccessTools.Field(typeof(GuIndividualRegistry), "records").GetValue(registry);
         var species = DefDatabase<GuSpeciesDef>.GetNamed("GU_DevTestSpringGu");
         foreach (var aperture in apertures)
         {
-            var record = new GuIndividual(Guid.NewGuid().ToString("N"), species, "development", fixture.MapId, fixture.Tick, "benchmark-setup");
-            record.CommitDormancy("benchmark-setup");
-            record.CommitCustody(new(GuCustodyKind.DormantInventory, "benchmark-setup", aperture.pawn.GetUniqueLoadID()));
-            record.CommitCustody(new(GuCustodyKind.Aperture, aperture.GetUniqueLoadID(), aperture.pawn.GetUniqueLoadID()));
+            // The same lifecycle as V1 in V2 terms: created wild, made dormant, then stored. Inventory moves no longer commit.
+            var record = GuRecord.CreateManifested(Guid.NewGuid().ToString("N"), species, "development", fixture.MapId, fixture.Tick,
+                GuCondition.Active, GuManifestationKind.Pawn, "benchmark-setup");
+            record.ChangeCondition(GuCondition.Dormant);
+            record.CommitManifestation(GuManifestationKind.Thing, "benchmark-setup");
+            record.CommitContainment(GuContainerKind.MortalAperture, aperture.EnsureApertureId(), aperture.pawn.GetUniqueLoadID());
             records.Add(record);
         }
         registry.LoadedGame();
@@ -133,7 +135,9 @@ public sealed partial class LiveLifecycleChecks
         const string timedSave = "gu-perf-timed";
         GameDataSaveLoader.SaveGame(timedSave);
         var save = MeasureOperation(() => GameDataSaveLoader.SaveGame(timedSave), 1, 3);
-        Action rebuild = AccessTools.DeclaredMethod(typeof(GuIndividualRegistry), "RebuildBindings").CreateDelegate<Action>(registry);
+        var rebuildWithTags = AccessTools.DeclaredMethod(typeof(GuIndividualRegistry), "RebuildBindings")
+            .CreateDelegate<Action<IReadOnlyCollection<CompGuManifestation>>>(registry);
+        Action rebuild = () => rebuildWithTags(Array.Empty<CompGuManifestation>());
         rebuild();
         var rebuildTiming = MeasureOperation(rebuild, 32, 5);
 

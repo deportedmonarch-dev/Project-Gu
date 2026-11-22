@@ -1,109 +1,43 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using ProjectGu.Domain;
 using Verse;
 
 namespace ProjectGu
 {
+    /// <summary>
+    /// Record-only mortal aperture containment keyed by the transitional durable aperture ID (RFC-0004 §15.5).
+    /// The Development Mode fixture keeps one occupant per aperture. The container model supports many.
+    /// </summary>
     public sealed partial class GuIndividualRegistry
     {
-        private readonly Dictionary<GuCustody, (GuIndividual Record, Hediff_Aperture Endpoint)> byAperture = new();
+        /// <summary>Provisional developer fixture capacity. Final capacity is a later balance decision.</summary>
+        internal const int DevelopmentApertureCapacity = 1;
 
-        private static GuCustody ApertureCustody(Hediff_Aperture aperture) =>
-            new(GuCustodyKind.Aperture, aperture.GetUniqueLoadID(), aperture.pawn?.GetUniqueLoadID());
-
-        private static Hediff_Aperture FindExactAperture(Pawn host, string apertureId)
-        {
-            if (host is not { Dead: false, Destroyed: false, Discarded: false, IsFreeColonist: true }
-                || host.health?.hediffSet == null) return null;
-
-            Hediff_Aperture match = null;
-            foreach (Hediff hediff in host.health.hediffSet.hediffs)
-            {
-                if (hediff is not Hediff_Aperture aperture || aperture.GetUniqueLoadID() != apertureId) continue;
-                if (match != null || aperture.def != GuWorldComponent.ApertureDef || aperture.pawn != host || aperture.loadID < 0)
-                    return null;
-                match = aperture;
-            }
-            return match;
-        }
-
-        private static bool IsLiveAperture(Hediff_Aperture aperture, GuCustody custody) =>
-            aperture != null && ApertureCustody(aperture) == custody
-            && FindExactAperture(aperture.pawn, custody.NativeOwnerId) == aperture;
-
-        private void BindAperture(GuIndividual record, Hediff_Aperture aperture)
-        {
-            byId.Add(record.Id, (record, null));
-            byAperture.Add(record.Custody, (record, aperture));
-        }
-
-        private void UnbindAperture(GuIndividual record)
-        {
-            byId.Remove(record.Id);
-            byAperture.Remove(record.Custody);
-        }
-
-        private void QuarantineAperture(GuIndividual record, string reason)
-        {
-            record.Quarantine(reason);
-            UnbindAperture(record);
-        }
-
-        private GuIndividual ResolveApertureBinding(GuIndividual record)
-        {
-            if (!record.IsQuarantined && byAperture.TryGetValue(record.Custody, out var binding)
-                && binding.Record == record && IsLiveAperture(binding.Endpoint, record.Custody))
-                return record;
-
-            QuarantineAperture(record, "The bound aperture or host is no longer live.");
-            return null;
-        }
-
-        internal GuIndividual ResolveApertureOccupant(Hediff_Aperture aperture)
-        {
-            if (!ready || CustodyTransitionInProgress || aperture == null
-                || !byAperture.TryGetValue(ApertureCustody(aperture), out var binding) || binding.Endpoint != aperture)
-                return null;
-            return ResolveApertureBinding(binding.Record);
-        }
-
-        internal void NotifyApertureLost(Hediff_Aperture aperture, string reason)
-        {
-            if (ready && !CustodyTransitionInProgress && byAperture.TryGetValue(ApertureCustody(aperture), out var binding)
-                && binding.Endpoint == aperture)
-                QuarantineAperture(binding.Record, reason);
-        }
-
-        public override void GameComponentTick()
-        {
-            // Native destruction and discard can bypass Hediff death and removal callbacks.
-            if (!ready || CustodyTransitionInProgress || byAperture.Count == 0 || Find.TickManager.TicksGame % 250 != 0) return;
-            foreach (var record in byAperture.Values.Where(binding => !IsLiveAperture(binding.Endpoint, binding.Record.Custody))
-                .Select(binding => binding.Record).ToArray())
-                QuarantineAperture(record, "The bound aperture or host is no longer live.");
-        }
+        /// <summary>Claims that occupy an aperture, including unresolved ones, which keep their place.</summary>
+        private int ApertureClaims(string apertureId) => apertureId == null ? 0 : records.Count(record => record != null
+            && record.Existence == GuExistence.Living && !record.IsQuarantined && record.Placement == GuPlacementKind.Contained
+            && record.ContainerKind == GuContainerKind.MortalAperture && record.ContainerId == apertureId);
 
         internal bool TryStoreDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn host, Hediff_Aperture aperture,
             out string reason)
         {
-            reason = "The Gu's inventory binding or revision is unavailable.";
-            if (!CanUseDevelopmentCustody || Resolve(thing) is not { } record || record.Custody.Kind != GuCustodyKind.DormantInventory
-                || record.Revision != expectedRevision || expectedRevision == int.MaxValue)
+            reason = "The Gu is not an authorized dormant manifestation, or the request is stale.";
+            if (!CanUseDevelopmentCustody || Resolve(thing) is not { } record || record.Condition != GuCondition.Dormant
+                || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue)
                 return false;
 
-            reason = "Choose the living inventory holder's exact aperture.";
-            if (aperture == null || aperture.pawn != host || InventoryOf(host) is not { } inventory || !IsMapOwned(host)
-                || !IsInInventory(thing, inventory)) return false;
-            var destination = ApertureCustody(aperture);
-            if (!IsLiveAperture(aperture, destination)) return false;
-            reason = "This exact aperture's Gu slot is already claimed.";
-            if (individuals.Any(entry => entry != null && entry.Custody == destination)) return false;
-            if (RejectConflictingProjection(record, thing, out reason)) return false;
+            reason = "Choose the living inventory holder's own aperture.";
+            if (aperture == null || aperture.pawn != host || !host.IsFreeColonist || InventoryOf(host) is not { } inventory
+                || !IsMapOwned(host) || !IsInInventory(thing, inventory) || aperture.def != GuWorldComponent.ApertureDef
+                || !host.health.hediffSet.hediffs.Contains(aperture)) return false;
+            string apertureId = aperture.EnsureApertureId();
+            reason = "This aperture has no free capacity.";
+            if (ApertureClaims(apertureId) >= DevelopmentApertureCapacity) return false;
 
             Map map = host.Map;
             IntVec3 position = host.Position;
+            string hostId = host.GetUniqueLoadID();
             bool committed = false;
             CustodyTransitionInProgress = true;
             try
@@ -112,8 +46,8 @@ namespace ProjectGu
                 try
                 {
                     if (!inventory.Remove(thing) || !IsDetached(thing) || inventory.Any(item => item == thing)
-                        || !MatchesDormantThing(record, thing) || InventoryOf(host) != inventory || !IsMapOwned(host)
-                        || host.Map != map || !IsLiveAperture(aperture, destination)) return false;
+                        || !MatchesManifestation(record, thing) || InventoryOf(host) != inventory || !IsMapOwned(host)
+                        || host.Map != map || aperture.pawn != host || !host.health.hediffSet.hediffs.Contains(aperture)) return false;
                 }
                 catch (Exception exception)
                 {
@@ -121,25 +55,23 @@ namespace ProjectGu
                     return false;
                 }
 
-                Unbind(record, thing);
-                record.CommitCustody(destination);
+                record.CommitContainment(GuContainerKind.MortalAperture, apertureId, hostId);
                 BindAperture(record, aperture);
                 committed = true;
-                if (!DestroyApertureTransferThing(thing) || !IsLiveAperture(aperture, destination))
+                if (!DestroyApertureTransferThing(thing))
                 {
-                    reason = "Aperture custody committed but native cleanup or the endpoint failed. The Gu was quarantined.";
-                    QuarantineAperture(record, $"{reason} Former Thing {thing.GetUniqueLoadID()}.");
-                    return false;
+                    // The stale Thing keeps the old revision and load ID, so it can never authorize.
+                    MarkRogue(thing.GuTag(), "Aperture storage committed but the former Thing could not be retired.");
+                    reason = "Aperture custody committed. The former Thing could not be retired and is recorded as a rogue projection.";
                 }
-                reason = null;
+                else reason = null;
                 return true;
             }
             finally
             {
                 try
                 {
-                    if (!committed && !RestoreInventoryTransfer(record, thing, host, inventory, map, position, false))
-                        reason = "The original inventory custody could not be restored. The Gu was quarantined.";
+                    if (!committed) RestorePhysicalMove(record, thing, host, inventory, map, position, false);
                 }
                 finally { CustodyTransitionInProgress = false; }
             }
@@ -149,22 +81,21 @@ namespace ProjectGu
             out Thing_GuDormantProjection withdrawn, out string reason)
         {
             withdrawn = null;
-            reason = "The Gu's aperture binding or revision is unavailable.";
-            if (!CanUseDevelopmentCustody || Resolve(id) is not { } record || record.Custody.Kind != GuCustodyKind.Aperture
-                || record.Revision != expectedRevision || expectedRevision == int.MaxValue
-                || ResolveApertureOccupant(aperture) != record || aperture.pawn != host)
+            reason = "The Gu's aperture containment or revision is unavailable.";
+            if (!CanUseDevelopmentCustody || Resolve(id) is not { } record || record.Placement != GuPlacementKind.Contained
+                || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue
+                || !apertureOf.TryGetValue(record.Id, out var bound) || bound != aperture || aperture.pawn != host)
                 return false;
 
-            reason = "The aperture host must have a native inventory on a loaded map.";
-            if (InventoryOf(host) is not { } inventory || !IsMapOwned(host)) return false;
+            reason = "The aperture host must be a free colonist with a native inventory on a loaded map.";
+            if (!host.IsFreeColonist || InventoryOf(host) is not { } inventory || !IsMapOwned(host)) return false;
             var def = record.Species?.dormantProjectionDef;
             reason = "This species has no configured dormant inventory projection.";
-            if (!Thing_GuDormantProjection.IsConfigured(def)) return false;
-            if (RejectConflictingProjection(record, null, out reason)) return false;
+            if (!Thing_GuDormantProjection.IsConfigured(def) || record.Condition != GuCondition.Dormant) return false;
 
             Map map = host.Map;
-            GuCustody source = record.Custody;
             Thing_GuDormantProjection staged = null;
+            bool committed = false;
             CustodyTransitionInProgress = true;
             try
             {
@@ -173,10 +104,10 @@ namespace ProjectGu
                     staged = (Thing_GuDormantProjection)ThingMaker.MakeThing(def);
                     staged.InitializeBinding(record);
                     reason = "The aperture host's inventory has no room for the Gu.";
-                    if (!IsLiveAperture(aperture, source) || InventoryOf(host) != inventory || !CanPack(host, inventory, staged))
+                    if (!IsLiveAperture(aperture, record) || InventoryOf(host) != inventory || !CanPack(host, inventory, staged))
                         return false;
-                    reason = "Native withdrawal did not establish the expected inventory custody.";
-                    if (!inventory.TryAdd(staged, false) || !IsInInventory(staged, inventory) || !IsLiveAperture(aperture, source)
+                    reason = "Native withdrawal did not establish the expected inventory placement.";
+                    if (!inventory.TryAdd(staged, false) || !IsInInventory(staged, inventory) || !IsLiveAperture(aperture, record)
                         || InventoryOf(host) != inventory || !IsMapOwned(host) || host.Map != map
                         || staged.Destroyed || staged.def != def || staged.stackCount != 1
                         || staged.GuId != record.Id || staged.GuRevision != expectedRevision) return false;
@@ -188,10 +119,10 @@ namespace ProjectGu
                     return false;
                 }
 
-                UnbindAperture(record);
-                record.CommitCustody(new(GuCustodyKind.DormantInventory, staged.GetUniqueLoadID(), source.HolderPawnId));
+                record.CommitManifestation(GuManifestationKind.Thing, staged.GetUniqueLoadID());
                 staged.InitializeBinding(record);
-                Bind(record, staged);
+                BindProjection(record, staged);
+                committed = true;
                 withdrawn = staged;
                 reason = null;
                 return true;
@@ -200,11 +131,10 @@ namespace ProjectGu
             {
                 try
                 {
-                    if (withdrawn == null && (!DestroyApertureTransferThing(staged) || !IsLiveAperture(aperture, source)))
-                    {
-                        reason = "Withdrawal could not restore the exact aperture binding. The Gu was quarantined.";
-                        QuarantineAperture(record, reason);
-                    }
+                    if (!committed && staged != null && !DestroyApertureTransferThing(staged))
+                        MarkRogue(staged.GuTag(), "A failed withdrawal could not retire its provisional Thing.");
+                    if (!committed && !IsLiveAperture(aperture, record))
+                        ApplyApertureState(record, host, Find.TickManager.TicksGame);
                 }
                 finally { CustodyTransitionInProgress = false; }
             }

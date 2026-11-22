@@ -36,11 +36,13 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: minRank must be between 1 and 9";
             if (maxRank < minRank || maxRank > 9)
                 yield return $"{defName}: maxRank must be between minRank and 9";
+            // Phase 1 staging still relies on the legacy Pawn class for tick suppression (RFC-0004 §5.1).
             if (wildProjectionKind != null && (wildProjectionKind.race?.thingClass is not { } pawnClass
-                || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)))
-                yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race";
+                || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)
+                || !wildProjectionKind.race.HasComp(typeof(CompGuManifestation)) || !wildProjectionKind.race.notifyMapRemoved))
+                yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race with CompGuManifestation and notifyMapRemoved";
             if (dormantProjectionDef != null && !Thing_GuDormantProjection.IsConfigured(dormantProjectionDef))
-                yield return $"{defName}: dormantProjectionDef requires an inert, unstackable Gu Thing";
+                yield return $"{defName}: dormantProjectionDef requires an inert, unstackable Gu Thing with CompGuManifestation and notifyMapRemoved";
             foreach (string error in ValidateTags(pathTags, "pathTags")) yield return error;
             foreach (string error in ValidateTags(habitatTags, "habitatTags")) yield return error;
             foreach (string error in ValidateTags(capabilityTags, "capabilityTags")) yield return error;

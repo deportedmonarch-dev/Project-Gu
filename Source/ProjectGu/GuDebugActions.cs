@@ -127,7 +127,7 @@ namespace ProjectGu
                 Messages.Message("Choose a colonist whose exact aperture has an authorized Gu.", MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (!registry.TryWithdrawDormant(record.Id, record.Revision, host, aperture, out _, out string reason))
+            if (!registry.TryWithdrawDormant(record.Id, record.CustodyRevision, host, aperture, out _, out string reason))
                 Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
         }
 
@@ -144,7 +144,7 @@ namespace ProjectGu
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (!registry.TryReleaseActive(record.Id, record.Revision, host, aperture, Find.CurrentMap, UI.MouseCell(), out _, out string reason))
+            if (!registry.TryReleaseActive(record.Id, record.CustodyRevision, host, aperture, Find.CurrentMap, UI.MouseCell(), out _, out string reason))
                 Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
         }
 
@@ -153,10 +153,10 @@ namespace ProjectGu
         private static void InspectApertureCustody(Pawn host)
         {
             if (!Prefs.DevMode || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry) return;
-            var claims = registry.Individuals.Where(entry => entry?.Custody.Kind == GuCustodyKind.Aperture
-                && entry.Custody.HolderPawnId == host.GetUniqueLoadID()).ToArray();
-            foreach (var entry in claims) registry.Resolve(entry.Id);
-            string apertureId = SingleDevelopmentAperture(host)?.GetUniqueLoadID() ?? "(no single current aperture)";
+            // Read-only: inspection never changes records.
+            var claims = registry.Records.Where(entry => entry?.Placement == GuPlacementKind.Contained
+                && entry.AnchorHint == host.GetUniqueLoadID()).ToArray();
+            string apertureId = SingleDevelopmentAperture(host)?.ApertureId ?? "(no single current aperture, or no Gu ever stored)";
             Log.Message($"[Project GU] Aperture custody for {host.LabelShort} ({host.GetUniqueLoadID()}) | {apertureId}\n"
                 + (claims.Length == 0 ? "No Gu claims this host's aperture." : string.Join("\n\n", claims.Select(entry => entry.DebugDescription))));
         }
@@ -172,9 +172,12 @@ namespace ProjectGu
         private static void LogIndividuals()
         {
             if (!Prefs.DevMode || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry) return;
-            Log.Message(registry.Individuals.Count == 0 ? "[Project GU] No individual Gu records."
-                : "[Project GU] Individual Gu records:\n" + string.Join("\n\n", registry.Individuals
-                    .Where(record => record != null).Select(record => record.DebugDescription)));
+            Log.Message((registry.Records.Count == 0 ? "[Project GU] No individual Gu records."
+                : "[Project GU] Individual Gu records:\n" + string.Join("\n\n", registry.Records.Where(record => record != null)
+                    .Select(record => record.DebugDescription + $"\nObserved: {registry.Observe(record).Form}")))
+                + (registry.RogueProjections.Count == 0 ? "" : "\n\nRogue projections: " + string.Join(", ",
+                    registry.RogueProjections.Select(tag => $"{tag.parent?.GetUniqueLoadID()} claims {tag.GuId}")))
+                + (registry.LastMigrationSummary == null ? "" : "\n\n" + registry.LastMigrationSummary));
         }
 
         [DebugAction("Project GU", "Inspect hidden cultivation potential", actionType = DebugActionType.ToolMapForPawns,

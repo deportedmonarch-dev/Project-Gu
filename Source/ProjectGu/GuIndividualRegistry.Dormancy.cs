@@ -17,7 +17,7 @@ namespace ProjectGu
             dormant = null;
             reason = "The Gu's wild binding or revision is unavailable.";
             if (!Prefs.DevMode || CustodyTransitionInProgress || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
-                || Resolve(pawn) is not { } record || record.Revision != expectedRevision || expectedRevision == int.MaxValue) return false;
+                || Resolve(pawn) is not { } record || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue) return false;
             if (!GuCustodySaveGuard.Installed || ModsConfig.AnomalyActive)
             {
                 reason = "The native dormancy safeguards are unavailable for this game configuration.";
@@ -29,7 +29,6 @@ namespace ProjectGu
                 reason = "The development Gu must be an unowned, unharmed wild Pawn with empty equipment and inventory.";
                 return false;
             }
-            if (RejectConflictingProjection(record, pawn, out reason)) return false;
 
             Map map = pawn.Map;
             IntVec3 origin = pawn.Position;
@@ -53,7 +52,7 @@ namespace ProjectGu
                         || placed != staged || !IsMapOwned(staged) || staged.Map != map || staged.Position != destination
                         || staged.def != def || staged.stackCount != 1 || staged.GuId != record.Id || staged.GuRevision != expectedRevision
                         || !CanRestoreDetached(pawn) || !CanRetire(pawn) || pawn.GuId != record.Id || pawn.GuRevision != expectedRevision
-                        || pawn.GetUniqueLoadID() != record.Custody.NativeOwnerId) return false;
+                        || pawn.GetUniqueLoadID() != record.ProjectionId) return false;
                 }
                 catch (Exception exception)
                 {
@@ -62,19 +61,19 @@ namespace ProjectGu
                     return false;
                 }
 
-                record.CommitDormancy(staged.GetUniqueLoadID());
+                record.ChangeCondition(GuCondition.Dormant);
+                record.CommitManifestation(GuManifestationKind.Thing, staged.GetUniqueLoadID());
                 staged.InitializeBinding(record);
                 committed = true;
-                Unbind(record, pawn);
+                BindProjection(record, staged);
 
                 try
                 {
                     Find.WorldPawns.PassToWorld(pawn, PawnDiscardDecideMode.Discard);
                     if (pawn.Discarded && !pawn.Dead && !pawn.Spawned && pawn.holdingOwner == null
                         && !Find.WorldPawns.Contains(pawn) && !Find.WorldPawns.IsBeingDiscarded(pawn)
-                        && MatchesProjection(record, staged))
+                        && MatchesManifestation(record, staged))
                     {
-                        Bind(record, staged);
                         dormant = staged;
                         reason = null;
                         return true;
@@ -85,17 +84,19 @@ namespace ProjectGu
                     Log.Warning($"[Project GU] Native retirement failed for Gu {record.Id}. {exception}");
                 }
 
-                reason = "Dormant custody committed, but native retirement could not be verified. The Gu was quarantined.";
-                record.Quarantine($"{reason} Former Pawn {pawn.GetUniqueLoadID()}.");
+                // The committed dormant Thing is authorized. The former Pawn keeps a stale tag and can never authorize.
                 DetachFailedRetirement(pawn);
-                return false;
+                MarkRogue(pawn.GuTag(), "Native retirement could not be verified after dormancy committed.");
+                if (MatchesManifestation(record, staged)) dormant = staged;
+                reason = "Dormancy committed. The former Pawn could not be retired and is recorded as a rogue projection.";
+                return dormant != null;
             }
             finally
             {
                 try
                 {
                     if (!committed && !RestoreWildAfterFailedDormancy(record, pawn, staged, map, origin, rotation))
-                        reason = "Dormancy rollback could not restore the wild binding. The Gu was quarantined.";
+                        reason = "Dormancy rollback could not restore the original wild Pawn. See the record for its observed state.";
                 }
                 finally { CustodyTransitionInProgress = false; }
             }
@@ -119,7 +120,7 @@ namespace ProjectGu
         private static bool CanRestoreDetached(Pawn pawn) => JobDriver_GuPocketProbeTravel.CanRestoreUnheld(pawn)
             && !Find.WorldPawns.Contains(pawn);
 
-        private bool RestoreWildAfterFailedDormancy(GuIndividual record, Pawn_GuWildProjection pawn,
+        private bool RestoreWildAfterFailedDormancy(GuRecord record, Pawn_GuWildProjection pawn,
             Thing_GuDormantProjection staged, Map map, IntVec3 origin, Rot4 rotation)
         {
             if (staged != null && !staged.Destroyed)
@@ -137,7 +138,7 @@ namespace ProjectGu
             {
                 if (destinationCleared && CanRestoreDetached(pawn))
                     JobDriver_GuPocketProbeTravel.TryRestorePawn(pawn, map, origin, rotation);
-                if (destinationCleared && MatchesProjection(record, pawn) && pawn.Map == map) return true;
+                if (destinationCleared && MatchesManifestation(record, pawn) && pawn.Map == map) return true;
 
                 if (destinationCleared && CanRestoreDetached(pawn))
                     Find.WorldPawns.PassToWorld(pawn, PawnDiscardDecideMode.KeepForever);
@@ -147,8 +148,13 @@ namespace ProjectGu
                 Log.Warning($"[Project GU] Dormancy rollback could not restore its original Pawn. {exception}");
             }
 
-            record.Quarantine("Dormancy rollback could not restore the exact native wild binding.");
-            Unbind(record, pawn);
+            // The record still authorizes the same Pawn. Its observed location is wherever recovery left it.
+            if (!MatchesManifestation(record, pawn))
+            {
+                UnbindAll(record);
+                record.MarkUnresolved(GuUnresolvedCause.ProjectionMissing, GuTerminalEvidence.None,
+                    "Dormancy rollback could not restore the original wild Pawn.", Find.TickManager.TicksGame);
+            }
             return false;
         }
 
@@ -162,7 +168,7 @@ namespace ProjectGu
             }
             catch (Exception exception)
             {
-                Log.Warning($"[Project GU] A quarantined Gu projection could not be detached. {exception}");
+                Log.Warning($"[Project GU] A retired Gu projection could not be detached. {exception}");
             }
         }
     }

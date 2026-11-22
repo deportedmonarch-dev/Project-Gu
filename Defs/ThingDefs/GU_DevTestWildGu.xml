@@ -5,6 +5,10 @@
     <label>test wild Gu</label>
     <description>Development projection for testing a wild Gu's individual identity.</description>
     <thingClass>ProjectGu.Pawn_GuWildProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps>
+      <li Class="ProjectGu.CompProperties_GuManifestation" />
+    </comps>
     <race>
       <hasGenders>false</hasGenders>
       <canBePredatorPrey>false</canBePredatorPrey>

@@ -5,29 +5,21 @@ using Verse;
 
 namespace ProjectGu
 {
-    internal interface IGuProjection
-    {
-        string GuId { get; }
-        int GuRevision { get; }
-    }
-
+    /// <summary>
+    /// Legacy-compatible Thing class for the developer dormant Gu. Saved V1 Things bind to this class name, so it stays
+    /// loadable. Identity lives in <see cref="CompGuManifestation"/>.
+    /// </summary>
     public sealed class Thing_GuDormantProjection : ThingWithComps, IGuProjection
     {
-        private string guId;
-        private int guRevision;
-
-        public string GuId => guId;
-        public int GuRevision => guRevision;
+        public string GuId => this.GuTag()?.GuId;
+        public int GuRevision => this.GuTag()?.GuRevision ?? 0;
 
         internal static bool IsConfigured(ThingDef def) => def?.thingClass == typeof(Thing_GuDormantProjection)
+            && def.HasComp(typeof(CompGuManifestation)) && def.notifyMapRemoved
             && def.category == ThingCategory.Item && def.stackLimit == 1 && def.tickerType == TickerType.Never
             && !def.EverHaulable && !def.IsIngestible && !def.destroyOnDrop && def.tradeability == Tradeability.None;
 
-        internal void InitializeBinding(GuIndividual individual)
-        {
-            guId = individual.Id;
-            guRevision = individual.Revision;
-        }
+        internal void InitializeBinding(GuRecord record) => this.GuTag()?.Bind(record);
 
         public override bool CanStackWith(Thing other) => false;
 
@@ -35,22 +27,14 @@ namespace ProjectGu
         {
             foreach (var option in base.GetFloatMenuOptions(selPawn)) yield return option;
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
-            int revision = GuRevision;
-            if (registry?.CanOrderDormantPickup(this, revision, selPawn) != true
+            if (registry?.CanOrderDormantPickup(this, selPawn) != true
                 || DefDatabase<JobDef>.GetNamedSilentFail("GU_PickupDormant") is not { } jobDef) yield break;
 
             yield return new FloatMenuOption($"Pick up {Label}", () =>
             {
-                if (registry.CanOrderDormantPickup(this, revision, selPawn))
+                if (registry.CanOrderDormantPickup(this, selPawn))
                     selPawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(jobDef, this));
             });
-        }
-
-        public override void ExposeData()
-        {
-            base.ExposeData();
-            Scribe_Values.Look(ref guId, "guIndividualId");
-            Scribe_Values.Look(ref guRevision, "guBindingRevision");
         }
 
         public override string GetInspectString() => GuIndividualRegistry.InspectProjection(this, base.GetInspectString());
