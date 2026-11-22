@@ -80,7 +80,8 @@ namespace ProjectGu.Domain
         Recovered = 5,
         HostDied = 6,
         Operator = 7,
-        Extracted = 8
+        Extracted = 8,
+        Escaped = 9
     }
 
     /// <summary>One significant lifecycle fact with its evidence. Ordinary physical movement is never recorded.</summary>

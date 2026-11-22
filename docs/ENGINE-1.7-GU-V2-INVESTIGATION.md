@@ -121,7 +121,16 @@ Run `scripts/verify-priority0-live.ps1 -Profile V2EngineProbe`. The final eviden
 
 ### F14. Anomaly lifecycle paths
 
-- **Source-derived.** Anomaly adds a death notification in `Pawn.Destroy` and `Pawn.Kill` that acts only on Pawns with a tracked unnatural corpse. Pawn generation applies a mutant only when the request or kind declares one. Other Anomaly branches concern mutants, creepjoiners, duplicates and hypnosis. A freshly generated, empty Gu projection carries none of these. The blanket Anomaly gate is replaced by a per-Pawn check, pending native Anomaly runs.
+- **Source-derived.** Anomaly adds a death notification in `Pawn.Destroy` and `Pawn.Kill` that acts only on Pawns with a tracked unnatural corpse. Pawn generation applies a mutant only when the request or kind declares one. Other Anomaly branches concern mutants, creepjoiners, duplicates and hypnosis. A freshly generated, empty Gu projection carries none of these. The blanket Anomaly gate is replaced by a per-Pawn check. Native Anomaly runs are recorded in F16.
+
+### F15. A component-only Pawn stages without ticks
+
+- **Native fixture.** `ManifestationProbe` generated an ordinary-class animal carrying only `CompGuManifestation`, tagged it and spawned it inside one call. No native tick ran and no job was assigned during staging. After a fresh-process reload the tag kept its keys, registered during load without a world scan, and was refused authorization because no record existed.
+- **Consequence.** Tick suppression is not needed during synchronous staging. Binding still requires the legacy `Pawn_GuWildProjection` class in `MatchesManifestation`, `CanRetire` and the release stage check. Generalizing those three checks, and moving the suppression flag to the comp for post-commit failures, is a contained change for Phase 3 or 4.
+
+### F16. Official expansions do not change the Gu lifecycle
+
+- **Native fixture.** `V2EngineProbe`, `Phase2Lifecycle` and `DormantHauling` passed with Royalty, Biotech and Odyssey active. `Slice3B2` (dormancy), `Slice3B4` (release), `Slice3B5A` (materialization), `V2EngineProbe` and `Phase2Lifecycle` passed with Anomaly active after the blanket gate was replaced by the per-Pawn check in F14. Ideology and Odyssey were already covered by the regression profiles.
 
 ## Earlier evidence that remains valid
 
@@ -135,8 +144,6 @@ Run `scripts/verify-priority0-live.ps1 -Profile V2EngineProbe`. The final eviden
 | Question | Why it matters | Proposed probe |
 |---|---|---|
 | Can an opaque species-state node survive load and resave when its add-on class is missing? | Preserves add-on Gu data when a mod is removed. | Load a save whose state node names a missing class, capture the raw XML in `LoadingVars`, resave, and diff. |
-| Does an unspawned staged Pawn satisfy placement preflight without the V1 tick-suppressing subclass? | Determines whether a comp-only Pawn projection can replace `Pawn_GuWildProjection`. | Stage, validate and roll back an ordinary animal-class Gu Pawn with a comp only. |
 | Does a GC postfix keep a retained world Pawn's inventory and Hediffs across mothballing and reload? | NPC cultivator and absent active Gu retention. | Pass an NPC with an aperture and inventory Gu to the world, run GC, mothball, reload. |
 | What do caravans, transport pods and trading do with a Gu Thing? | Common physical routes. | Load a Gu Thing into a transporter and caravan, travel, unload, reload. Tradeability stays `None` for now. |
-| How do Biotech, Royalty, Anomaly and Odyssey alter death, downing and discard callbacks? | V1 disables release and dormancy under Anomaly. | Repeat `V2EngineProbe` with each DLC once V2 hooks exist. |
 | Can a loaded map be serialized, disposed and restored later? | Environment dematerialization. | Separate feasibility probe after the environment RFC is approved. |

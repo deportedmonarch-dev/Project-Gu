@@ -189,6 +189,77 @@ namespace ProjectGu
             }
         }
 
+        // ---- Escape from a destroyed host body (owner decision D2.7) -------------------------------------------
+
+        /// <summary>The Gu left its host: masterless, active, and refinable by anyone.</summary>
+        private static void MarkEscaped(GuRecord record, GuLocation location, string detail, int tick)
+        {
+            record.ReleaseRefinement();
+            record.ChangeCondition(GuCondition.Active);
+            record.AddHistory(new(tick, GuLifecycleEventKind.Escaped, "HostBodyDestroyed", null, null, location, detail));
+        }
+
+        /// <summary>
+        /// When a dead cultivator's body is destroyed, the Gu still in its aperture slip out as active, masterless wild Gu
+        /// where the body was. Without a live map at that place the escaped Gu follows its preservation policy.
+        /// </summary>
+        private void EscapeFromDeceasedHost(GuRecord record, GuLocation location, string detail, int tick)
+        {
+            UnbindAll(record);
+            MarkEscaped(record, location, detail, tick);
+            if (TryManifestEscapedGu(record, location)) return;
+            Abandon(record, null, location, GuUnresolvedCause.HostCorpseDestroyed, GuTerminalEvidence.HostCorpseDestroyed, "HostCorpseDestroyed",
+                "The Gu slipped out of the destroyed body where no live map could receive it.", tick);
+        }
+
+        private bool TryManifestEscapedGu(GuRecord record, GuLocation location)
+        {
+            var species = record.Species;
+            var map = location?.MapId == null ? null : Find.Maps.FirstOrDefault(candidate => candidate.GetUniqueLoadID() == location.MapId);
+            if (map == null || map.Disposed || !location.Cell.IsValid || FirstAdultProjectionStage(species?.wildProjectionKind) is not { } adult)
+                return false;
+            IntVec3 cell = GenRadial.RadialCellsAround(location.Cell, 6f, true).FirstOrDefault(candidate => CanPlaceDormant(map, candidate, null), IntVec3.Invalid);
+            if (!cell.IsValid) return false;
+
+            Pawn_GuWildProjection prepared = null;
+            bool committed = false;
+            CustodyTransitionInProgress = true;
+            try
+            {
+                try
+                {
+                    prepared = PrepareWildPawn(species.wildProjectionKind, adult, map);
+                    prepared.InitializeBinding(record);
+                    if (!TryPlaceStagedWildPawn(prepared, record, species.wildProjectionKind, map, cell)) return false;
+                    record.CommitManifestation(GuManifestationKind.Pawn, prepared.GetUniqueLoadID());
+                    prepared.InitializeBinding(record);
+                    BindProjection(record, prepared);
+                    committed = true;
+                    prepared.SetReleaseSuppressed(false);
+                }
+                catch (Exception exception)
+                {
+                    Log.Warning($"[Project GU] A native callback interrupted the escape of Gu {record.Id}. {exception}");
+                }
+                return committed;
+            }
+            finally
+            {
+                try
+                {
+                    if (!committed && prepared != null && !DiscardProvisionalWildPawn(prepared))
+                        MarkRogue(prepared.GuTag(), "A failed escape could not discard its provisional Pawn.");
+                    if (committed && !MatchesManifestation(record, prepared))
+                    {
+                        UnbindAll(record);
+                        record.MarkUnresolved(GuUnresolvedCause.ProjectionMissing, GuTerminalEvidence.None,
+                            "The escaped Gu's native Pawn binding failed after commit.", Find.TickManager.TicksGame, location);
+                    }
+                }
+                finally { CustodyTransitionInProgress = false; }
+            }
+        }
+
         // ---- Abstract world locations -------------------------------------------------------------------------
 
         internal IEnumerable<GuRecord> WorldSiteRecordsAt(Map map) => records.Where(record => record != null && record.IsActionable
@@ -340,10 +411,15 @@ namespace ProjectGu
             {
                 criticalCacheTick = tick;
                 criticalPawns.Clear();
+                // Selective by design: only Gu that must keep their identity justify keeping a native world Pawn. Every retained
+                // Pawn costs memory and save size, so population-policy Gu and their carriers are left to native GC.
                 foreach (var (thing, record) in byProjection)
                 {
                     if (!record.IsLiving) continue;
-                    if (thing is Pawn projection) criticalPawns.Add(projection);
+                    var policy = PreservationFor(record);
+                    // A Gu Pawn of an individual or retiring species is kept only until reconciliation abstracts or retires it.
+                    if (thing is Pawn projection) { if (policy != GuPreservationPolicy.ReturnToPopulation) criticalPawns.Add(projection); }
+                    else if (policy != GuPreservationPolicy.Individual) continue;
                     else if (thing.ParentHolder is Pawn_InventoryTracker inventory) criticalPawns.Add(inventory.pawn);
                     else if (thing.ParentHolder is Pawn_CarryTracker carry) criticalPawns.Add(carry.pawn);
                 }

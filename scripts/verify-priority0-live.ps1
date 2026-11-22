@@ -23,8 +23,38 @@ if (!$HarmonyPath) {
 }
 $HarmonyPath = (Resolve-Path -LiteralPath $HarmonyPath).Path
 $harmonyMod = Split-Path (Split-Path (Split-Path $HarmonyPath))
+$objRoot = [IO.Path]::GetFullPath((Join-Path $root 'tests/obj'))
+
+# Removes a disposable game copy only when it is a RimWorld copy under tests/obj and no running process uses it.
+# Saves, logs and results beside the copy are evidence and are never touched.
+function Remove-GameCopy([string]$Path) {
+    if (!$Path -or !(Test-Path -LiteralPath (Join-Path $Path 'RimWorld.exe'))) { return }
+    $full = [IO.Path]::GetFullPath($Path)
+    if (!$full.StartsWith($objRoot, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $full) -ne 'RimWorld') { return }
+    $busy = Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        try { $_.Path -and $_.Path.StartsWith($full, [StringComparison]::OrdinalIgnoreCase) } catch { $false } }
+    if ($busy) { Write-Warning "Game copy still in use, kept: $full"; return }
+    Remove-Item -LiteralPath $full -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# Interrupted or killed runs cannot run their own cleanup. Remove their copies now, unless a game still runs from one.
+if (!$KeepGameCopy -and (Test-Path -LiteralPath $objRoot)) {
+    Get-ChildItem -LiteralPath $objRoot -Directory | ForEach-Object { Remove-GameCopy (Join-Path $_.FullName 'RimWorld') }
+}
+
+# Free-space preflight: one game copy plus saves and a safety margin.
+$gameBytes = (Get-ChildItem -LiteralPath $RimWorldPath -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { !$_.FullName.StartsWith((Join-Path $RimWorldPath 'Mods'), [StringComparison]::OrdinalIgnoreCase) } |
+    Measure-Object Length -Sum).Sum
+$drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($objRoot))
+$requiredBytes = [long]($gameBytes * 1.2) + 2GB
+if ($drive.AvailableFreeSpace -lt $requiredBytes) {
+    throw ("Not enough free space for a disposable game copy: {0:N1} GB free, {1:N1} GB required." -f ($drive.AvailableFreeSpace / 1GB), ($requiredBytes / 1GB))
+}
+
 $testRoot = Join-Path $root ('tests/obj/Priority0-' + [Guid]::NewGuid().ToString('N'))
 $game = Join-Path $testRoot 'RimWorld'
+try {
 New-Item -ItemType Directory -Path $game -Force | Out-Null
 robocopy $RimWorldPath $game /E /XD (Join-Path $RimWorldPath 'Mods') /R:1 /W:1 /NFL /NDL /NJH /NC /NS /NP
 if ($LASTEXITCODE -ge 8) { throw "Isolated game copy failed with code $LASTEXITCODE." }
@@ -200,8 +230,9 @@ try {
 }
 finally {
     $env:VK_LOADER_LAYERS_DISABLE = $originalLayerSetting
-    # The game copy is disposable and large. Evidence (saves, logs, results) lives beside it and is kept.
-    if (!$KeepGameCopy -and (Test-Path -LiteralPath (Join-Path $game 'RimWorld.exe'))) {
-        Remove-Item -LiteralPath $game -Recurse -Force -ErrorAction SilentlyContinue
-    }
+}
+}
+finally {
+    # Runs after success, failure and Ctrl+C. A killed process leaves its copy for the next run's stale cleanup.
+    if (!$KeepGameCopy) { Remove-GameCopy $game }
 }

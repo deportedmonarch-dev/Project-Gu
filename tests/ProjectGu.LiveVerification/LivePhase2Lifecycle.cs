@@ -124,10 +124,11 @@ public sealed partial class LiveLifecycleChecks
             "Resurrection did not restore the extracted Gu to the aperture or duplicate it");
         ids["extracted"] = kept.Id;
 
-        // C and D. A destroyed corpse: the aperture Gu waits for an approved host-loss policy, and a physical Gu survives.
+        // C and D. A destroyed corpse: the aperture Gu slips out active and masterless (D2.7), and a physical Gu survives.
         Pawn burned = ExtraColonist(home, actor.Position);
         EnsureInventoryFixtureSpace(burned);
         var orphan = StoreFixtureGu(burned, AddProbeAperture(burned));
+        int orphanRevision = orphan.CustodyRevision;
         burned.Kill(null);
         var burnedCorpse = burned.Corpse;
         IntVec3 corpseCell = burnedCorpse.Position;
@@ -138,10 +139,12 @@ public sealed partial class LiveLifecycleChecks
         Check(burned.inventory.GetDirectlyHeldThings().TryAdd(carried, false), "Placed a physical Gu in the dead holder's inventory natively");
         burnedCorpse.Destroy();
         registry.ApplyPendingEvents();
-        Check(orphan.IsLiving && !orphan.IsQuarantined && orphan.Unresolved == GuUnresolvedCause.HostCorpseDestroyed
-            && orphan.TerminalEvidence == GuTerminalEvidence.HostCorpseDestroyed && orphan.LastKnown?.Cell == corpseCell
-            && orphan.LastKnown.MapId == home.GetUniqueLoadID(),
-            $"Corpse destruction left the aperture Gu unresolved with the corpse's location, never dead. {orphan.Unresolved} {orphan.LastKnown?.Describe()}");
+        var escaped = registry.ProjectionOf(orphan) as Pawn_GuWildProjection;
+        Check(orphan.IsActionable && orphan.Condition == GuCondition.Active && orphan.Refinement == null
+            && orphan.Placement == GuPlacementKind.Manifested && orphan.CustodyRevision == orphanRevision + 1
+            && escaped is { Spawned: true, Dead: false } && escaped.Map == home && escaped.Position.DistanceTo(corpseCell) <= 6f
+            && registry.Resolve(escaped) == orphan && orphan.History.Any(entry => entry.Kind == GuLifecycleEventKind.Escaped),
+            $"When the body was destroyed the aperture Gu slipped out as an active, masterless wild Gu. {orphan.Placement} {orphan.Condition} {orphan.Unresolved}");
         Check(carried.Spawned && carried.Map == home && registry.Resolve(carried) == carriedRecord && carriedRecord.Revision == carriedRevision,
             "The physical Gu survived its holder's corpse on the same map with unchanged revisions");
         ids["corpseAperture"] = orphan.Id;
@@ -157,6 +160,33 @@ public sealed partial class LiveLifecycleChecks
         Check(dropped.Spawned && dropped.Map == home && registry.Resolve(dropped) == droppedRecord && droppedRecord.IsActionable,
             "A vanished holder's physical Gu stayed on the map, authorized");
         ids["vanishedHolder"] = droppedRecord.Id;
+
+        // E2. A holder destroyed off-map: physical recovery is impossible, so no location is invented and nothing is duplicated.
+        Pawn absent = ExtraColonist(home, actor.Position);
+        EnsureInventoryFixtureSpace(absent);
+        var strandedThing = PackTestGu(absent);
+        var stranded = registry.Resolve(strandedThing);
+        absent.DeSpawn();
+        Find.WorldPawns.PassToWorld(absent, RimWorld.Planet.PawnDiscardDecideMode.KeepForever);
+        absent.Destroy(DestroyMode.Vanish);
+        registry.ApplyPendingEvents();
+        Check(stranded.IsLiving && !stranded.IsQuarantined && stranded.Unresolved == GuUnresolvedCause.ProjectionEnded
+            && stranded.TerminalEvidence == GuTerminalEvidence.Discarded && stranded.LastKnown?.HasTile != true
+            && registry.Resolve(stranded.Id) == null && !ActuallyProjectedGu().Any(thing => thing.GuTag()?.GuId == stranded.Id),
+            $"With no place to recover it, the Gu stayed unresolved without an invented location or a duplicate. {stranded.Unresolved} {stranded.LastKnown?.Describe()}");
+        ids["stranded"] = stranded.Id;
+
+        // E3. World-pawn retention is selective.
+        Pawn keeper = ExtraColonist(home, actor.Position);
+        EnsureInventoryFixtureSpace(keeper);
+        PackTestGu(keeper);
+        Pawn commoner = ExtraColonist(home, actor.Position);
+        EnsureInventoryFixtureSpace(commoner);
+        var commonThing = SpawnDormant(Species("GU_TestPopulationGu"), home, OpenInventoryCell(commoner));
+        Check(registry.TryTakeDormant(commonThing, commonThing.GuRevision, commoner, out reason), $"Packed a population-policy Gu. {reason}");
+        Pawn empty = ExtraColonist(home, actor.Position);
+        Check(registry.IsCustodyCritical(keeper) && !registry.IsCustodyCritical(commoner) && !registry.IsCustodyCritical(empty),
+            "GC retention covers a carrier of an individual-policy Gu only, not a population-policy carrier or an empty Pawn");
 
         // F. Preservation policies when an unprotected map is removed.
         Map pocket = PocketMapUtility.GeneratePocketMap(new IntVec3(15, 1, 15), DefDatabase<MapGeneratorDef>.GetNamed("GU_PocketProbeCavern"), null, home);
@@ -181,9 +211,14 @@ public sealed partial class LiveLifecycleChecks
         Check(immortal.IsActionable && immortal.ContainerKind == GuContainerKind.WorldSite && immortal.LastKnown.IsAt(home),
             "Rank six overrode the retiring policy: the Gu kept its identity at the world location");
         Check(site.IsActionable && site.ContainerKind == GuContainerKind.WorldSite, "The developer species kept its identity at the world location");
+        Check(registry.Resolve(populationWild) == populationActive && populationActive.Custody.Kind == GuCustodyKind.WildPawn,
+            "The active population Gu stayed a native world Pawn while no population can receive it");
+        // Retention is selective: a population-policy Gu Pawn is not kept, so native GC may collect it.
         Find.WorldPawns.gc.RunGC();
-        Check(registry.Resolve(populationWild) == populationActive && !populationWild.Discarded && populationActive.Custody.Kind == GuCustodyKind.WildPawn,
-            "The active population Gu stayed a retained world Pawn while no population can receive it");
+        registry.Sweep(int.MaxValue);
+        Check(populationWild.Discarded && populationActive.IsLiving && populationActive.Unresolved == GuUnresolvedCause.ProjectionEnded
+            && populationActive.TerminalEvidence == GuTerminalEvidence.Discarded && populationActive.LastKnown?.MapId == pocket.GetUniqueLoadID(),
+            $"After native GC the record kept the real last location as evidence and was never ended. {populationActive.Unresolved} {populationActive.LastKnown?.Describe()}");
         ids["retired"] = retire.Id;
         ids["population"] = population.Id;
         ids["worldSite"] = site.Id;
@@ -272,15 +307,17 @@ public sealed partial class LiveLifecycleChecks
         Check(registry.Resolve(extracted.Id) == extracted && extracted.Custody.Kind == GuCustodyKind.DormantInventory
             && extracted.Custody.HolderPawnId == fixture.ActorId, "The extracted Gu reloaded in the recipient's inventory");
         var orphan = Record("corpseAperture");
-        Check(orphan.Unresolved == GuUnresolvedCause.HostCorpseDestroyed && orphan.LastKnown?.HasTile == true && registry.Resolve(orphan.Id) == null,
-            "The corpse-destroyed aperture Gu stayed unresolved with its location");
+        Check(registry.Resolve(orphan.Id) == orphan && orphan.Custody.Kind == GuCustodyKind.WildPawn && orphan.Condition == GuCondition.Active
+            && orphan.Refinement == null, "The escaped Gu reloaded as an active, masterless wild Gu");
         foreach (var key in new[] { "corpseInventory", "vanishedHolder", "recovered" })
             Check(registry.Resolve(Record(key).Id) == Record(key) && Record(key).Custody.Kind == GuCustodyKind.DormantGround,
                 $"{key}: rebound on the ground");
+        Check(Record("stranded") is { IsLiving: true, Unresolved: GuUnresolvedCause.ProjectionEnded } strandedRecord && strandedRecord.LastKnown?.HasTile != true,
+            "The stranded Gu reloaded unresolved with no invented location");
         Check(registry.Resolve(Record("worldSite").Id) == Record("worldSite") && Record("worldSite").Custody.Kind == GuCustodyKind.WorldSite,
             "The world-location Gu reloaded at its abstract location");
-        Check(registry.Resolve(Record("populationWild").Id) == Record("populationWild") && Record("populationWild").Custody.Kind == GuCustodyKind.WildPawn,
-            "The retained world Pawn reloaded as the manifestation");
+        Check(Record("populationWild") is { Unresolved: GuUnresolvedCause.ProjectionEnded, IsLiving: true } collected && collected.LastKnown?.HasTile == true,
+            "The GC-collected population Gu reloaded unresolved with its location evidence");
 
         var rogue = Record("rogue");
         var candidates = registry.RogueCandidates(rogue).ToArray();
@@ -289,6 +326,8 @@ public sealed partial class LiveLifecycleChecks
         string before = FullState(rogue);
         Check(registry.DescribeForOperator(rogue).Contains("adopt the sole rogue candidate") && FullState(rogue) == before,
             "Read-only inspection offered adoption of the sole candidate");
+        Check(!registry.TryAdoptRogue(candidates[0], " ", out _) && !rogue.IsActionable && registry.Resolve(candidates[0].parent) == null,
+            "Adoption without a recorded operator reason is refused");
         Check(registry.TryAdoptRogue(candidates[0], "Reload acceptance.", out string reason) && rogue.IsActionable
             && rogue.CustodyRevision == fixture.RogueRevision + 1 && candidates[0].GuRevision == rogue.CustodyRevision
             && registry.Resolve(candidates[0].parent) == rogue && rogue.History.Last().Cause == "AdoptedRogue",

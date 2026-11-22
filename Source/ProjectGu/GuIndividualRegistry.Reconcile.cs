@@ -175,10 +175,9 @@ namespace ProjectGu
                         "The living aperture host was discarded.", tick, location);
                     break;
                 case GuUnresolvedCause.HostCorpseDestroyed:
-                    // Host-loss outcomes for this case need owner-approved species defaults. Keep the evidence.
-                    UnbindAll(record);
+                    // Owner decision D2.7: when the body itself is destroyed, the Gu slip out active and masterless.
                     lastHost[record.Id] = aperture.pawn;
-                    record.MarkUnresolved(GuUnresolvedCause.HostCorpseDestroyed, GuTerminalEvidence.HostCorpseDestroyed, detail, tick, location);
+                    EscapeFromDeceasedHost(record, location, detail, tick);
                     break;
                 default:
                     UnbindAll(record);
@@ -213,6 +212,9 @@ namespace ProjectGu
                 }
                 if (record.ContainerKind == GuContainerKind.MortalAperture
                     && apertureOf.TryGetValue(record.Id, out var aperture) && IsBoundAperture(aperture, record)) continue;
+                // The host's remains left with the map, so its aperture Gu slipped out there (D2.7). The map is gone, so the
+                // escaped Gu is placed by its preservation policy at that location.
+                if (record.ContainerKind == GuContainerKind.MortalAperture) MarkEscaped(record, location, "The host's remains were removed with the map.", tick);
                 Abandon(record, null, location, GuUnresolvedCause.MapRemoved, GuTerminalEvidence.MapRemoved, "MapRemoved",
                     "The map was removed with the aperture host's remains on it.", tick);
             }
@@ -295,7 +297,8 @@ namespace ProjectGu
         {
             int tick = Find.TickManager.TicksGame;
             if (thing.MapHeld is { } map) return GuLocation.Capture(map, thing.PositionHeld, HolderIdOf(thing), tick);
-            if (thing.GuTag() is { HasLastLocation: true } tag) return tag.LastLocation(tick);
+            // The last spawn is evidence only for an object outside every holder (a world Pawn). A held Thing has moved since.
+            if (thing.ParentHolder == null && thing.GuTag() is { HasLastLocation: true } tag) return tag.LastLocation(tick);
             var tile = thing.Tile;
             return tile.Valid ? GuLocation.FromTile(tile.tileId, tile.Layer?.LayerID ?? -1, IntVec3.Invalid, null, HolderIdOf(thing), tick) : null;
         }
@@ -324,8 +327,8 @@ namespace ProjectGu
             {
                 if (MatchesManifestation(record, thing))
                 {
-                    // A wild Gu Pawn that left every map by itself is abstracted or retired by policy. A population target does
-                    // not exist yet, so ReturnToPopulation keeps the native world Pawn.
+                    // A wild Gu Pawn that left every map by itself is abstracted or retired by policy. ReturnToPopulation has no
+                    // target yet: the world Pawn stays until native GC discards it, and the record then keeps its evidence.
                     if (thing is Pawn pawn && IsAbandonedWorldPawn(pawn) && PreservationFor(record) != GuPreservationPolicy.ReturnToPopulation)
                         Abandon(record, pawn, LocationOf(pawn), GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.None, "WorldPawn",
                             "The wild Gu left every map and became a world Pawn.", tick);

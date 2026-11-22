@@ -210,7 +210,7 @@ namespace ProjectGu
         {
             if (LifecycleRegistry is not { } registry) return;
             var tag = Find.Selector.SingleSelectedThing?.GuTag();
-            bool success = registry.TryAdoptRogue(tag, null, out string reason);
+            bool success = registry.TryAdoptRogue(tag, "Operator reviewed the evidence in Development Mode and adopted the sole matching candidate.", out string reason);
             Report(success, reason, "The operator adopted the rogue projection.");
         }
 

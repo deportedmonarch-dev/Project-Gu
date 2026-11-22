@@ -28,8 +28,9 @@ public sealed partial class LiveLifecycleChecks
     {
         ["Slice3B1"] = (2, 3, 6),
         ["Slice3B2"] = (1, 0, 1),
-        ["Slice3B3B"] = (2, 4, 1),
-        ["Slice3B4"] = (1, 3, 1),
+        // Phase 2: a V1 record quarantined because its aperture host died now migrates into deceased-host custody (bound).
+        ["Slice3B3B"] = (3, 3, 1),
+        ["Slice3B4"] = (2, 2, 1),
         ["Slice3B5A"] = (1, 0, 3),
         ["VanillaGuInventory"] = (1, 0, 0),
         ["V2EngineProbe"] = (7, 4, 0)

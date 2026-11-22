@@ -403,7 +403,7 @@ A record is ended and unbound before its native object is retired, so the retire
 
 ### 16.2 Deceased-host custody
 
-Host death no longer unbinds contained Gu. The binding rule is the exact aperture on its anchored host, which may be dead (a killed Pawn is natively `Destroyed` until resurrection). Actions that need the host to act still require a living host. Resurrection therefore needs no recovery step, and any extraction or destruction before resurrection is already committed and cannot be reversed. Destroying the corpse sets `Unresolved(HostCorpseDestroyed)` with the corpse's captured location until owner-approved species host-loss defaults exist. A discarded living host is `Unresolved(HostUnavailable)` with `Discarded` evidence.
+Host death no longer unbinds contained Gu. The binding rule is the exact aperture on its anchored host, which may be dead (a killed Pawn is natively `Destroyed` until resurrection). Actions that need the host to act still require a living host. Resurrection therefore needs no recovery step, and any extraction or destruction before resurrection is already committed and cannot be reversed. Destroying the corpse releases the Gu still in the aperture (owner decision D2.7): each is manifested as an active wild Gu near where the body lay, with its refinement cleared and its condition set to active. Without a live map at that place, the escaped Gu follows its preservation policy at the captured location. The same applies when the remains leave with a removed map. A discarded living host is `Unresolved(HostUnavailable)` with `Discarded` evidence.
 
 ### 16.3 Preservation policy and world locations
 

@@ -314,6 +314,9 @@ namespace ProjectGu.Domain
 
         internal void UpdateAnchorHint(string anchor) => anchorHint = anchor;
 
+        /// <summary>Ends any refinement bond. The Gu becomes masterless and can be refined by someone else.</summary>
+        internal void ReleaseRefinement() => refinement = null;
+
         internal const int MaxHistory = 8;
 
         internal void AddHistory(GuLifecycleEvent entry)

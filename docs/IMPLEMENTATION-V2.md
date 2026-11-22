@@ -110,3 +110,85 @@ Rebuild and periodic validation cost about half of V1. Each record costs about 2
 - Map removal and world-pawn GC leave Gu unresolved. The approved Phase 2 policies decide their outcomes.
 - DLC lifecycle passes (Royalty, Biotech, Anomaly) are still open. Anomaly continues to disable dormancy, release and materialization.
 - Rendered owner acceptance covered spawn, dormancy, pickup, aperture storage, reload and release. A rendered Gear drop and repickup was not separately documented.
+
+## Phase 2 — lifecycle outcomes, recovery and hauling
+
+**Authority** — Owner Phase 2 authorization of 2026-11-22 and the follow-up instructions of the same day. [Owner decisions](V2-PHASE2-OWNER-DECISIONS.md) · [RFC-0004 §16](RFC-0004-GU-FRAMEWORK-V2.md#16-phase-2-lifecycle-as-implemented) · [Open decisions](V2-RECONSTRUCTION-PLAN.md#phase-2-decisions-still-required)
+
+### What changed
+
+| Area | Change |
+|---|---|
+| Terminal outcomes | Demonstrated death (`Died`) and physical destruction (`Destroyed`) are terminal. Deliberate destruction by the holder or living host, consumption and sacrifice are explicit operations with idempotent event keys. An operator can declare an unresolved record `Lost`. Map removal, world-pawn GC, discards, holder teardown and missing evidence are never terminal. A record is ended and unbound before its native object is retired, so a retirement is never counted as a second ending. |
+| Tombstones | A terminal record keeps identity, species, rank, provenance, creation key, cohort debit, uniqueness key, outcome, end tick, end key and actor. Records are never deleted. |
+| Species hooks | `abandonmentPolicy`, `individualPreservationMinRank` (default 6) and an optional `terminalEffectWorker` for residue. Most species leave nothing. |
+| Deceased-host custody | Host death keeps aperture Gu bound and recoverable from the body. Resurrection needs no recovery. Extraction before resurrection is committed and cannot be reversed or duplicated. A mortal aperture never drops. |
+| Destroyed host body | Owner decision D2.7: the Gu still in the aperture slip out as active, masterless wild Gu where the body lay. Without a live map there, the escaped Gu follows its preservation policy at the captured location. |
+| Physical Gu and holders | A destroyed corpse or a holder destroyed without dying places its authorized Gu where the body stood when that is a live map. Otherwise the Gu's end is recorded as holder teardown. With no known location the record stays unresolved. No location is invented and the same Thing is moved, never copied. |
+| Location evidence | `GuLocation` (tile, layer, cell, map, map parent, holder, tick) is captured before native teardown by a `MapDeiniter.Deinit` prefix, a `Corpse.Destroy` prefix, the projection classes, and the comp's last spawn. The last spawn is used only for objects outside every holder. Pocket maps use their source map's tile. |
+| World locations | `Contained(WorldSite)` keeps an individual's identity without its native map. A development operation recovers it on a map at the same tile. |
+| Preservation policy | `Individual` (world location), `RetireFromSimulation` (`Retired`, not a death), `ReturnToPopulation` (unresolved with evidence until regional populations exist). Unique, refined and rank 6+ Gu are always individual. |
+| World-pawn retention | A GC postfix keeps only Pawns that are, carry or host Gu that must keep their identity. A Gu Pawn is kept only until reconciliation abstracts or retires it. Population-policy Gu and their carriers are left to native GC. |
+| Operator recovery | Read-only inspection with evidence history, rogue candidates and the supported actions. Development Mode repairs re-check evidence and write an audit entry. Rogue adoption is never automatic: it needs a record whose projection is missing with no other evidence, exactly one live candidate carrying the record's exact last custody revision and form, and a recorded operator reason. Declaring lost applies only to unresolved records. Lifting a quarantine re-checks the contradiction and leaves the record unresolved. |
+| Compaction | After one in-game year ended records drop placement fields, refinement, species state, last location, narrative detail and history. A retirement keeps its cause. Living records keep their facts and summarize narrative detail older than a year. |
+| Hauling | The developer dormant Gu is haulable and storable under the new `GU_DormantGu` category. Hauling moves the same Thing without changing revisions, condition or allegiance, and respects forbidden items and storage filters. Ordinary pickup stays. |
+| Anomaly | The blanket Anomaly gate on development dormancy, release and materialization is replaced by a per-Pawn check that refuses mutants, creepjoiners, duplicates, Pawns with unnatural corpses and hypnotized Pawns. Kept only because the native Anomaly runs below passed. |
+| Test runner | Removes its disposable game copy after success, failure and Ctrl+C, removes copies left by killed runs when no process uses them, and refuses to start without room for one copy plus a 2 GB margin. `-Expansions` adds official expansions to any profile. `-KeepGameCopy` keeps the copy for debugging. |
+
+### Intentional expectation changes in existing fixtures
+
+| Fixture | Phase 1 expectation | Phase 2 expectation | Invariant kept |
+|---|---|---|---|
+| `Slice3B3A` | Destroyed inventory Gu unresolved with `Destroyed` evidence | `Terminal(Destroyed)` with identity, provenance and last holder | Demonstrated events are recorded. Nothing is erased. |
+| `Slice3B3B`, `Slice3B4` | Host death made the occupant `Unresolved(HostDead)` | The occupant stays in deceased-host custody. A dead host still cannot withdraw or release it. | Lost hosts never authorize an action |
+| `V2EngineProbe` | Killed and destroyed Gu unresolved. GC and map removal unresolved or left as a world Pawn. | `Died`, `Destroyed`, and world-location custody for GC and map removal | Absence of evidence is never terminal. Nothing quarantined. |
+
+### Scalability risk: retained native NPC cultivators
+
+Selective retention keeps a native world Pawn for every NPC cultivator whose aperture or inventory holds a Gu that must keep its identity, and for a wild Gu Pawn until reconciliation abstracts it. A world Pawn costs far more than a Gu record: relations, health, apparel, inventory and its save node. A long game with many NPC cultivators carrying rare Gu could retain thousands of Pawns, raising memory, save size, load time and the cost of native world-Pawn passes. The current mitigation is selectivity: common Gu do not retain their holders, and abandoned wild Gu become records. The long-term answer belongs to Phase 3 (`CultivatorRecord`): an abstract cultivator record that holds its Gu without a native Pawn, with the Pawn regenerated on demand. Until then, retention counts should be watched in long playtests. The Phase 3 benchmark should include 1,000 retained cultivators.
+
+### Verification
+
+Environment as in Phase 1: Windows 11 build 26200, AMD Ryzen 9 9955HX, RimWorld 1.7.5014 rev1195, Harmony 3.0.4, .NET SDK 10.0.401. Each native profile ran in a disposable game copy with a new game and a fresh-process reload of every stage. All results below are native fixtures on the final Phase 2 code.
+
+| Gate | Result |
+|---|---|
+| Gu fixtures | PASS: `Slice3B1`, `Slice3B2`, `Slice3B3A`, `Slice3B3B`, `Slice3B4` (3 stages), `Slice3B5A`, `Slice3B5B` (4 stages), `VanillaGuInventory`, `V2EngineProbe`, `Phase2Lifecycle`, `DormantHauling`, `ManifestationProbe`. Evidence `tests/obj/Priority0-d6122a409a0f4cd6b55c71faf6fbcf90`. |
+| Phase 2 exit criterion | PASS. `V2EngineProbe` records `Died` and `Destroyed` for death and destruction, world-location custody for map removal and world-pawn GC, deceased-host custody with resurrection, and zero quarantines. All outcomes survived a fresh-process reload. |
+| Lifecycle | PASS (`Phase2Lifecycle`): host-only deliberate destruction, idempotent key replay and reuse refusal, held destruction counted once, consumption with species residue once, extraction from a corpse before resurrection with no restoration or duplicate, escape of an active masterless Gu when the body is destroyed, a physical Gu surviving its corpse and a vanished holder, a stranded Gu kept unresolved without an invented location, selective GC retention, all three preservation policies on map removal, recovery from a world location, read-only inspection, lost declaration, adoption refused without a reason and accepted with evidence after reload. |
+| Hauling | PASS (`DormantHauling`): forbidden items and filters respected, the same Thing hauled and stored with unchanged revisions, condition and allegiance, ordinary pickup kept, a haul saved mid-carry resumed after reload. |
+| Anomaly | PASS with Anomaly active: `Slice3B2`, `Slice3B4`, `Slice3B5A`, `V2EngineProbe`, `Phase2Lifecycle`. Evidence `tests/obj/Priority0-632a21f329214ac9b93b7a344dc98c91`. |
+| Royalty, Biotech, Odyssey | PASS with all three active: `V2EngineProbe`, `Phase2Lifecycle`, `DormantHauling`. Evidence `tests/obj/Priority0-ef552723b3f14bb1807bf61c42a3b1c9`. |
+| V1 migration | PASS on the same 7 V1 saves (41 records): 17 bound, 12 unresolved, 12 quarantined. Two records that V1 quarantined because their aperture host died now migrate into deceased-host custody (`Slice3B3B` 3/3/1, `Slice3B4` 2/2/1, predicted before the rerun). Every field matched the V1 XML, every migrated save reloaded identically, and all source hashes are unchanged. Evidence `tests/obj/Priority0-2d383e5a295e413792942f6d9912e7eb`. |
+| Regression | PASS: `Core`, `IdeologyOdyssey`, `IdeologyReset`, `Awakening`, `Botanical`, `CargoPrototype`, `AutomaticHauling`, `Legacy31`, `Legacy39`. The historical runs used the verified copies in `tests/obj/HistoricalSources`, not the originals. Copy hashes unchanged. Evidence `tests/obj/Priority0-5ff24ac97f964808895d50a459d42c2e`. |
+| Benchmark | PASS (`Slice3B5BPerf`, six fresh processes, run alone). Evidence `tests/obj/Priority0-75b5cdc30a9a40208a46493ca2d607cb`. |
+
+#### Performance and save size
+
+| Measurement | Phase 2, 120 records | Phase 1, 120 records |
+|---|---:|---:|
+| Save size added | 94,585 B (788 B/record) | 88,222 B (735 B/record) |
+| Registry rebuild | 584 µs | 664 µs |
+| Sweep (every 250 ticks) | 45.6 µs, 15,360 B | 39.9 µs, 16,296 B |
+| Ordinary registry tick | 0.003 µs | 0.002 µs |
+| Native save / `Game.LoadGame` | 545 ms / 4,555 ms | 563 ms / 4,626 ms |
+
+Medians of three processes per variant. Living records grew by about 53 bytes for the lifecycle facets. Save and load ranges overlap with the empty variant at this sample size.
+
+| Compaction | Before | After one year |
+|---|---:|---:|
+| 45 ended records (`Phase2Lifecycle`) | 51,541 B (1,145 B/record) | 26,683 B (592 B/record) |
+
+#### Test infrastructure timing
+
+Measured from evidence folders: copying the game and building takes 7–10 s per run. Each profile takes 45–115 s, almost all of it game startup and world generation across two to four fresh processes. The final campaign took about 40 minutes of wall time. Optimization proposals follow after Phase 2.
+
+### Remaining risks
+
+- Retained world Pawns for NPC cultivators can grow in long games (scalability section above).
+- `ReturnToPopulation` has no population target. Those Gu stay unresolved with evidence.
+- Binding still requires the legacy wild Pawn class (F15). Missing species-state classes are not yet preserved as opaque XML.
+- World-location recovery is a development operation. Expeditions, notifications and rival claims are future work.
+- Caravans, transport pods and trade with dormant Gu Things are untested. Tradeability stays `None`.
+- The original 31×31 and 39×39 historical saves are still unavailable. The copies passed.
+- Rendered owner checks of the Phase 2 developer actions and hauling are open.

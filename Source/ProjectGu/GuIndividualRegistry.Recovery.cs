@@ -48,6 +48,10 @@ namespace ProjectGu
             if (candidates.Length != 1 || tag == null || candidates[0] != tag) return "Adoption needs exactly one live rogue candidate.";
             var thing = tag.parent;
             if (byProjection.ContainsKey(thing)) return "Another record already binds this native object.";
+            // A single candidate is not evidence by itself. It must carry the exact custody revision the record last authorized
+            // and the same manifestation form, so a stale or unrelated copy can never be adopted.
+            if (tag.GuRevision != record.CustodyRevision) return "The candidate's tag revision differs from the record's last authorized custody revision.";
+            if ((thing is Pawn) != (record.Manifestation == GuManifestationKind.Pawn)) return "The candidate's form differs from the record's last manifestation.";
             var species = record.Species;
             if (species == null) return "The species is not loaded.";
             bool matches = record.Condition == GuCondition.Active
@@ -65,6 +69,8 @@ namespace ProjectGu
             var record = FindRecord(tag?.GuId);
             reason = "Recovery requires Development Mode and no transition in progress.";
             if (!CanUseDevelopmentCustody) return false;
+            reason = "Adoption is an explicit operator repair and needs a recorded reason.";
+            if (string.IsNullOrWhiteSpace(note)) return false;
             if ((reason = AdoptionBlocker(record, tag)) != null) return false;
             int tick = Find.TickManager.TicksGame;
             var thing = tag.parent;
@@ -73,7 +79,7 @@ namespace ProjectGu
             record.ClearUnresolved();
             BindProjection(record, thing);
             record.AddHistory(new(tick, GuLifecycleEventKind.Operator, "AdoptedRogue", null, OperatorActor, LocationOf(thing),
-                note ?? $"Operator adopted native object {thing.GetUniqueLoadID()}."));
+                $"{note} Adopted native object {thing.GetUniqueLoadID()} at tag revision {record.CustodyRevision - 1}."));
             reason = null;
             return true;
         }

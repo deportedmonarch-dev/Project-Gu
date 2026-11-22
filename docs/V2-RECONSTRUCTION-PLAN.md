@@ -1,6 +1,6 @@
 # Gu Framework V2 reconstruction plan
 
-**Status** — Gate G0 and gate G1 approved by the owner after review of `98bf468`. Phase 1 is implemented, verified and accepted by the owner, including rendered acceptance ([journal](IMPLEMENTATION-V2.md)). Phase 2 is authorized with the owner decisions in [Phase 2 decisions](V2-PHASE2-OWNER-DECISIONS.md). Later gates remain open.
+**Status** — Gate G0 and gate G1 approved by the owner after review of `98bf468`. Phase 1 is accepted. Phase 2 is implemented and natively verified on `feature/gu-framework-v2` ([journal](IMPLEMENTATION-V2.md#phase-2--lifecycle-outcomes-recovery-and-hauling)) and awaits owner review. [Phase 2 decisions](V2-PHASE2-OWNER-DECISIONS.md). Later gates remain open.
 **Architecture** — [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md) · [RFC-0005](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md) · [RFC-0006](RFC-0006-PERSISTENT-IMMORTAL-ENVIRONMENTS.md) · [Assessment](V2-SYSTEM-ASSESSMENT.md) · [Engine evidence](ENGINE-1.7-GU-V2-INVESTIGATION.md)
 
 ## Dependency-aware roadmap
@@ -129,10 +129,10 @@ Raised by the Phase 2 implementation. Each has a provisional engineering default
 
 | # | Decision | Current provisional behavior | Recommendation |
 |---|---|---|---|
-| D2.7 | Species host-loss outcomes when a cultivator's corpse is destroyed or the host disappears (`Die`, `Escape`, `Remain`). | `Unresolved(HostCorpseDestroyed)` with the corpse's location. Nothing is invented. | Owner ruled out Gu slipping out of a dead host on their own. Remaining choice when the body itself is destroyed: the Gu `Remain` at the location as a world-location record, or `Die`. Recommendation: `Remain` for rare and refined Gu. |
+| D2.7 | Aperture Gu when a dead cultivator's body is destroyed. | **Decided 2026-11-22.** They slip out where the body lay as active, masterless wild Gu, refinable by anyone. Never dormant. With no live map at that place, the preservation policy applies at the location. | Implemented. |
 | D2.8 | Preservation policy values per species. | Every species defaults to `Individual`. Rank 6 and above, unique and refined Gu always stay individual. | Keep `Individual` for rare species. Set common species to `ReturnToPopulation` once regional populations exist. |
 | D2.9 | Regional population target for `ReturnToPopulation`. | Unresolved with evidence. Active Gu stay retained world Pawns. | Design with the regional ecology work. Credit the regional cohort with an idempotent event. |
 | D2.10 | Tombstone deletion. | Tombstones are compacted after one year and never deleted. | Keep compaction. Approve deletion only with a compact event ledger for creation keys, terminal keys and debits. |
 | D2.11 | A dead wild Gu Pawn revived by native resurrection. | The record stays `Died`. A revived Pawn is never authorized and is reported as a rogue projection on load. | Keep death terminal. A species may later declare revival as an explicit operation. |
 | D2.12 | Physical Gu of a destroyed corpse or vanished holder. | Placed where the body stood. Otherwise handled by the preservation policy. | Confirm. It follows "physical Gu survive their holder". |
-| D2.13 | Anomaly gate on development dormancy, release and materialization. | Replaced by a per-Pawn check for mutants, creepjoiners, duplicates, unnatural corpses and hypnosis. | Confirm after the native Anomaly runs recorded in the report. |
+| D2.13 | Anomaly gate on development dormancy, release and materialization. | Replaced by a per-Pawn check for mutants, creepjoiners, duplicates, unnatural corpses and hypnosis. | Native Anomaly runs passed for dormancy, release, materialization, the engine probe and the lifecycle fixture. Confirm. |
