@@ -249,6 +249,16 @@ public sealed partial class LiveLifecycleChecks
         int matched = projections.Count(thing => thing.GetComp<CompV2IdentityProbe>() is { } comp
             && comp.LoadedId == ((IGuProjection)thing).GuId && comp.LoadedRevision == ((IGuProjection)thing).GuRevision);
         Report($"OBS comp-migration: projections={projections.Length}; probe comps read the manifestation keys on {matched}");
+        foreach (var thing in projections.Where(thing => !(thing.GetComp<CompV2IdentityProbe>() is { } comp
+            && comp.LoadedId == ((IGuProjection)thing).GuId && comp.LoadedRevision == ((IGuProjection)thing).GuRevision)))
+        {
+            var comp = thing.GetComp<CompV2IdentityProbe>();
+            var projection = (IGuProjection)thing;
+            Report($"OBS comp-mismatch: {thing.GetUniqueLoadID()} {thing.GetType().Name} gu={projection.GuId ?? "null"} rev={projection.GuRevision}"
+                + $" comp={(comp == null ? "missing" : (comp.LoadedId ?? "null") + "/" + comp.LoadedRevision)} spawned={thing.Spawned}"
+                + $" worldPawn={(thing is Pawn pawn && Find.WorldPawns.Contains(pawn))} dead={(thing as Pawn)?.Dead} holder={thing.ParentHolder?.GetType().Name ?? "none"}"
+                + $" record={(projection.GuId != null && IndividualRegistry.Resolve(projection.GuId) is { } r ? r.Custody.Kind.ToString() : "none")}");
+        }
         Check(projections.Length > 0 && matched == projections.Length, "A second comp can read the manifestation keys on every loaded projection");
 
         foreach (var expected in expectations)

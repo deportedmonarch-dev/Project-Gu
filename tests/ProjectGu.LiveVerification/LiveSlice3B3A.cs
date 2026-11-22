@@ -255,6 +255,8 @@ public sealed partial class LiveLifecycleChecks
     {
         var registry = IndividualRegistry;
         var species = DefDatabase<GuSpeciesDef>.GetNamed("GU_DevTestSpringGu");
+        // Earlier drops can fill every side of the neighbor on some generated maps. This moves the neighbor only in that case.
+        EnsureInventoryFixtureSpace(neighbor);
         var cell = OpenInventoryCell(neighbor);
         Check(registry.TrySpawnDevelopmentGu(species, neighbor.Map, cell, out var wild), "Created the actual development Gu beside the colonist");
         // Native Pawn generation can age the fixture into a condition that correctly blocks retirement.

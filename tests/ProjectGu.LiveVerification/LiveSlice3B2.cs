@@ -41,6 +41,11 @@ public sealed partial class LiveLifecycleChecks
         {
             IntVec3 cell = EmptyCargoCell(cave, exit.Position, null, 2);
             Check(registry.TrySpawnDevelopmentGu(species, cave, cell, out var pawn), "The production command created the actual Gu Pawn");
+            // Native generation occasionally gives a new Pawn an incidental condition, which correctly makes it ineligible for
+            // retirement. Clear it as the other fixtures do, so the transition under test runs on an eligible Gu.
+            var incidental = pawn.health.hediffSet.hediffs.ToArray();
+            foreach (Hediff condition in incidental) pawn.health.RemoveHediff(condition);
+            if (incidental.Length > 0) Report($"Cleared incidental generated conditions from a test Gu: {string.Join(", ", incidental.Select(condition => condition.def.defName))}.");
             return pawn;
         }
 
@@ -152,12 +157,22 @@ public sealed partial class LiveLifecycleChecks
             };
             // V1 quarantined this record. V2 keeps the committed dormant Thing authorized: the half-retired Pawn has a stale
             // revision and load ID, so it is recorded as rogue and can never authorize. The no-duplicate invariant still holds.
-            Check(registry.TryMakeDormant(failingPawn, failingRecord.Revision, failingPawn.Position, out var survivor, out reason)
-                && reason != null && cleanupEntered && failingPawn.Discarded && !failingRecord.IsQuarantined && !failingRecord.IsUnresolved
-                && failingRecord.Custody.Kind == GuCustodyKind.DormantGround && registry.Resolve(survivor) == failingRecord
-                && registry.Resolve(failingPawn) == null && registry.RogueProjections.Contains(failingPawn.GuTag())
-                && failingPawn.holdingOwner == null,
-                "A native cleanup failure keeps the committed dormant Thing authorized and rejects the former Pawn as rogue");
+            bool failingTransition = registry.TryMakeDormant(failingPawn, failingRecord.Revision, failingPawn.Position, out var survivor, out reason);
+            // Each condition is named so an intermittent failure reports which part did not hold.
+            var cleanupFailureChecks = new (string Name, bool Ok)[]
+            {
+                ("transition succeeded", failingTransition), ("reason reported", reason != null), ("cleanup entered", cleanupEntered),
+                ("pawn discarded", failingPawn.Discarded), ("not quarantined", !failingRecord.IsQuarantined),
+                ("not unresolved", !failingRecord.IsUnresolved), ("dormant ground custody", failingRecord.Custody.Kind == GuCustodyKind.DormantGround),
+                ("survivor resolves", survivor != null && registry.Resolve(survivor) == failingRecord),
+                ("former pawn unresolved", registry.Resolve(failingPawn) == null),
+                ("former pawn rogue", registry.RogueProjections.Contains(failingPawn.GuTag())),
+                ("former pawn unowned", failingPawn.holdingOwner == null),
+            };
+            Check(cleanupFailureChecks.All(entry => entry.Ok),
+                "A native cleanup failure keeps the committed dormant Thing authorized and rejects the former Pawn as rogue. Failed: "
+                + string.Join(", ", cleanupFailureChecks.Where(entry => !entry.Ok).Select(entry => entry.Name))
+                + $". Custody {failingRecord.Custody.Kind}, reason {reason}");
             CheckOldPawnAbsent(failingPawnId);
             var quarantinedThing = GroundDormantGu().Single(thing => thing.GuId == failingRecord.Id);
             Check(registry.Resolve(quarantinedThing) == failingRecord && !dormant.CanStackWith(quarantinedThing)

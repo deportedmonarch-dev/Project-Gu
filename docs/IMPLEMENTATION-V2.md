@@ -181,7 +181,9 @@ Medians of three processes per variant. Living records grew by about 53 bytes fo
 
 #### Test infrastructure timing
 
-Measured from evidence folders: copying the game and building takes 7–10 s per run. Each profile takes 45–115 s, almost all of it game startup and world generation across two to four fresh processes. The final campaign took about 40 minutes of wall time. Optimization proposals follow after Phase 2.
+Measured from evidence folders: copying the game and building takes 7–10 s per run. Each profile takes 45–115 s, almost all of it game startup and world generation across two to four fresh processes. The final campaign took about 40 minutes of wall time.
+
+**Follow-up (approved infrastructure work, 2026-11-22).** The runner now records per-stage timing (runner and game side), collects complete results by default with opt-in `-FailFast`, and runs independent profiles in parallel on one read-only game copy with exclusive run ownership. On the 12 Gu fixtures, game startup is 47% of process time and test bodies 2%. `-Parallel 4` reduced the set from 653 s to 282–329 s with 12/12 passing on the final code. Two intermittent fixture defects found along the way were fixed (`Slice3B2` incidental Hediffs, `SpawnGroundGu` space). Details, isolation evidence and remaining concerns: [test infrastructure](TEST-INFRASTRUCTURE.md).
 
 ### Remaining risks
 

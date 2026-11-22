@@ -71,24 +71,30 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         if (pending == null || LongEventHandler.AnyEventNowOrWaiting) return;
         Action run = pending;
         pending = null;
+        StageTiming.Record("playing");
         run();
     }
 
     private static void Run(Action run, string stage)
     {
         if (!GenCommandLine.CommandLineArgPassed("headless") && !GenCommandLine.CommandLineArgPassed("gupriority0test")) return;
+        StageTiming.Record("test.start");
         try
         {
             Find.TickManager.Pause();
             Prefs.DevMode = true;
             Check(GuUndergroundLifecycleGuards.Installed, "Harmony protections installed");
             run();
+            StageTiming.Record("test.end");
             Report($"PASS {stage}");
         }
         catch (Exception error)
         {
+            StageTiming.Record("test.end");
             Report($"FAIL {stage} {error}");
         }
+        StageTiming.Record("exitRequested");
+        StageTiming.Flush();
         UnityEngine.Application.Quit();
     }
 
