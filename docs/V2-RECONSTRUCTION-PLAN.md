@@ -1,6 +1,6 @@
 # Gu Framework V2 reconstruction plan
 
-**Status** — Gate G0 and gate G1 approved by the owner after review of `98bf468`. Phase 1 is implemented and verified on `feature/gu-framework-v2` ([journal](IMPLEMENTATION-V2.md)). It awaits owner review. Later gates remain open.
+**Status** — Gate G0 and gate G1 approved by the owner after review of `98bf468`. Phase 1 is implemented, verified and accepted by the owner, including rendered acceptance ([journal](IMPLEMENTATION-V2.md)). Phase 2 is authorized with the owner decisions in [Phase 2 decisions](V2-PHASE2-OWNER-DECISIONS.md). Later gates remain open.
 **Architecture** — [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md) · [RFC-0005](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md) · [RFC-0006](RFC-0006-PERSISTENT-IMMORTAL-ENVIRONMENTS.md) · [Assessment](V2-SYSTEM-ASSESSMENT.md) · [Engine evidence](ENGINE-1.7-GU-V2-INVESTIGATION.md)
 
 ## Dependency-aware roadmap
@@ -28,7 +28,7 @@ flowchart TD
 |---|---|---|
 | **0** | Record 0.2.5 acceptance, prepare the release, publish the V2 architecture, add `V2EngineProbe`. | This document set. Owner decision on the 0.2.5 merge. |
 | **1** | `GuRecord` V2 with independent facets, pure queries, reconciliation from events and a scheduled sweep, `CompGuManifestation` with load-time self-registration, legacy classes as loadable shells, transitional aperture identity (`guApertureId`), V1 → V2 migrator, coordinator reusing V1 transaction mechanics, adapted developer controls and underground protection. Ground and inventory moves stop being transitions. Remove the Gear guard only after the ordinary inventory fixtures pass on V2. | Adapted Slice 3B profiles pass with explained expectation changes. `V2EngineProbe` shows no quarantine for downing, death, imprisonment, stripping or faction change. Reads are pure. Rogue projections are rejected. V1 checkpoint saves migrate in every custody state. Historical saves load with unchanged hashes. 120-record benchmark compared with V1. |
-| **2** | Terminal outcomes from native hooks, `Unresolved` causes and policies, `TileAbstract` placement, world-pawn GC rule, operator recovery tools, tombstone retention. | `V2EngineProbe` records terminal outcomes for destruction and death and an unresolved, then resolved, outcome for map removal and world GC. Quarantine occurs only in the evidential cases. |
+| **2** | Terminal outcomes from native hooks and explicit operations, recoverable deceased-host custody, structured evidence, dormant Gu hauling, world-location placement with a configurable preservation policy, world-pawn GC rule, operator recovery tools, safe compaction, manifestation and DLC probes. | `V2EngineProbe` records terminal outcomes for destruction and death and an unresolved, then resolved, outcome for map removal and world GC. Quarantine occurs only in the evidential cases. |
 | **3** | `CultivatorRecord`, `ApertureRecord`, `guApertureId`, the multi-occupant `MortalAperture` container, host death and resurrection recovery, NPC retention. | Resurrection restores occupants. 120 hosts with 10 Gu each meet the benchmark budget. NPC with aperture survives GC and reload. |
 | **4** | `GuProcess`, reservations, due-time scheduler, a developer test process. | Process survives reload mid-step, interruption outcomes, reservation conflicts. |
 | **5** | Production refinement (RFC-0005 §5). | Owner gameplay acceptance. |
@@ -86,18 +86,18 @@ Saves written by V2 are not supported by V1 builds. The release notes will say s
 | D1.3 | Component-based manifestation with legacy classes kept as shells. | **Approved.** |
 | D1.4 | Separate `Unresolved` from evidential quarantine. | **Approved**, with RFC-0004 §15.4. |
 | D1.5 | Remove the Gear guard and the special pickup transaction. | **Approved conditionally.** Remove after the replacement passes the ordinary inventory fixtures. Keep right-click pickup. |
-| D1.6 | Should dormant Gu become haulable to stockpiles? | Defer to playtesting after phase 1. |
+| D1.6 | Should dormant Gu become haulable to stockpiles? | **Approved** for Phase 2 (2026-11-22). Hauling keeps the same manifestation and revisions and never changes allegiance. |
 
 ### Gate G2 — before phase 3
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D2.1 | Default host-death outcomes for contained Gu. | Wait while the corpse exists, then apply a species `HostLoss` default. Pick the default (die, escape or remain). |
-| D2.2 | Outcome for Gu on a removed map. | Abstract into tile custody for later recovery. Refined Gu follow their refiner's policy. |
-| D2.3 | Tombstone retention. | Keep tombstones that guard uniqueness, replay or audits. Compact the rest after one in-game year. |
+| D2.1 | Default host-death outcomes for contained Gu. | **Direction approved** (2026-11-22): host death leaves aperture Gu recoverable from the deceased, physical Gu survive their holder, deliberate destruction is a future behavior. Species defaults for corpse destruction and host disappearance remain open. |
+| D2.2 | Outcome for Gu on a removed map. | **Direction approved** (2026-11-22): configurable preservation policy. Rare, unique and important Gu keep identity in world-location custody. Common wild Gu may return to populations or retire under declared accounting. Policy values need approval. |
+| D2.3 | Tombstone retention. | **Approved** (2026-11-22): about one in-game year for ordinary history. Integrity information is kept while needed. |
 | D2.4 | Mortal aperture capacity basis. | Rank and aptitude. Numbers through balance review. |
 | D2.5 | When NPC cultivators are generated and how many Gu they carry. | Defer until phase 3 design. |
-| D2.6 | Should inventory Gu stay with a downed Pawn? | Keep the native drop. It is now harmless and readable. |
+| D2.6 | Should inventory Gu stay with a downed Pawn? | Keep the native drop. Physical Gu survive the holder's death (approved 2026-11-22). |
 
 ### Gate G3 — before production refinement
 

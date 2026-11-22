@@ -101,15 +101,19 @@ Outcome probabilities, costs and backlash are owner and balance decisions.
 
 ## 6. Host loss and inheritance
 
-The framework provides the states and hooks. The lore defaults require owner approval.
+The framework provides the states and hooks. The owner set the direction on 2026-11-22 ([Phase 2 decisions](V2-PHASE2-OWNER-DECISIONS.md#2-gu-master-death-and-resource-denial)). Species-specific defaults still need approval.
 
-| Event | Framework state | Proposed default for owner review |
+| Event | Framework state | Owner direction |
 |---|---|---|
-| Host killed | Aperture `HostDead`. Contained Gu become `Unresolved(HostDead)`. | Wait while the corpse exists. Resurrection restores the aperture and its occupants. |
-| Host corpse destroyed or the deadline passes | `HostCorpseDestroyed` | Apply each Gu's `HostLoss` capability: `Die`, `Escape` (manifest as an active wild Gu near the corpse or last tile), or `Remain` (dormant in a sealed remains container). |
-| Host Pawn discarded or absent on load | `HostAbsent` | Same as corpse destroyed, at the last known tile. |
-| Refiner dies, Gu outside the aperture | Bond becomes `Severed` or persists as an inheritance claim. | Owner decision. |
-| Inheritance | A designated heir or clan claims bonds or containers. | Re-refinement at reduced difficulty, or direct transfer for specific species. Owner decision. |
+| Holder of physical inventory Gu dies | Nothing changes for the Gu. The engine drops or keeps the Thing. | **Approved.** Physical Gu survive unless independently killed or destroyed. Allegiance does not change. |
+| Host killed | Contained Gu stay `Contained` in a deceased-host aperture, recoverable from the corpse. | **Approved.** Instant death, or death without a chance to act, leaves aperture Gu recoverable. Resurrection restores the occupants that remain. |
+| Gu extracted or destroyed before resurrection | Terminal outcome or new placement, recorded with an event key. | **Approved.** Resurrection never reverses it or duplicates occupants. |
+| Host corpse destroyed, or the host disappears | Unresolved with captured location evidence. | Species `HostLoss` outcome (`Die`, `Escape`, `Remain`). Defaults pending owner approval. |
+| Dying hostile cultivator | Deliberate destruction is a terminal outcome with cause `DeliberateDestruction`. | **Future.** Probability rises with certainty of death, led by bleeding out. Preliminary curve 15% at 4 h, 35% at 8 h, 80% at 10 h. Most valuable Gu first. No per-tick rolls. |
+| Dying cultivator escapes to found an inheritance | Gu move to a world-location or environment placement with provenance. | **Future.** The inheritance is built from real identity, Gu, resources and relationships. |
+| Recovery by another party | Physical or contained custody changes. Refinement does not. | **Approved.** Recovered Gu are not refined by whoever recovers them. |
+| Inheritance by an heir | A designated heir or clan claims bonds or containers. | Owner decision. |
+
 
 ## 7. Non-colonist cultivators
 
@@ -136,4 +140,4 @@ Ascension converts a mortal aperture into an immortal aperture, which owns a per
 5. How far species may customize host loss, refinement resistance and access routes.
 6. When NPC cultivators are generated and how many Gu they carry.
 7. Ascension preconditions, failure and the initial environment.
-8. Whether physical inventory Gu should stay with a downed Pawn instead of dropping. The engine drops them by default.
+8. Whether physical inventory Gu should stay with a downed Pawn instead of dropping. The engine drops them by default. Physical Gu survive the holder's death (owner, 2026-11-22). Physical Gu survive the holder's death (owner, 2026-11-22).

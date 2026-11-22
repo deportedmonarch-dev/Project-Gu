@@ -20,7 +20,7 @@
 | Coordinators | Dormancy, aperture storage and withdrawal, release and cohort materialization keep the V1 staging, rollback, save-guard and replay machinery. Ground and inventory moves are revalidated physical moves that keep both revisions. A post-commit cleanup failure records the stale native object as rogue instead of quarantining a healthy record. |
 | Migration | [`MigrateLegacyRecords`](../Source/ProjectGu/GuIndividualRegistry.Load.cs) reads `guIndividualRecordsV1` once and never writes it. Fields map one to one. The V1 revision becomes the custody revision. V1 quarantines that describe ordinary custody mismatches are re-evaluated against the live graph. Others are retained with their V1 reason. V1 aperture records receive a `guApertureId` on their exact Hediff. |
 | Developer controls and underground | Debug actions use the V2 operations and log observed forms, rogue projections and the migration summary. Underground last-access protection counts authorized manifestations spawned on the level. |
-| Gear guard | Still installed. It now routes the Gear drop to a physical move. Removal waits for the ordinary inventory fixture to pass on V2 (RFC-0004 §15.3). |
+| Gear guard | Removed after `VanillaGuInventory` passed on V2 (RFC-0004 §15.3). The vanilla Gear handler moves the same authorized Thing with no Project GU transaction. Ordinary right-click pickup is kept. See [Verification](#results-on-the-final-phase-1-code). |
 
 ### Intentional expectation changes in the native fixtures
 
@@ -65,7 +65,27 @@ Windows 11 build 26200, AMD Ryzen 9 9955HX, RimWorld 1.7.5014 rev1195, Harmony 3
 
 The V1 sources were produced by rerunning the V1 profiles at `v0.2.5` in a separate worktree. All V1 profiles passed again there. The killed wild Gu in the V1 engine-probe save migrated as `ProjectionMissing` without evidence, rather than the predicted `ProjectionEnded`. The V1 save contains no record of the death, so absence of evidence is the correct outcome. The counts were unaffected.
 
-**Historical saves.** The original 31×31 and 39×39 historical saves could not be found on this machine. The regression used the disposable copies left by the `Slice3B3A` verification run. The 39×39 copy is byte-identical to the save that run loaded. The 31×31 copy differs only by the runner's documented removal of an empty test component. Both copies kept their hashes. Rerun against the originals when their paths are available.
+**Historical saves.** The original 31×31 and 39×39 historical saves could not be found on this machine. The regression used the disposable copies left by the `Slice3B3A` verification run, now kept in the ignored `tests/obj/HistoricalSources/`. These copies are verification derivatives, not the original historical saves. The 39×39 copy is byte-identical to the save that run loaded. The 31×31 copy differs only by the runner's documented removal of an empty test component. Both copies kept their hashes. Copy SHA-256: `Legacy31-copy.rws` `09f225c1…b956c`, `Legacy39-copy.rws` `7efce436…2658`. Phase F recorded that the originals matched but did not publish their hashes, so the copies cannot be tied to the originals by hash. A run against the originals remains open until their paths are available.
+
+#### Owner rendered acceptance
+
+The owner reviewed Phase 1 in a rendered game and accepted it. Screenshot evidence and owner reports are recorded separately.
+
+**Documented in the supplied screenshots.** One individual, Gu `d4407117c5084396901eb9b2c91174ba`, species `GU_DevTestSpringGu`, Rank 1:
+
+| Step | Observed form | Custody revision | State revision |
+|---|---|---:|---:|
+| Development spawn | Active wild Pawn | 1 | 1 |
+| Dormancy | Dormant Thing on the ground | 2 | 2 |
+| Ordinary pickup | Dormant Thing held in inventory | 2 | 2 |
+| Aperture storage | Contained in mortal aperture `fab53ee2b0fc4fbc9e41fd2dfdece4e3` | 3 | 2 |
+
+No unresolved or quarantine state was displayed. The revisions match the V2 rules: pickup kept both revisions, dormancy advanced both, and storage advanced only custody.
+
+**Reported by the owner, not shown in the screenshots.** Save and reload succeeded, and active release from the aperture succeeded.
+
+**Not separately documented.** Gear drop and repickup were not shown in the supplied screenshots. `VanillaGuInventory` covers them natively.
+
 
 #### Performance
 
@@ -89,4 +109,4 @@ Rebuild and periodic validation cost about half of V1. Each record costs about 2
 - V1 quarantines from failed V1 transactions are retained conservatively. Operator recovery tools are Phase 2 work.
 - Map removal and world-pawn GC leave Gu unresolved. The approved Phase 2 policies decide their outcomes.
 - DLC lifecycle passes (Royalty, Biotech, Anomaly) are still open. Anomaly continues to disable dormancy, release and materialization.
-- Rendered owner checks of the V2 developer controls and ordinary pickup are open.
+- Rendered owner acceptance covered spawn, dormancy, pickup, aperture storage, reload and release. A rendered Gear drop and repickup was not separately documented.

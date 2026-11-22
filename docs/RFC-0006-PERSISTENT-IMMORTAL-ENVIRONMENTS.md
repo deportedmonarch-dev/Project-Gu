@@ -1,6 +1,6 @@
 # RFC-0006 — Persistent immortal environments
 
-**Status** — Requirements and foundation proposal. Implementation is not authorized. Only the interfaces the Gu Framework needs now are proposed for early work.
+**Status** — Requirements and foundation proposal. Implementation is not authorized. Only the interfaces the Gu Framework needs now are proposed for early work. Sections 8–11 record the owner's hybrid-environment direction of 2026-11-22.
 **Target** — RimWorld 1.7 Waylith / .NET 10
 **Depends on** — [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md) · [RFC-0005](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md)
 **Evidence** — [Engine investigation](ENGINE-1.7-GU-V2-INVESTIGATION.md) · [Underground lifecycle](UNDERGROUND-INDEPENDENT-LEVELS.md)
@@ -89,6 +89,10 @@ Gu inside a materialized region are ordinary manifested Gu, or contained Gu in a
   2. **Catch-up on exit.** Apply the extra elapsed time abstractly when the region dematerializes. Visits feel normal and long-term growth still reflects the ratio.
   3. **Engine-level dilation.** Patching map ticks per map is high risk and is not recommended without a dedicated probe.
 
+The owner's 2026-11-22 direction favors normal native rates while visited and acceleration expressed while the player is outside, close to option 2. See section 8.1.
+
+The owner's 2026-11-22 direction favors normal native rates while visited and acceleration expressed while the player is outside, close to option 2. See section 8.1.
+
 ### 4.3 Ownership and succession
 
 `EnvironmentOwnership` references cultivator IDs only. Owner death triggers the environment's succession rule. The environment can pass to an heir, become ownerless and self-governing, decay, or collapse into a sealed blessed land. The rules are owner decisions. The environment record survives in every case until an explicit terminal outcome.
@@ -125,3 +129,72 @@ Only these pieces are proposed alongside V2. They keep the Gu record compatible 
 4. Whether player-built content may ever be dematerialized before a high-fidelity strategy passes.
 5. The shared budget of loaded underground levels and environments.
 6. Scope of calamities and tribulations in the first environment slice.
+
+## 8. Hybrid simulation (owner direction)
+
+Recorded 2026-11-22 from the owner's Phase 2 authorization. Sections 8–11 are design requirements and directions under consideration. They do not authorize environment implementation.
+
+The preferred direction combines abstract and manifested environments.
+
+- NPC immortals and non-appointed colony immortals generally have persistent **abstract** environments.
+- The player may appoint particular colony immortals whose blessed lands are fully **manifested** native maps.
+- Discovered inheritances and expeditions may materialize an environment for direct interaction.
+- Both forms support meaningful management.
+- Environments the player has developed should eventually be preserved and restored at high fidelity, if the engine permits it safely (strategy C, section 5).
+
+An abstract environment communicates its stability, time-flow ratio, upcoming tribulations, dao marks and path affinity, territory and biome composition, resources and production, Gu populations, wildlife, mortal and variant-human populations, and internal settlements and social development. Abstract gameplay includes expeditions, resource development, Gu searches, diplomacy, subjugation and population management. Abstract populations are persistent world entities, not disposable menu events.
+
+A manifested environment supports native interaction with inhabitants, settlements, Rockmen, wildlife, Gu and resources.
+
+### 8.1 Efficient time dilation
+
+- Prefer mathematical elapsed time and scheduled processes over multiplying the native tick loop.
+- While the player visits a manifested environment, movement, combat and jobs run at the normal native rate.
+- Dilation applies to ecological, biological and economic development. The owner favors expressing acceleration while the player is outside.
+- Acceleration carries costs, resource consumption and ecological consequences.
+- Native and abstract simulation never both produce the same output.
+- A loaded but unvisited map keeps ticking. The design must not assume otherwise.
+- Hibernation and high-fidelity snapshot restoration are investigated in the environment phase.
+
+### 8.2 Performance requirements
+
+Permanent limits on concurrent manifested blessed lands wait for dedicated benchmarks: the surface colony baseline, one, two and four extra manifested environments, several map sizes and ecological workloads, several Pawn and animal populations, and 100 and 1,000 abstract environments. Each measures tick time, TPS, memory, save size, load time and scheduling overhead. The benchmark belongs to the environment phase. The design never requires hundreds of continuously loaded native maps.
+
+### 8.3 Cultivation path and ascension
+
+An environment reflects its immortal's cultivation history. A healing-path cultivator who ascends may develop medicinal resources, healing Gu and matching production. Rank 5 Gu, ascension outcomes, heaven and earth qi and dao marks may influence the result. Specific ascension mechanics are later decisions.
+
+## 9. Blessed Land Roots (future)
+
+- An eligible deceased immortal has a proposed initial 50% chance of leaving a recoverable Blessed Land Root.
+- Eligibility depends on actual environment state: a living or dead aperture, prior rooting, destruction by calamity, annexation and other lifecycle conditions.
+- A root refers to the deceased immortal's actual environment, never a newly randomized map.
+- A root may be planted to create an entrance to that environment, or annexed by another eligible environment.
+- An immortal escaping to found an inheritance may deliberately root their existing blessed land.
+- The outcome is generated once and persists across reloads.
+- Environment identities, Gu, inhabitants and resources are never duplicated.
+
+## 10. Annexation and territorial assimilation (future)
+
+Annexation is selective and stat-based, not literal stitching of native maps.
+
+An annexation report exposes the donor's territorial size and capacity, terrain and biomes, dao marks and path affinities, climate and ecology, time flow and stability, Gu, wildlife, mortal and variant-human populations, and resources and production. The player selects eligible assets and characteristics. For example, annexing a desert immortal's blessed land may transfer a chosen amount of desert territory, transplant suitable Gu and populations, and convert the remaining territorial potential into approved benefits.
+
+- Selected territory replaces designated territory or expands the environment.
+- Remaining potential may feed environmental properties, dao marks, time flow or expansion capacity under balanced rules.
+- Conflicting characteristics can bring disadvantages as well as benefits.
+- Every donor asset is transferred, transformed, retired or accounted for exactly once. Nothing is duplicated.
+
+### 10.1 Environmental specialization
+
+Rare resources may need specific combinations of substrate, climate, biome, dao marks, qi, symbiotic plants, beasts or Gu, stability and internal maturation time. Example: a desert-dependent seed that needs centuries to mature. A cultivator without desert territory may acquire or annex it and use accelerated internal time to raise the seed. Biome requirements are mechanical, not cosmetic.
+
+## 11. Physical map expansion (future investigation)
+
+Investigate, in order of expected safety:
+
+1. Unlocking more usable territory inside a preallocated native map.
+2. Adding independently materializable regions.
+3. Safely resizing an existing native map.
+
+Abstract territory capacity is tracked independently of its native representation. Territorial conversion protects player buildings, inhabitants, valuable resources and meaningful terrain. The project makes no commitment to native map resizing before engine verification.

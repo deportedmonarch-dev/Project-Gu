@@ -26,7 +26,7 @@ public sealed partial class LiveLifecycleChecks
             "The original projection is authorized in native inventory at custody revision two (V1: three, pickup no longer commits)");
 
         Prefs.DevMode = false;
-        // The V1 Gear guard is removed (RFC-0004 ง15.3). The vanilla Gear handler now moves the Gu with no Project GU
+        // The V1 Gear guard is removed (RFC-0004 ยง15.3). The vanilla Gear handler now moves the Gu with no Project GU
         // transaction, and the same Thing stays authorized wherever the engine places it.
         var drop = AccessTools.DeclaredMethod(typeof(ITab_Pawn_Gear), "InterfaceDrop");
         Check(Harmony.GetPatchInfo(drop)?.Owners.Any(owner => owner.StartsWith("projectgu.livingcultivation", StringComparison.Ordinal)) != true,
