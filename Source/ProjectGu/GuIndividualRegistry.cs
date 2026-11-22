@@ -47,6 +47,8 @@ namespace ProjectGu
             }
             if (Scribe.mode == LoadSaveMode.Saving && CustodyTransitionInProgress)
                 throw new InvalidOperationException("Wait for the Gu custody transition to finish before saving.");
+            // Native events reported since the last tick must reach the save, or demonstrated evidence would be lost.
+            if (Scribe.mode == LoadSaveMode.Saving) ApplyPendingEvents();
             Scribe_Collections.Look(ref records, "guIndividualRecordsV2", LookMode.Deep);
             // Schema V1 is read once for migration and never written again.
             if (Scribe.mode != LoadSaveMode.Saving) Scribe_Collections.Look(ref legacyV1, "guIndividualRecordsV1", LookMode.Deep);
@@ -151,9 +153,9 @@ namespace ProjectGu
             if (record == null || record.Existence != GuExistence.Living) return (GuObservedForm.Unavailable, null, null, null);
             if (record.Placement == GuPlacementKind.Contained)
             {
-                var host = apertureOf.TryGetValue(record.Id, out var aperture) ? aperture.pawn : null;
-                return (record.IsUnresolved ? GuObservedForm.Unavailable : GuObservedForm.Contained, record.ContainerId,
-                    record.AnchorHint, host?.MapHeld);
+                bool live = !record.IsUnresolved && apertureOf.TryGetValue(record.Id, out var aperture) && IsLiveAperture(aperture, record);
+                return (live ? GuObservedForm.Contained : GuObservedForm.Unavailable, record.ContainerId, record.AnchorHint,
+                    live ? apertureOf[record.Id].pawn.MapHeld : null);
             }
             if (!projectionOf.TryGetValue(record.Id, out var thing) || !MatchesManifestation(record, thing))
                 return (GuObservedForm.Unavailable, record.ProjectionId, null, null);

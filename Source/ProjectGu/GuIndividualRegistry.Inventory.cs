@@ -28,9 +28,6 @@ namespace ProjectGu
         internal bool TryPickUpDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn pawn, out string reason) =>
             TryMoveDormant(thing, expectedRevision, pawn, thing?.Position ?? IntVec3.Invalid, taking: true, ordinary: true, out reason);
 
-        internal bool TryDropDormantFromGear(Thing_GuDormantProjection thing, Pawn pawn, out string reason) =>
-            TryMoveDormant(thing, thing?.GuRevision ?? -1, pawn, pawn?.Position ?? IntVec3.Invalid, taking: false, ordinary: true, out reason);
-
         private static ThingOwner InventoryOf(Pawn pawn) => pawn is { Dead: false, Destroyed: false }
             && pawn.inventory is { } tracker && tracker.ParentHolder == pawn ? tracker.GetDirectlyHeldThings() : null;
 

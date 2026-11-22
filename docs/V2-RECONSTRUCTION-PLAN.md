@@ -1,6 +1,6 @@
 # Gu Framework V2 reconstruction plan
 
-**Status** — Gate G0 and gate G1 approved by the owner after review of `98bf468`. Phase 1 is in progress on `feature/gu-framework-v2`. Later gates remain open.
+**Status** — Gate G0 and gate G1 approved by the owner after review of `98bf468`. Phase 1 is implemented and verified on `feature/gu-framework-v2` ([journal](IMPLEMENTATION-V2.md)). It awaits owner review. Later gates remain open.
 **Architecture** — [RFC-0004](RFC-0004-GU-FRAMEWORK-V2.md) · [RFC-0005](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md) · [RFC-0006](RFC-0006-PERSISTENT-IMMORTAL-ENVIRONMENTS.md) · [Assessment](V2-SYSTEM-ASSESSMENT.md) · [Engine evidence](ENGINE-1.7-GU-V2-INVESTIGATION.md)
 
 ## Dependency-aware roadmap

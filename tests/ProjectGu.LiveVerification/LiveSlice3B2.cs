@@ -101,7 +101,7 @@ public sealed partial class LiveLifecycleChecks
             afterDormantSpawn = thing =>
             {
                 abandoned = thing;
-                Check(thing.Spawned && registry.Resolve(thing) == null && record.Custody.Kind == GuCustodyKind.WildPawn,
+                Check(thing.Spawned && registry.Resolve(thing) == null && record.Manifestation == GuManifestationKind.Pawn,
                     "The map-owned staged Thing is inert and unauthorized before commit");
                 throw new InvalidOperationException("Injected post-placement dormancy failure");
             };
@@ -133,8 +133,8 @@ public sealed partial class LiveLifecycleChecks
             CheckOldPawnAbsent(originalPawnId);
             Check(registry.Resolve(dormant) == record && registry.Resolve(source) == null && dormant.Position == target
                 && Snapshot(record) == initial with { Biology = GuBiologicalState.Dormant, Revision = initial.Revision + 1,
-                    Custody = new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()) },
-                "Dormancy preserves the same record, ID, provenance, species and rank and advances its revision once");
+                    StateRevision = initial.StateRevision + 1, Custody = new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()) },
+                "Dormancy preserves the same record, ID, provenance, species and rank and advances custody and state revisions once");
             Check(!registry.TryMakeDormant(source, initial.Revision, target, out _, out _)
                 && discardAttempts == 1 && GroundDormantGu().Single() == dormant, "A repeated action creates no second projection or discard");
             healthy = new(Snapshot(record), originalPawnId, null);
@@ -150,15 +150,18 @@ public sealed partial class LiveLifecycleChecks
                 cleanupEntered = true;
                 throw new InvalidOperationException("Injected native discard cleanup failure");
             };
-            Check(!registry.TryMakeDormant(failingPawn, failingRecord.Revision, failingPawn.Position, out _, out _)
-                && cleanupEntered && failingPawn.Discarded && failingRecord.IsQuarantined
-                && failingRecord.Custody.Kind == GuCustodyKind.DormantGround
-                && registry.Resolve(failingRecord.Id) == null && failingPawn.holdingOwner == null,
-                "A native cleanup callback failure keeps the committed dormant Thing and quarantines its authorization");
+            // V1 quarantined this record. V2 keeps the committed dormant Thing authorized: the half-retired Pawn has a stale
+            // revision and load ID, so it is recorded as rogue and can never authorize. The no-duplicate invariant still holds.
+            Check(registry.TryMakeDormant(failingPawn, failingRecord.Revision, failingPawn.Position, out var survivor, out reason)
+                && reason != null && cleanupEntered && failingPawn.Discarded && !failingRecord.IsQuarantined && !failingRecord.IsUnresolved
+                && failingRecord.Custody.Kind == GuCustodyKind.DormantGround && registry.Resolve(survivor) == failingRecord
+                && registry.Resolve(failingPawn) == null && registry.RogueProjections.Contains(failingPawn.GuTag())
+                && failingPawn.holdingOwner == null,
+                "A native cleanup failure keeps the committed dormant Thing authorized and rejects the former Pawn as rogue");
             CheckOldPawnAbsent(failingPawnId);
             var quarantinedThing = GroundDormantGu().Single(thing => thing.GuId == failingRecord.Id);
-            Check(registry.Resolve(quarantinedThing) == null && !dormant.CanStackWith(quarantinedThing)
-                && quarantinedThing.stackCount == 1 && dormant.stackCount == 1, "Both Things are separate units and only the healthy binding is authorized");
+            Check(registry.Resolve(quarantinedThing) == failingRecord && !dormant.CanStackWith(quarantinedThing)
+                && quarantinedThing.stackCount == 1 && dormant.stackCount == 1, "Both Things are separate units, each authorized for its own record");
             quarantined = new(Snapshot(failingRecord), failingPawnId, failingRecord.QuarantineReason);
         }
         finally
@@ -175,7 +178,7 @@ public sealed partial class LiveLifecycleChecks
         var fixture = new DormancyFixture(cave.GetUniqueLoadID(), traveler.GetUniqueLoadID(), healthy, quarantined);
         File.WriteAllText(DormancyFixturePath, JsonSerializer.Serialize(fixture));
         GameDataSaveLoader.SaveGame(SaveName);
-        Report("Actual Gu Pawn retirement passed with one native discard and health cleanup, zero kills and corpses. Blocked placement, rollback after placement, save reentry, repeated actions and discard quarantine passed.");
+        Report("Actual Gu Pawn retirement passed with one native discard and health cleanup, zero kills and corpses. Blocked placement, rollback after placement, save reentry, repeated actions and the post-commit discard failure (former Pawn rejected as rogue, record kept authorized) passed.");
     }
 
     private static void CheckSameWildProjection(Pawn_GuWildProjection source, IntVec3 origin, string pawnId, GuRecordSnapshot initial)
@@ -246,6 +249,6 @@ public sealed partial class LiveLifecycleChecks
         var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef).OfType<Building_GuPocketProbeEndpoint>().Single();
         Check(JobDriver_GuPocketProbeTravel.TryTravel(traveler, exit, out string reason) && traveler.Map.IsPlayerHome
             && things.All(thing => thing.Map == cave), $"Normal return travel preserves both underground dormant Things. {reason}");
-        Report("Fresh-process reload kept the original healthy and quarantined dormant bindings, with no old Pawn or corpse. The original colonist returned through the saved passage.");
+        Report("Fresh-process reload rebound both dormant Things to their records, with no old Pawn or corpse. The original colonist returned through the saved passage.");
     }
 }

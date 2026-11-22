@@ -41,7 +41,8 @@ namespace ProjectGu
             {
                 string legacyReason = string.IsNullOrEmpty(old.QuarantineReason) ? null : old.QuarantineReason;
                 bool reevaluate = legacyReason != null && ReevaluatedV1Reasons.Any(reason => legacyReason.StartsWith(reason, StringComparison.Ordinal));
-                string retainedReason = legacyReason != null && !reevaluate ? $"Retained from Schema V1: {legacyReason}" : null;
+                string retainedReason = legacyReason != null && !reevaluate ? $"Retained from Schema V1: {legacyReason}"
+                    : old.Version != GuIndividualV1.SchemaVersion ? "Unsupported Gu record version in Schema V1." : null;
                 if (reevaluate) reevaluated++;
                 if (retainedReason != null) retained++;
 
@@ -93,7 +94,9 @@ namespace ProjectGu
             records.RemoveAll(record => record == null);
             int tick = Find.TickManager?.TicksGame ?? 0;
 
-            // Evidential integrity: contradictions that need outside evidence to repair.
+            // Evidential integrity: contradictions that need outside evidence to repair. Duplicate creation events are
+            // checked first so that the shared contradiction, not a derived field error, is the recorded reason.
+            RebuildCreationEventBindings(records);
             foreach (var record in records.Where(record => !record.IsQuarantined))
                 if (RecordError(record) is { } error) record.Quarantine(error);
             foreach (var group in records.Where(record => record.Id != null).GroupBy(record => record.Id, StringComparer.OrdinalIgnoreCase))
@@ -106,7 +109,6 @@ namespace ProjectGu
                     && record.Placement == GuPlacementKind.Manifested)
                 .GroupBy(record => record.ProjectionId, StringComparer.Ordinal).Where(group => group.Count() > 1))
                 foreach (var record in group) record.Quarantine("Multiple records claim this native object.");
-            RebuildCreationEventBindings(records);
 
             var tags = loaded.Where(tag => tag.parent != null && !tag.parent.Destroyed && !tag.parent.Discarded)
                 .ToLookup(tag => tag.GuId, StringComparer.OrdinalIgnoreCase);

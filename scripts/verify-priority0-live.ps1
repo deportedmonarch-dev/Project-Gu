@@ -1,10 +1,12 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
-    [string]$Legacy39Save = ''
+    [string]$Legacy39Save = '',
+    # Saves written by the v0.2.5 Schema V1 build. Each is copied, never modified, and checked by SHA-256.
+    [string[]]$V1Saves = @()
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -136,6 +138,24 @@ try {
             if ((Get-FileHash -LiteralPath $original).Hash -ne $hash) { throw "Historical source file changed: $original" }
             Write-Host "PASS $name historical copy loaded. The original SHA-256 is unchanged. Evidence in $saveData"
             Get-Content -LiteralPath (Join-Path $saveData 'priority0-result.txt')
+            continue
+        }
+        if ($name -eq 'V1Migration') {
+            foreach ($sourceSave in $V1Saves) {
+                $original = (Resolve-Path -LiteralPath $sourceSave).Path
+                $hash = (Get-FileHash -LiteralPath $original).Hash
+                $source = [IO.Path]::GetFileNameWithoutExtension($original)
+                $migrationData = Join-Path $testRoot "V1Migration-$source"
+                New-Item -ItemType Directory -Path (Join-Path $migrationData 'Saves'),(Join-Path $migrationData 'Config') -Force | Out-Null
+                Copy-Item -LiteralPath (Join-Path $config 'ModsConfig.xml'),(Join-Path $config 'Prefs.xml') -Destination (Join-Path $migrationData 'Config')
+                Copy-Item -LiteralPath $original -Destination (Join-Path $migrationData 'Saves/autostart.rws')
+                Copy-Item -LiteralPath $original -Destination (Join-Path $migrationData 'v1-source.rws')
+                Invoke-LiveStage $migrationData 'reload' $false $false "-guv1migration -guv1source=$source"
+                Invoke-LiveStage $migrationData 'resave' $false $false "-guv1migration -guv1resave -guv1source=$source"
+                if ((Get-FileHash -LiteralPath $original).Hash -ne $hash) { throw "V1 source save changed: $original" }
+                Write-Host "PASS V1Migration $source. The original SHA-256 is unchanged. Evidence in $migrationData"
+                Get-Content -LiteralPath (Join-Path $migrationData 'priority0-result.txt')
+            }
             continue
         }
         if ($name -eq 'Slice3B5BPerf') {

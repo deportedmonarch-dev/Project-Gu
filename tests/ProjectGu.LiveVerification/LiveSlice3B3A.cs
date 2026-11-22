@@ -90,12 +90,13 @@ public sealed partial class LiveLifecycleChecks
 
             Check(registry.TryTakeDormant(thing, ground.Revision, traveler, out string reason), $"Native pickup succeeded. {reason}");
             var held = Snapshot(record);
-            Check(held == ground with { Revision = ground.Revision + 1, Custody = new(GuCustodyKind.DormantInventory,
+            // V2: a physical move of the same authorized Thing is not a custody transition. Both revisions stay unchanged.
+            Check(held == ground with { Custody = new(GuCustodyKind.DormantInventory,
                 ground.Custody.NativeOwnerId, traveler.GetUniqueLoadID()) } && thing.GuRevision == held.Revision
                 && registry.Resolve(thing) == record && !thing.Spawned && thing.holdingOwner == inventory
-                && inventory.Count(item => item == thing) == 1, "Pickup changes custody and revision once on the original record and Thing");
+                && inventory.Count(item => item == thing) == 1, "Pickup moves the original Thing into inventory without changing revisions");
             Check(!registry.TryTakeDormant(thing, held.Revision, traveler, out _)
-                && !registry.TryDropDormant(thing, ground.Revision, traveler, origin, out _)
+                && !registry.TryDropDormant(thing, held.Revision - 1, traveler, origin, out _)
                 && !registry.TryDropDormant(thing, held.Revision, other, OpenInventoryCell(other), out _)
                 && Snapshot(registry.Resolve(thing)) == held, "Wrong custody, stale revision and an unrelated inventory holder are rejected");
 
@@ -117,11 +118,12 @@ public sealed partial class LiveLifecycleChecks
 
             Check(registry.TryDropDormant(thing, held.Revision, traveler, origin, out reason), $"Native drop succeeded. {reason}");
             var returned = Snapshot(record);
-            Check(returned == ground with { Revision = held.Revision + 1 } && thing.GuRevision == returned.Revision
+            Check(returned == ground && thing.GuRevision == returned.Revision
                 && thing.holdingOwner == home.GetDirectlyHeldThings() && thing.Position == origin
-                && !registry.TryTakeDormant(thing, ground.Revision, traveler, out _)
+                && !registry.TryTakeDormant(thing, ground.Revision - 1, traveler, out _)
                 && !registry.TryDropDormant(thing, held.Revision, traveler, origin, out _)
-                && Snapshot(registry.Resolve(thing)) == returned, "A complete round trip advances the revision twice and rejects replay at both endpoints");
+                && Snapshot(registry.Resolve(thing)) == returned,
+                "A complete round trip keeps both revisions, rejects stale revisions and rejects a drop from the wrong endpoint");
 
             inventorySubject = SpawnGroundGu(other);
             var recovery = registry.Resolve(inventorySubject);
@@ -133,11 +135,12 @@ public sealed partial class LiveLifecycleChecks
                 lateBlocker = GenSpawn.Spawn(MakeStack(1), recoveryOrigin, home);
                 throw new InvalidOperationException("Injected fault with blocked Gu rollback cell");
             };
+            // V1 quarantined this claim. In V2 the same Thing stays the authorized manifestation wherever recovery placed it.
             Check(!registry.TryTakeDormant(inventorySubject, recovery.Revision, other, out _)
                 && lateBlocker?.Spawned == true && inventorySubject.Spawned && inventorySubject.Position != recoveryOrigin
                 && inventorySubject.holdingOwner == home.GetDirectlyHeldThings() && inventorySubject.GuRevision == recovery.Revision
-                && Snapshot(recovery) == recoverySnapshot && recovery.IsQuarantined && registry.Resolve(inventorySubject) == null,
-                "Blocked original placement preserves the same physical Gu in a nearby cell and quarantines the unchanged claim");
+                && Snapshot(recovery) == recoverySnapshot && recovery.IsActionable && registry.Resolve(inventorySubject) == recovery,
+                "Blocked original placement keeps the same authorized Gu in a nearby cell with an unchanged record");
             lateBlocker.Destroy();
             recoveryReason = recovery.QuarantineReason;
         }
@@ -157,10 +160,13 @@ public sealed partial class LiveLifecycleChecks
 
         var wrong = SpawnGroundGu(traveler);
         Check(registry.TryTakeDormant(wrong, wrong.GuRevision, traveler, out _), "The wrong-holder fixture began in authorized inventory");
-        var wrongSnapshot = Snapshot(registry.Resolve(wrong));
+        var wrongBefore = Snapshot(registry.Resolve(wrong));
         var otherInventory = other.inventory.GetDirectlyHeldThings();
         Check(inventory.TryTransferToContainer(wrong, otherInventory, 1, false) == 1 && wrong.holdingOwner == otherInventory,
-            "An external native move created a holder mismatch without changing identity or revision");
+            "An external native move transferred the Gu to another holder");
+        var wrongSnapshot = Snapshot(registry.Resolve(wrong));
+        Check(wrongSnapshot == wrongBefore with { Custody = wrongBefore.Custody with { HolderPawnId = other.GetUniqueLoadID() } },
+            "The external move changed only the observed holder. Identity, revisions and authorization are unchanged");
 
         var leftOnGround = SpawnGroundGu(traveler);
         Check(JobDriver_GuPocketProbeTravel.TryTravel(traveler, entrance, out string travelReason) && traveler.Map == cave
@@ -172,7 +178,7 @@ public sealed partial class LiveLifecycleChecks
             recoverySnapshot, recoveryReason, missingSnapshot, wrongSnapshot, other.GetUniqueLoadID());
         File.WriteAllText(InventoryFixturePath, JsonSerializer.Serialize(fixture));
         GameDataSaveLoader.SaveGame(SaveName);
-        Report("Native capacity, mass, exact holder, blocked cell, stale requests, replay, interrupted pickup and drop, guarded save reentry and quarantined recovery passed. One original Gu crossed to the cavern in its native inventory.");
+        Report("Native capacity, mass, holder checks, blocked cell, stale requests, interrupted pickup and drop, guarded save reentry and nearby recovery without quarantine passed. Physical moves kept both revisions. One original Gu crossed to the cavern in its native inventory.");
     }
 
     private static void VerifySlice3B3AReload()
@@ -191,26 +197,29 @@ public sealed partial class LiveLifecycleChecks
         Check(registry.Individuals.Count == 5 && physical.Length == 4
             && physical.Select(thing => thing.GuId).Distinct().Count() == 4, "Fresh reload conserved the records and all four surviving Things");
 
-        Thing_GuDormantProjection Verify(GuRecordSnapshot expected, ThingOwner owner, bool quarantined)
+        Thing_GuDormantProjection Verify(GuRecordSnapshot expected, ThingOwner owner)
         {
             var record = registry.Individuals.Single(entry => entry.Id == expected.Id);
             var thing = physical.SingleOrDefault(entry => entry.GuId == expected.Id);
-            Check(Snapshot(record) == expected && record.IsQuarantined == quarantined
-                && registry.Resolve(record.Id) == (quarantined ? null : record), "Reload retained the original canonical claim and its authorization state");
-            Check(owner == null ? thing == null : thing != null && thing.GetUniqueLoadID() == expected.Custody.NativeOwnerId
+            Check(Snapshot(record) == expected && record.IsActionable && registry.Resolve(record.Id) == record,
+                "Reload retained the original canonical claim and its authorization");
+            Check(thing != null && thing.GetUniqueLoadID() == expected.Custody.NativeOwnerId
                 && thing.GuRevision == expected.Revision && thing.stackCount == 1 && thing.holdingOwner == owner
-                && registry.Resolve(thing) == (quarantined ? null : record), "Reload resolved the exact projection and native holder without repair or duplication");
+                && registry.Resolve(thing) == record, "Reload resolved the exact projection in its observed native holder without repair or duplication");
             return thing;
         }
 
-        var held = Verify(fixture.Held, inventory, false);
-        Verify(fixture.Ground, home.GetDirectlyHeldThings(), false);
-        var recovery = Verify(fixture.Recovery, home.GetDirectlyHeldThings(), true);
-        Verify(fixture.Missing, null, true);
-        Verify(fixture.WrongHolder, otherInventory, true);
-        Check(registry.Individuals.Single(record => record.Id == recovery.GuId).QuarantineReason == fixture.RecoveryReason
-            && !registry.TryTakeDormant(recovery, recovery.GuRevision, observedHolder, out _),
-            "Recovery quarantine is sticky across reload and disallows further actions");
+        var held = Verify(fixture.Held, inventory);
+        Verify(fixture.Ground, home.GetDirectlyHeldThings());
+        Verify(fixture.Recovery, home.GetDirectlyHeldThings());
+        // The wrong-holder move from V1 is now ordinary native movement. The Gu stays authorized in the other inventory.
+        Verify(fixture.WrongHolder, otherInventory);
+        // The destroyed projection is demonstrated evidence. Phase 1 keeps the record unresolved and never terminal.
+        var missing = registry.Individuals.Single(entry => entry.Id == fixture.Missing.Id);
+        Check(!missing.IsQuarantined && missing.Existence == GuExistence.Living && missing.Unresolved == GuUnresolvedCause.ProjectionEnded
+            && missing.TerminalEvidence == GuTerminalEvidence.Destroyed && missing.CustodyRevision == fixture.Missing.Revision
+            && missing.ProjectionId == fixture.Missing.Custody.NativeOwnerId && registry.Resolve(missing.Id) == null,
+            "The destroyed projection left an unresolved record with Destroyed evidence and all data retained");
 
         var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef).OfType<Building_GuPocketProbeEndpoint>().Single();
         Check(JobDriver_GuPocketProbeTravel.TryTravel(holder, exit, out string reason) && holder.Map == home
@@ -221,9 +230,9 @@ public sealed partial class LiveLifecycleChecks
         Check(registry.TryDropDormant(held, fixture.Held.Revision, holder, cell, out reason) && held.Position == cell
             && held.holdingOwner == home.GetDirectlyHeldThings() && !inventory.Any(item => item == held)
             && Snapshot(registry.Resolve(held)) == fixture.Held with {
-                Revision = fixture.Held.Revision + 1, Custody = new(GuCustodyKind.DormantGround, fixture.Held.Custody.NativeOwnerId)
-            }, $"After reload and travel a drop committed ground custody of the original Thing. {reason}");
-        Report("Fresh-process reload preserved exact ground and inventory custody, rejected missing and wrong-holder claims, and kept the recovery quarantine. The original holder returned through the saved passage and dropped the same Gu.");
+                Custody = new(GuCustodyKind.DormantGround, fixture.Held.Custody.NativeOwnerId)
+            }, $"After reload and travel a drop placed the original Thing on the ground without changing revisions. {reason}");
+        Report("Fresh-process reload rebound the ground, inventory, recovered and externally moved Gu, and kept the destroyed projection unresolved with Destroyed evidence. The original holder returned through the saved passage and dropped the same Gu.");
     }
 
     private static bool IsEmptyInventoryCell(Map map, IntVec3 cell) =>

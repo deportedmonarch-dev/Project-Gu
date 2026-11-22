@@ -114,13 +114,14 @@ public sealed partial class LiveLifecycleChecks
             var original = Snapshot(individual);
             Check(registry.TryMakeDormant(wild, wild.GuRevision, cell, out var dormant, out reason), $"Materialized Gu entered dormant custody. {reason}");
             VerifyReleaseStep(individual, original, GuBiologicalState.Dormant,
-                new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()), 1, dormant);
+                new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()), 1, 1, dormant);
             IntVec3 hostCell = GenAdj.CardinalDirections.Select(offset => cell + offset).First(candidate => IsEmptyInventoryCell(cave, candidate));
             TransferToFixture(host, cave, hostCell);
             Check(registry.TryTakeDormant(dormant, dormant.GuRevision, host, out reason), $"The same Gu entered native inventory. {reason}");
-            Check(registry.Resolve(dormant) == individual && dormant.GuId == wild.GuId && dormant.GuRevision == 3
-                && individual.Revision == 3 && individual.Custody.Kind == GuCustodyKind.DormantInventory,
-                "The original Gu committed the second custody step into inventory at revision three");
+            // V2: pickup is a physical move, so the inventory step keeps custody revision two (V1 committed revision three).
+            Check(registry.Resolve(dormant) == individual && dormant.GuId == wild.GuId && dormant.GuRevision == 2
+                && individual.Revision == 2 && individual.Custody.Kind == GuCustodyKind.DormantInventory,
+                "The original Gu moved into native inventory at custody revision two");
             healthy = ReadCohortClaim(primary, individual);
             Check(JobDriver_GuPocketProbeTravel.TryTravel(host, exit, out reason) && host.Map == home
                 && dormant.holdingOwner == host.inventory.GetDirectlyHeldThings() && registry.Resolve(dormant) == individual,
@@ -159,11 +160,15 @@ public sealed partial class LiveLifecycleChecks
             CheckOldPawnAbsent(badBinding.GetUniqueLoadID());
             var lost = registry.Individuals.Single(entry => entry.CreationEventKey == committedFault.EventKey);
             debited = ReadCohortClaim(committedFault, lost);
-            Check(lost.IsQuarantined && lost.CohortDebitCommitted && registry.Resolve(lost.Id) == null && Rejected(committedFault)
+            // V1 quarantined this claim. V2 keeps the debited individual counted and unresolved. Replaying its event
+            // returns the same individual and never allocates a second one.
+            Check(!lost.IsQuarantined && lost.Unresolved == GuUnresolvedCause.ProjectionMissing && lost.CohortDebitCommitted
+                && registry.Resolve(lost.Id) == null
+                && registry.TryMaterializeCohort(spring, committedFault, cave, cell, out var lostReplay, out _) && lostReplay == lost
                 && cohort.MatureCount == 0 && cohort.JuvenileCount == 1 && cohort.Revision == 2
                 && Rejected(CaptureCohort(spring, "fixture-only-juveniles"))
                 && ActuallyProjectedGu().Single() == dormant && registry.Individuals.Count == 3,
-                "A committed quarantine conserves the debited identity and insufficient adults cause no new allocations");
+                "A committed debit with a failed binding conserves the unresolved identity, replays idempotently, and insufficient adults cause no new allocations");
             CheckMaterializationConservation(spring, hope);
         }
         finally
@@ -177,7 +182,7 @@ public sealed partial class LiveLifecycleChecks
         GameDataSaveLoader.SaveGame(SaveName);
         string path = GenFilePaths.FilePathForSavedGame(SaveName);
         var xml = XDocument.Load(path);
-        var records = xml.Descendants("guIndividualRecordsV1").Single();
+        var records = xml.Descendants("guIndividualRecordsV2").Single();
         string duplicateId = Guid.NewGuid().ToString("N");
         // Simulate ambiguous saved event evidence in this disposable fixture only.
         var duplicate = new XElement(records.Elements("li").Single(entry => (string)entry.Element("id") == undebited.Record.Id));
@@ -187,7 +192,7 @@ public sealed partial class LiveLifecycleChecks
         xml.Save(path);
         var fixture = new CohortFixture(cave.GetUniqueLoadID(), host.GetUniqueLoadID(), otherId, duplicateId, hope, healthy, undebited, debited);
         File.WriteAllText(CohortFixturePath, JsonSerializer.Serialize(fixture));
-        Report("Exact cohort debit and conservation passed through clean retry, stale request, duplicate habitat, insufficient adults, guarded callbacks, and separate precommit and postcommit quarantines.");
+        Report("Exact cohort debit and conservation passed through clean retry, stale request, duplicate habitat, insufficient adults, guarded callbacks, a precommit quarantine and a postcommit unresolved individual.");
     }
 
     private static void VerifySlice3B5AReload()
@@ -218,9 +223,10 @@ public sealed partial class LiveLifecycleChecks
             && dormant.MapHeld == cave && registry.Resolve(dormant) == individual, $"The same Gu traveled back to the source after reload. {reason}");
         Check(registry.TryMaterializeCohort(spring, fixture.Healthy.Request, cave, IntVec3.Invalid, out var replay, out _)
             && replay == individual && !registry.TryMaterializeCohort(spring, fixture.Undebited.Request, cave, IntVec3.Invalid, out _, out _)
-            && !registry.TryMaterializeCohort(spring, fixture.Debited.Request, cave, IntVec3.Invalid, out _, out _)
+            && registry.TryMaterializeCohort(spring, fixture.Debited.Request, cave, IntVec3.Invalid, out var debitedReplay, out _)
+            && debitedReplay.Id == fixture.Debited.Record.Id
             && ActuallyProjectedGu().Single() == dormant && registry.Individuals.Count == 4 && cohort.Revision == 2,
-            "Persisted event replay returns the same individual and refuses both quarantined events");
+            "Persisted event replay returns the same individuals, including the unresolved one, and refuses the quarantined event");
         CheckMaterializationConservation(spring, fixture.HopeAdults);
         Report("Fresh-process reload retained the conserved population, exact Gu and native inventory across passage travel, blocked ambiguous and incomplete events, and replayed the original event without allocation.");
         if (Slice3B5B) ContinueCohortLifecycleInAperture(fixture, host, dormant, individual, spring, entrance);
@@ -229,12 +235,13 @@ public sealed partial class LiveLifecycleChecks
     private static void VerifyCohortQuarantine(CohortFixture fixture)
     {
         var registry = IndividualRegistry;
-        foreach (var expected in new[] { fixture.Undebited, fixture.Debited })
-        {
-            var entry = registry.Individuals.Single(record => record.Id == expected.Record.Id);
-            Check(ReadCohortClaim(expected.Request, entry) == expected && entry.IsQuarantined && registry.Resolve(entry.Id) == null,
-                "Fresh-process load retained the quarantined event and its original debit evidence");
-        }
+        var undebited = registry.Individuals.Single(record => record.Id == fixture.Undebited.Record.Id);
+        Check(ReadCohortClaim(fixture.Undebited.Request, undebited) == fixture.Undebited && undebited.IsQuarantined
+            && registry.Resolve(undebited.Id) == null, "Fresh-process load retained the quarantined undebited event");
+        var debited = registry.Individuals.Single(record => record.Id == fixture.Debited.Record.Id);
+        Check(ReadCohortClaim(fixture.Debited.Request, debited) == fixture.Debited && !debited.IsQuarantined
+            && debited.Unresolved == GuUnresolvedCause.ProjectionMissing && debited.CohortDebitCommitted && registry.Resolve(debited.Id) == null,
+            "Fresh-process load retained the debited individual as unresolved with its debit evidence");
         var duplicate = registry.Individuals.Single(record => record.Id == fixture.DuplicateId);
         Check(duplicate.IsQuarantined && duplicate.QuarantineReason.Contains("Multiple individuals") && !duplicate.CohortDebitCommitted
             && registry.Resolve(duplicate.Id) == null && registry.Resolve(fixture.Undebited.Record.Id) == null,

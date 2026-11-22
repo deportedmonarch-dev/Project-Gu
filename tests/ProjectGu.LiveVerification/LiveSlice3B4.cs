@@ -39,14 +39,14 @@ public sealed partial class LiveLifecycleChecks
         var birth = Snapshot(record);
         string oldPawnId = wild.GetUniqueLoadID();
         Check(registry.TryMakeDormant(wild, birth.Revision, origin, out var dormant, out string reason), $"Dormancy committed. {reason}");
-        VerifyReleaseStep(record, birth, GuBiologicalState.Dormant, new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()), 1, dormant);
+        VerifyReleaseStep(record, birth, GuBiologicalState.Dormant, new(GuCustodyKind.DormantGround, dormant.GetUniqueLoadID()), 1, 1, dormant);
         CheckOldPawnAbsent(oldPawnId);
         Check(registry.TryTakeDormant(dormant, dormant.GuRevision, host, out reason), $"Inventory pickup committed. {reason}");
         VerifyReleaseStep(record, birth, GuBiologicalState.Dormant,
-            new(GuCustodyKind.DormantInventory, dormant.GetUniqueLoadID(), host.GetUniqueLoadID()), 2, dormant);
+            new(GuCustodyKind.DormantInventory, dormant.GetUniqueLoadID(), host.GetUniqueLoadID()), 1, 1, dormant);
         Check(registry.TryStoreDormant(dormant, dormant.GuRevision, host, aperture, out reason) && dormant.Destroyed, $"Aperture storage committed. {reason}");
         VerifyReleaseStep(record, birth, GuBiologicalState.Dormant,
-            new(GuCustodyKind.Aperture, aperture.GetUniqueLoadID(), host.GetUniqueLoadID()), 3);
+            new(GuCustodyKind.Aperture, aperture.ApertureId, host.GetUniqueLoadID()), 2, 1);
         var stored = Snapshot(record);
         Check(JobDriver_GuPocketProbeTravel.TryTravel(host, entrance, out reason) && host.Map == cave
             && registry.ResolveApertureOccupant(aperture) == record && Snapshot(record) == stored, $"The original aperture crossed underground. {reason}");
@@ -72,14 +72,16 @@ public sealed partial class LiveLifecycleChecks
         var replaced = StoreFixtureGu(replacementHost, removed);
         replacementHost.health.RemoveHediff(removed);
         var replacement = AddProbeAperture(replacementHost);
-        Check(replaced.IsQuarantined && registry.ResolveApertureOccupant(replacement) == null
+        registry.ApplyPendingEvents();
+        Check(replaced.Unresolved == GuUnresolvedCause.ApertureMissing && !replaced.IsQuarantined && registry.ResolveApertureOccupant(replacement) == null
             && !registry.TryReleaseActive(replaced.Id, replaced.Revision, replacementHost, replacement,
                 home, OpenInventoryCell(replacementHost), out _, out _), "A same-Def replacement cannot release the former occupant");
         var dyingAperture = AddProbeAperture(dyingHost);
         var death = StoreFixtureGu(dyingHost, dyingAperture);
         IntVec3 deathCell = OpenInventoryCell(dyingHost);
         dyingHost.Kill(null);
-        Check(death.IsQuarantined && !registry.TryReleaseActive(death.Id, death.Revision, dyingHost, dyingAperture,
+        registry.ApplyPendingEvents();
+        Check(death.Unresolved == GuUnresolvedCause.HostDead && !death.IsQuarantined && !registry.TryReleaseActive(death.Id, death.Revision, dyingHost, dyingAperture,
             home, deathCell, out _, out _), "A dead host cannot release a Gu");
 
         var missingHost = PawnGenerator.GeneratePawn(new PawnGenerationRequest(PawnKindDefOf.Colonist, Faction.OfPlayer,
@@ -137,17 +139,19 @@ public sealed partial class LiveLifecycleChecks
             Pawn_GuWildProjection failedAfterCommit = null;
             duringReleaseIdentityCheck = pawn =>
             {
-                if (pawn.GuId != late.Id || pawn.ReleaseSuppressed || late.Custody.Kind != GuCustodyKind.WildPawn) return;
+                // Reads stored placement. Observed custody would call the hooked GetUniqueLoadID again.
+                if (pawn.GuId != late.Id || pawn.ReleaseSuppressed || late.Placement != GuPlacementKind.Manifested) return;
                 failedAfterCommit = pawn;
                 duringReleaseIdentityCheck = null;
                 throw new InvalidOperationException("Injected failure verifying native identity after active-release commit");
             };
             Check(!registry.TryReleaseActive(late.Id, late.Revision, replacementHost, replacement, home,
                     OpenInventoryCell(replacementHost), out _, out _)
-                && failedAfterCommit is { Discarded: true, Dead: false } && late.IsQuarantined
-                && late.Revision == lateSource.Revision + 1 && late.Custody.Kind == GuCustodyKind.WildPawn
+                && failedAfterCommit is { Discarded: true, Dead: false } && !late.IsQuarantined
+                && late.Unresolved == GuUnresolvedCause.ProjectionMissing && late.Revision == lateSource.Revision + 1
+                && late.Manifestation == GuManifestationKind.Pawn && late.ProjectionId == failedAfterCommit.GetUniqueLoadID()
                 && registry.Resolve(late.Id) == null && registry.ResolveApertureOccupant(replacement) == null,
-                "A post-commit failure quarantines the new wild claim without restoring a second owner");
+                "A post-commit failure leaves the new wild claim unresolved without restoring a second owner");
             CheckOldPawnAbsent(failedAfterCommit.GetUniqueLoadID());
         }
         finally
@@ -160,12 +164,12 @@ public sealed partial class LiveLifecycleChecks
         Check(!missing.IsQuarantined && !ActuallyProjectedGu().Any() && registry.Individuals.Count == 5,
             "The pre-release save has five records and zero physical Gu");
         var fixture = new ReleaseFixture(cave.GetUniqueLoadID(), surface.GetUniqueLoadID(), stored, new[] {
-            new ApertureClaim(Snapshot(replaced), replaced.QuarantineReason), new(Snapshot(death), death.QuarantineReason),
-            new(Snapshot(missing), null), new(Snapshot(late), late.QuarantineReason)
+            new ApertureClaim(Snapshot(replaced), GuUnresolvedCause.ApertureMissing), new(Snapshot(death), GuUnresolvedCause.HostDead),
+            new(Snapshot(missing), GuUnresolvedCause.HostUnavailable), new(Snapshot(late), GuUnresolvedCause.ProjectionMissing)
         });
         WriteReleaseFixture(fixture);
         GameDataSaveLoader.SaveGame(SaveName);
-        Report("The original ID advanced through Wild, Dormant, Inventory and Aperture. Blocked placement, route loss, native callback rollback, reentry and post-commit quarantine passed.");
+        Report("The original ID advanced through Wild, Dormant, Inventory and Aperture. Blocked placement, route loss, native callback rollback, reentry and an unresolved post-commit failure passed without quarantine.");
     }
 
     private static void ReleaseAfterReload()
@@ -177,7 +181,7 @@ public sealed partial class LiveLifecycleChecks
         AssertNativeAddress(cave);
         Pawn host = cave.mapPawns.FreeColonistsSpawned.Single(pawn => pawn.GetUniqueLoadID() == fixture.Stored.Custody.HolderPawnId);
         var aperture = host.health.hediffSet.hediffs.OfType<Hediff_Aperture>()
-            .Single(hediff => hediff.GetUniqueLoadID() == fixture.Stored.Custody.NativeOwnerId);
+            .Single(hediff => hediff.ApertureId == fixture.Stored.Custody.NativeOwnerId);
         var stored = registry.ResolveApertureOccupant(aperture);
         Check(stored != null && Snapshot(stored) == fixture.Stored && !ActuallyProjectedGu().Any()
             && !cave.GetComponent<GuIndividualMapCustody>().HasProtectedCustody, "Fresh process restored aperture custody with no projected Gu underground");
@@ -187,7 +191,7 @@ public sealed partial class LiveLifecycleChecks
         IntVec3 cell = OpenInventoryCell(host);
         Check(registry.TryReleaseActive(stored.Id, stored.Revision, host, aperture, cave, cell, out var released, out string reason),
             $"The exact aperture released one native Pawn. {reason}");
-        VerifyReleaseStep(stored, fixture.Stored, GuBiologicalState.Active, new(GuCustodyKind.WildPawn, released.GetUniqueLoadID()), 1, released);
+        VerifyReleaseStep(stored, fixture.Stored, GuBiologicalState.Active, new(GuCustodyKind.WildPawn, released.GetUniqueLoadID()), 1, 1, released);
         Check(ActuallyProjectedGu().Single() == released && !released.ReleaseSuppressed && released.Spawned
             && released.Map == cave && released.Position == cell && released.Faction == null && registry.ResolveApertureOccupant(aperture) == null
             && !registry.TryReleaseActive(stored.Id, fixture.Stored.Revision, host, aperture, cave, cell, out _, out _)
@@ -197,9 +201,7 @@ public sealed partial class LiveLifecycleChecks
         Check(JobDriver_GuPocketProbeTravel.TryTravel(host, exit, out reason) && host.Map == surface, $"The host returned through the saved passage. {reason}");
         CheckGuAloneProtectsRoute(cave, surface, released);
 
-        var normalizedLoss = fixture.Lost.Select(expected =>
-            new ApertureClaim(expected.Record, registry.Individuals.Single(entry => entry.Id == expected.Record.Id).QuarantineReason)).ToArray();
-        WriteReleaseFixture(fixture with { Released = Snapshot(stored), Lost = normalizedLoss });
+        WriteReleaseFixture(fixture with { Released = Snapshot(stored) });
         GameDataSaveLoader.SaveGame(SaveName);
         Report("Fresh-process aperture reload and release passed. The released wild Gu alone blocked removal of the last surface access.");
     }
@@ -232,9 +234,10 @@ public sealed partial class LiveLifecycleChecks
     }
 
     private static void VerifyReleaseStep(GuIndividual record, GuRecordSnapshot original, GuBiologicalState biology,
-        GuCustody custody, int revisionSteps, Thing projection = null)
+        GuCustody custody, int revisionSteps, int stateSteps, Thing projection = null)
     {
-        Check(Snapshot(record) == original with { Biology = biology, Custody = custody, Revision = original.Revision + revisionSteps }
+        Check(Snapshot(record) == original with { Biology = biology, Custody = custody, Revision = original.Revision + revisionSteps,
+                StateRevision = original.StateRevision + stateSteps }
             && IndividualRegistry.Resolve(original.Id) == record
             && (projection == null || (projection is IGuProjection tag && tag.GuId == original.Id && tag.GuRevision == record.Revision)),
             "The same canonical identity, species, rank and provenance made an exact single-revision transition");
@@ -247,10 +250,9 @@ public sealed partial class LiveLifecycleChecks
         foreach (var expected in fixture.Lost)
         {
             var record = registry.Individuals.Single(entry => entry.Id == expected.Record.Id);
-            Check(Snapshot(record) == expected.Record && registry.Resolve(record.Id) == null && record.IsQuarantined
-                && (expected.QuarantineReason == null ? record.QuarantineReason.Contains("could not be resolved")
-                    : record.QuarantineReason == expected.QuarantineReason),
-                "Lost hosts, replaced apertures and failed committed claims never authorize another release");
+            Check(Snapshot(record) == expected.Record && registry.Resolve(record.Id) == null && !record.IsQuarantined
+                && record.Unresolved == expected.Cause && record.TerminalEvidence == GuTerminalEvidence.None,
+                $"Lost hosts, replaced apertures and failed committed claims stay unresolved ({expected.Cause}) and never authorize another release");
         }
     }
 

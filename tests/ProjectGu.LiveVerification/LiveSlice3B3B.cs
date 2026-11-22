@@ -16,7 +16,8 @@ public sealed partial class LiveLifecycleChecks
     private static Action<Thing_GuDormantProjection> afterApertureInventoryAdd;
     private static Action<Thing_GuDormantProjection> beforeApertureThingDestroy;
 
-    private record ApertureClaim(GuRecordSnapshot Record, string QuarantineReason);
+    /// <summary>A lost aperture claim and the unresolved cause V2 must report. V1 quarantined all of these.</summary>
+    private record ApertureClaim(GuRecordSnapshot Record, GuUnresolvedCause Cause);
     private record ApertureFixture(string CaveId, GuRecordSnapshot Stored, GuRecordSnapshot Packed, ApertureClaim[] Lost);
 
     private static void ExerciseSlice3B3B()
@@ -62,7 +63,9 @@ public sealed partial class LiveLifecycleChecks
             afterApertureInventoryRemove = item =>
             {
                 if (item != thing) return;
-                guardedDetach = item.holdingOwner == null && Snapshot(record) == carried && registry.CustodyTransitionInProgress
+                // Mid-transaction the Thing is detached, so its observed form is no holder. Check the stored claim instead.
+                guardedDetach = item.holdingOwner == null && record.Revision == carried.Revision && record.StateRevision == carried.StateRevision
+                    && record.Placement == GuPlacementKind.Manifested && registry.CustodyTransitionInProgress
                     && registry.Resolve(record.Id) == null && registry.ResolveApertureOccupant(aperture) == null
                     && !registry.TryStoreDormant(thing, carried.Revision, host, aperture, out _);
                 GameDataSaveLoader.SaveGame(saveReentry);
@@ -86,7 +89,7 @@ public sealed partial class LiveLifecycleChecks
             Check(commitBeforeDestroy && thing.Destroyed && !inventory.Any(item => item == thing)
                 && registry.Resolve(thing) == null && registry.Resolve(record.Id) == record && registry.ResolveApertureOccupant(aperture) == record
                 && stored == carried with { Revision = carried.Revision + 1,
-                    Custody = new(GuCustodyKind.Aperture, aperture.GetUniqueLoadID(), host.GetUniqueLoadID()) },
+                    Custody = new(GuCustodyKind.Aperture, aperture.ApertureId, host.GetUniqueLoadID()) },
                 "Deposit commits canonical custody before native destruction and leaves zero projections");
             beforeApertureThingDestroy = null;
 
@@ -132,9 +135,10 @@ public sealed partial class LiveLifecycleChecks
             };
             Check(!registry.TryWithdrawDormant(interruptedRecord.Id, interruptedRecord.Revision, replacementHost, otherAperture, out _, out _)
                 && failed is { Destroyed: true, holdingOwner: null } && !watchedApertureInventory.Any(item => item == failed)
-                && interruptedRecord.IsQuarantined && Snapshot(interruptedRecord) == interruptedSnapshot,
-                "Aperture loss during withdrawal quarantines the exact claim and removes the provisional Thing");
-            interrupted = new(interruptedSnapshot, interruptedRecord.QuarantineReason);
+                && !interruptedRecord.IsQuarantined && interruptedRecord.Unresolved == GuUnresolvedCause.ApertureMissing
+                && SameClaim(interruptedRecord, interruptedSnapshot),
+                "Aperture loss during withdrawal leaves the unchanged claim unresolved and removes the provisional Thing");
+            interrupted = new(Snapshot(interruptedRecord), GuUnresolvedCause.ApertureMissing);
         }
         finally
         {
@@ -154,10 +158,13 @@ public sealed partial class LiveLifecycleChecks
         var replacedSnapshot = Snapshot(replaced);
         replacementHost.health.RemoveHediff(removed);
         var replacement = AddProbeAperture(replacementHost);
-        Check(replacement.GetUniqueLoadID() != removed.GetUniqueLoadID() && registry.ResolveApertureOccupant(replacement) == null
-            && replaced.QuarantineReason?.Contains("removed") == true && Snapshot(replaced) == replacedSnapshot
+        // Native callbacks only enqueue. Apply them at an explicit reconciliation point instead of waiting for a tick.
+        registry.ApplyPendingEvents();
+        Check(replacement.GetUniqueLoadID() != removed.GetUniqueLoadID() && replacement.ApertureId == null
+            && registry.ResolveApertureOccupant(replacement) == null
+            && replaced.Unresolved == GuUnresolvedCause.ApertureMissing && !replaced.IsQuarantined && SameClaim(replaced, replacedSnapshot)
             && !registry.TryWithdrawDormant(replaced.Id, replaced.Revision, replacementHost, replacement, out _, out _),
-            "Native removal quarantines the original exact claim and a same-Def replacement inherits nothing");
+            "Native removal leaves the original claim unresolved and a same-Def replacement inherits nothing");
 
         var missing = StoreFixtureGu(replacementHost, replacement);
         // Simulate loss of a saved reference without invoking the normal native notification.
@@ -167,8 +174,10 @@ public sealed partial class LiveLifecycleChecks
         var death = StoreFixtureGu(dyingHost, dyingAperture);
         var deathSnapshot = Snapshot(death);
         dyingHost.Kill(null);
-        Check(dyingHost.Dead && death.QuarantineReason?.Contains("died") == true && Snapshot(death) == deathSnapshot
-            && registry.Resolve(death.Id) == null, "Native host death immediately quarantines the record and preserves its revision");
+        Check(dyingHost.Dead && registry.Resolve(death.Id) == null, "A dead host cannot authorize its aperture occupant");
+        registry.ApplyPendingEvents();
+        Check(death.Unresolved == GuUnresolvedCause.HostDead && !death.IsQuarantined && SameClaim(death, deathSnapshot),
+            "Native host death leaves the record unresolved with its revision and containment preserved");
 
         var destroyedHost = PawnGenerator.GeneratePawn(new PawnGenerationRequest(PawnKindDefOf.Colonist, Faction.OfPlayer,
             tile: home.Tile, forceGenerateNewPawn: true));
@@ -178,8 +187,11 @@ public sealed partial class LiveLifecycleChecks
         var destroyed = StoreFixtureGu(destroyedHost, destroyedAperture);
         var destroyedSnapshot = Snapshot(destroyed);
         destroyedHost.Destroy(DestroyMode.Vanish);
-        Check(destroyedHost.Destroyed && registry.Resolve(destroyed.Id) == null && destroyed.IsQuarantined
-            && Snapshot(destroyed) == destroyedSnapshot, "Destroying the host also invalidates exact aperture custody");
+        Check(destroyedHost.Destroyed && registry.Resolve(destroyed.Id) == null, "A destroyed host cannot authorize its aperture occupant");
+        // No native callback reports this. The scheduled sweep detects it without any UI read.
+        registry.Sweep(int.MaxValue);
+        Check(destroyed.Unresolved == GuUnresolvedCause.HostUnavailable && !destroyed.IsQuarantined && SameClaim(destroyed, destroyedSnapshot),
+            "The reconciliation sweep marks the destroyed host unavailable without changing the claim");
 
         Check(JobDriver_GuPocketProbeTravel.TryTravel(host, entrance, out string travelReason) && host.Map == cave
             && packed.holdingOwner == inventory && packed.MapHeld == cave && Snapshot(registry.Resolve(packed)) == packedSnapshot
@@ -187,15 +199,15 @@ public sealed partial class LiveLifecycleChecks
             $"The original host and exact aperture moved underground with one stored and one packed Gu. {travelReason}");
         Check(ActuallyProjectedGu().Single() == packed, "All aperture Gu are records only");
         var fixture = new ApertureFixture(cave.GetUniqueLoadID(), stored, packedSnapshot, new[] {
-            interrupted, new(replacedSnapshot, replaced.QuarantineReason), new(Snapshot(missing), null),
-            new(deathSnapshot, death.QuarantineReason), new(destroyedSnapshot, destroyed.QuarantineReason)
+            interrupted, new(Snapshot(replaced), GuUnresolvedCause.ApertureMissing), new(Snapshot(missing), GuUnresolvedCause.ApertureMissing),
+            new(Snapshot(death), GuUnresolvedCause.HostDead), new(Snapshot(destroyed), GuUnresolvedCause.HostUnavailable)
         });
         File.WriteAllText(ApertureFixturePath, JsonSerializer.Serialize(fixture));
         GameDataSaveLoader.SaveGame(SaveName);
         var saved = XDocument.Load(GenFilePaths.FilePathForSavedGame(SaveName));
-        Check(saved.Descendants("guIndividualRecordsV1").Single().Elements("li").Count() == fixture.Lost.Length + 2
+        Check(saved.Descendants("guIndividualRecordsV2").Single().Elements("li").Count() == fixture.Lost.Length + 2
             && saved.Descendants("guIndividualId").Single().Value == packed.GuId, "The native save contains one record per Gu and only the packed projection");
-        Report("Aperture storage, exact host and Hediff, capacity, stale requests, native callbacks, cleanup, death and replacement passed. The same host traveled with a stored Gu and a packed Gu.");
+        Report("Aperture storage by durable aperture ID, capacity, stale requests, native callbacks, cleanup, death, destruction and replacement passed without quarantine. The same host traveled with a stored Gu and a packed Gu.");
     }
 
     private static void VerifySlice3B3BReload()
@@ -206,7 +218,7 @@ public sealed partial class LiveLifecycleChecks
         AssertNativeAddress(cave);
         Pawn host = cave.mapPawns.FreeColonistsSpawned.Single(pawn => pawn.GetUniqueLoadID() == fixture.Stored.Custody.HolderPawnId);
         var aperture = host.health.hediffSet.hediffs.OfType<Hediff_Aperture>()
-            .Single(hediff => hediff.GetUniqueLoadID() == fixture.Stored.Custody.NativeOwnerId);
+            .Single(hediff => hediff.ApertureId == fixture.Stored.Custody.NativeOwnerId);
         var stored = registry.ResolveApertureOccupant(aperture);
         var packed = ActuallyProjectedGu().Single();
         var inventory = host.inventory.GetDirectlyHeldThings();
@@ -215,10 +227,10 @@ public sealed partial class LiveLifecycleChecks
             && registry.Individuals.Count == fixture.Lost.Length + 2, "Fresh reload rebuilt one exact aperture binding and one inventory binding");
         foreach (var expected in fixture.Lost)
         {
-            var quarantined = registry.Individuals.Single(entry => entry.Id == expected.Record.Id);
-            Check(quarantined.IsQuarantined && Snapshot(quarantined) == expected.Record && registry.Resolve(quarantined.Id) == null
-                && (expected.QuarantineReason == null ? quarantined.QuarantineReason.Contains("could not be resolved")
-                    : expected.QuarantineReason == quarantined.QuarantineReason), "Reload retains quarantined claims and rejects the unresolved native pair");
+            var lost = registry.Individuals.Single(entry => entry.Id == expected.Record.Id);
+            Check(!lost.IsQuarantined && lost.Unresolved == expected.Cause && lost.TerminalEvidence == GuTerminalEvidence.None
+                && Snapshot(lost) == expected.Record && registry.Resolve(lost.Id) == null,
+                $"Reload keeps the lost claim unresolved ({expected.Cause}) with its data and rejects the missing native pair");
         }
         var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef).OfType<Building_GuPocketProbeEndpoint>().Single();
         Check(JobDriver_GuPocketProbeTravel.TryTravel(host, exit, out string reason) && host.Map.IsPlayerHome
@@ -236,8 +248,13 @@ public sealed partial class LiveLifecycleChecks
         Check(registry.TryStoreDormant(withdrawn, withdrawn.GuRevision, host, aperture, out reason)
             && stored.Revision == fixture.Stored.Revision + 2 && withdrawn.Destroyed && ActuallyProjectedGu().Single() == packed,
             $"The same individual can occupy the slot again after a committed withdrawal. {reason}");
-        Report("Fresh-process reload preserved the exact two live bindings and five lost claims. The host returned by passage, withdrew the same individual into inventory, and stored it again.");
+        Report("Fresh-process reload preserved the exact two live bindings and kept five lost claims unresolved with their causes. The host returned by passage, withdrew the same individual into inventory, and stored it again.");
     }
+
+    /// <summary>The stored claim is unchanged: custody and state revisions, container ID and anchor host.</summary>
+    private static bool SameClaim(GuIndividual record, GuRecordSnapshot snapshot) => record.Revision == snapshot.Revision
+        && record.StateRevision == snapshot.StateRevision && record.ContainerId == snapshot.Custody.NativeOwnerId
+        && record.AnchorHint == snapshot.Custody.HolderPawnId && record.Placement == GuPlacementKind.Contained;
 
     private static Thing_GuDormantProjection PackTestGu(Pawn host)
     {

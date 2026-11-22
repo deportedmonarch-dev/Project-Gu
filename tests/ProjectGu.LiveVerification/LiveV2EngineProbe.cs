@@ -1,11 +1,12 @@
+using System.Text.Json;
 using ProjectGu;
 using ProjectGu.Domain;
 using RimWorld;
 using Verse;
 
 /// <summary>
-/// Characterization probe for Gu Framework V2 planning. It records how RimWorld 1.7 and the V1 registry respond to
-/// ordinary native events. Checks assert only that each scenario was set up. Outcomes are reported as observations.
+/// Engine probe for Gu Framework V2. It began as a characterization of how RimWorld 1.7 and the V1 registry respond to
+/// ordinary native events (commit 8da9353) and now asserts the approved V2 outcome for each scenario.
 /// </summary>
 public sealed class CompV2IdentityProbe : ThingComp
 {
@@ -65,6 +66,13 @@ public sealed partial class LiveLifecycleChecks
         return pawn;
     }
 
+    private static string V2ProbeFixturePath => Path.Combine(GenFilePaths.SaveDataFolderPath, "gu-v2-probe.json");
+    private record ProbeExpectation(string Case, string Id, string Outcome, string Cause, string Evidence);
+
+    /// <summary>
+    /// V2 acceptance form of the engine probe. Each scenario that quarantined a V1 record now has an asserted V2 outcome:
+    /// ordinary movement stays bound, demonstrated endings stay unresolved with evidence, and nothing is quarantined.
+    /// </summary>
     private static void ExerciseV2EngineProbe()
     {
         var registry = IndividualRegistry;
@@ -72,84 +80,103 @@ public sealed partial class LiveLifecycleChecks
         var colonists = home.mapPawns.FreeColonistsSpawned.ToArray();
         Check(colonists.Length >= 3, "The quick-test colony supplies three colonists");
         Report($"Environment: RimWorld {VersionControl.CurrentVersionStringWithRev}, mods: {string.Join(", ", ModsConfig.ActiveModsInLoadOrder.Select(mod => mod.PackageId))}");
+        var expectations = new List<ProbeExpectation>();
 
-        // 1. A downed holder. Native MakeDowned drops inventory unless the Pawn is in bed.
+        void ExpectBound(string name, GuIndividual record, Thing projection, GuCustodyKind kind)
+        {
+            Check(record.IsActionable && registry.Resolve(projection) == record && record.Custody.Kind == kind,
+                $"{name}: the same authorized manifestation is observed as {kind}, not quarantined. Observed {record.Custody.Kind}, {State(record)}");
+            expectations.Add(new(name, record.Id, "bound", null, null));
+            Report($"OBS {name}: {Holder(projection)}; {State(record)}");
+        }
+
+        void ExpectUnresolved(string name, GuIndividual record, GuUnresolvedCause cause, params GuTerminalEvidence[] evidence)
+        {
+            registry.ApplyPendingEvents();
+            registry.Sweep(int.MaxValue);
+            Check(!record.IsQuarantined && record.Existence == GuExistence.Living && record.Unresolved == cause
+                && evidence.Contains(record.TerminalEvidence) && registry.Resolve(record.Id) == null,
+                $"{name}: unresolved {cause} with evidence {string.Join("/", evidence)}, never terminal or quarantined. Observed {State(record)} {record.Unresolved}/{record.TerminalEvidence}");
+            expectations.Add(new(name, record.Id, "unresolved", cause.ToString(), record.TerminalEvidence.ToString()));
+            Report($"OBS {name}: unresolved {record.Unresolved}, evidence {record.TerminalEvidence}");
+        }
+
+        // 1. A downed holder drops its inventory natively. Inspection must not change the record.
         Pawn downed = colonists[0];
         EnsureInventoryFixtureSpace(downed);
         var downedGu = PackTestGu(downed);
-        var downedRecord = registry.Individuals.Single(record => record.Id == downedGu.GuId);
+        var downedRecord = registry.Resolve(downedGu);
         HealthUtility.DamageUntilDowned(downed, allowBleedingWounds: false);
         Check(downed.Downed, "The first colonist was downed");
-        Report($"OBS downed-holder: dead={downed.Dead}; Gu holder after native downing: {Holder(downedGu)}; raw record before any read: {State(downedRecord)}");
-        string inspect = downedGu.GetInspectString();
-        Report($"OBS downed-holder: after one inspect-string read: {State(downedRecord)}; inspect text mentions quarantine={inspect.Contains("quarantined")}");
+        string before = FullState(downedRecord);
+        downedGu.GetInspectString();
+        Check(FullState(downedRecord) == before, "Inspecting the dropped Gu did not mutate its record");
+        ExpectBound("downed-holder", downedRecord, downedGu, GuCustodyKind.DormantGround);
 
         // 2. A killed holder.
         Pawn killed = colonists[1];
         EnsureInventoryFixtureSpace(killed);
         var killedGu = PackTestGu(killed);
-        var killedRecord = registry.Individuals.Single(record => record.Id == killedGu.GuId);
+        var killedRecord = registry.Resolve(killedGu);
         killed.Kill(null);
         Check(killed.Dead, "The second colonist was killed");
-        Report($"OBS killed-holder: corpse spawned={killed.Corpse?.Spawned}; Gu holder: {Holder(killedGu)}; raw record: {State(killedRecord)}");
-        registry.Resolve(killedGu);
-        Report($"OBS killed-holder: after registry resolve: {State(killedRecord)}");
+        ExpectBound("killed-holder", killedRecord, killedGu, GuCustodyKind.DormantGround);
 
-        // 3. The holder becomes a prisoner without the Gu moving.
+        // 3. The holder becomes a prisoner.
         Pawn captive = colonists[2];
         EnsureInventoryFixtureSpace(captive);
         var captiveGu = PackTestGu(captive);
-        var captiveRecord = registry.Individuals.Single(record => record.Id == captiveGu.GuId);
+        var captiveRecord = registry.Resolve(captiveGu);
         var other = Find.FactionManager.AllFactions.First(faction => !faction.IsPlayer && !faction.Hidden && faction.def.humanlikeFaction);
         captive.SetFaction(other);
         captive.guest.SetGuestStatus(Faction.OfPlayer, GuestStatus.Prisoner);
         Check(captive.IsPrisonerOfColony, "The third colonist became a prisoner of the colony");
-        Report($"OBS prisoner-holder: Gu holder: {Holder(captiveGu)}; raw record: {State(captiveRecord)}");
-        registry.Resolve(captiveGu);
-        Report($"OBS prisoner-holder: after registry resolve: {State(captiveRecord)}");
+        ExpectBound("prisoner-holder", captiveRecord, captiveGu, GuCustodyKind.DormantGround);
 
-        // 4. Aperture host death and resurrection.
+        // 4. Aperture host death, then resurrection of the same Pawn and Hediff.
         Pawn host = ExtraColonist(home, colonists[0].Position);
         EnsureInventoryFixtureSpace(host);
         var aperture = AddProbeAperture(host);
-        string apertureId = aperture.GetUniqueLoadID();
         var stored = StoreFixtureGu(host, aperture);
         host.Kill(null);
-        Report($"OBS aperture-host-death: host dead={host.Dead}; aperture still on dead host={host.health.hediffSet.hediffs.Contains(aperture)}; record: {State(stored)}");
-        bool resurrected = ResurrectionUtility.TryResurrect(host);
-        Report($"OBS aperture-resurrection: resurrected={resurrected}; same aperture instance={host.health.hediffSet.hediffs.Contains(aperture)} id={aperture.GetUniqueLoadID() == apertureId}; record: {State(stored)}; occupant resolves={registry.ResolveApertureOccupant(aperture) != null}");
+        ExpectUnresolved("aperture-host-death", stored, GuUnresolvedCause.HostDead, GuTerminalEvidence.None);
+        expectations.RemoveAt(expectations.Count - 1);
+        Check(ResurrectionUtility.TryResurrect(host) && host.health.hediffSet.hediffs.Contains(aperture), "Resurrection kept the same aperture Hediff");
+        registry.Sweep(int.MaxValue);
+        Check(stored.IsActionable && registry.ResolveApertureOccupant(aperture) == stored && stored.Custody.Kind == GuCustodyKind.Aperture,
+            "Resurrection recovered the same contained Gu through the scheduled sweep");
+        expectations.Add(new("aperture-resurrection", stored.Id, "bound", null, null));
+        Report($"OBS aperture-resurrection: recovered; {State(stored)}");
 
         // 5. A dormant Gu destroyed on the ground.
-        var groundGu = SpawnGroundGu(host.Dead ? colonists[0] : host);
-        var groundRecord = registry.Individuals.Single(record => record.Id == groundGu.GuId);
+        var groundGu = SpawnGroundGu(host);
+        var groundRecord = registry.Resolve(groundGu);
         int destroyBefore = CompV2IdentityProbe.PostDestroyCalls;
         groundGu.Destroy(DestroyMode.KillFinalize);
-        Report($"OBS dormant-destroyed: comp PostDestroy calls={CompV2IdentityProbe.PostDestroyCalls - destroyBefore}; raw record: {State(groundRecord)}");
-        registry.Resolve(groundGu);
-        Report($"OBS dormant-destroyed: after registry resolve: {State(groundRecord)}");
+        Check(CompV2IdentityProbe.PostDestroyCalls - destroyBefore == 1, "Destruction reached the projection comps once");
+        ExpectUnresolved("dormant-destroyed", groundRecord, GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.Killed, GuTerminalEvidence.Destroyed);
 
         // 6. A wild Gu killed.
         var species = DefDatabase<GuSpeciesDef>.GetNamed("GU_DevTestSpringGu");
         Check(registry.TrySpawnDevelopmentGu(species, home, EmptyCargoCell(home, colonists[0].Position, null, 4), out var wild),
             "Spawned a wild Gu to kill");
-        var wildRecord = registry.Individuals.Single(record => record.Id == wild.GuId);
+        var wildRecord = registry.Resolve(wild);
         wild.Kill(null);
-        Report($"OBS wild-killed: dead={wild.Dead}; corpse spawned={wild.Corpse?.Spawned}; raw record: {State(wildRecord)}");
-        registry.Resolve(wild);
-        Report($"OBS wild-killed: after registry resolve: {State(wildRecord)}");
+        ExpectUnresolved("wild-killed", wildRecord, GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.Killed);
 
         // 7. A wild Gu Pawn passed to the world and collected by native world-pawn GC.
         Check(registry.TrySpawnDevelopmentGu(species, home, EmptyCargoCell(home, colonists[0].Position, null, 5), out var drifter),
             "Spawned a wild Gu to pass to the world");
-        var drifterRecord = registry.Individuals.Single(record => record.Id == drifter.GuId);
+        var drifterRecord = registry.Resolve(drifter);
         drifter.DeSpawn();
         Find.WorldPawns.PassToWorld(drifter);
+        Check(registry.Resolve(drifter) == drifterRecord && drifterRecord.Custody.Kind == GuCustodyKind.WildPawn,
+            "A living world Pawn is still the authorized manifestation before GC");
         Find.WorldPawns.gc.RunGC();
-        Report($"OBS world-gc: discarded={drifter.Discarded}; still a world pawn={Find.WorldPawns.Contains(drifter)}; raw record: {State(drifterRecord)}");
-        registry.Resolve(drifter);
-        Report($"OBS world-gc: after registry resolve: {State(drifterRecord)}");
+        Check(drifter.Discarded, "Native world-pawn GC discarded the unprotected Gu Pawn");
+        ExpectUnresolved("world-gc", drifterRecord, GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.Destroyed, GuTerminalEvidence.Discarded);
 
-        // 8. Removal of an unprotected map that holds a dormant Gu and a wild Gu.
+        // 8. Removal of an unprotected map that holds a dormant Gu and an active Gu.
         var generator = DefDatabase<MapGeneratorDef>.GetNamed("GU_PocketProbeCavern");
         Map pocket = PocketMapUtility.GeneratePocketMap(new IntVec3(15, 1, 15), generator, null, home);
         pocket.fogGrid.ClearAllFog();
@@ -157,46 +184,44 @@ public sealed partial class LiveLifecycleChecks
             .First(cell => cell.DistanceToSquared(pocket.Center) >= min * min && cell.Standable(pocket) && cell.GetThingList(pocket).Count == 0);
         Check(registry.TrySpawnDevelopmentGu(species, pocket, PocketCell(2), out var pocketWild), "Spawned a wild Gu in the pocket");
         foreach (Hediff condition in pocketWild.health.hediffSet.hediffs.ToArray()) pocketWild.health.RemoveHediff(condition);
-        IntVec3 dormantCell = pocketWild.Position;
-        Check(registry.TryMakeDormant(pocketWild, pocketWild.GuRevision, dormantCell, out var pocketDormant, out string reason),
+        Check(registry.TryMakeDormant(pocketWild, pocketWild.GuRevision, pocketWild.Position, out var pocketDormant, out string reason),
             $"Made the pocket Gu dormant. {reason}");
         Check(registry.TrySpawnDevelopmentGu(species, pocket, PocketCell(3), out var pocketActive), "Spawned an active Gu in the pocket");
-        var pocketDormantRecord = registry.Individuals.Single(record => record.Id == pocketDormant.GuId);
-        var pocketActiveRecord = registry.Individuals.Single(record => record.Id == pocketActive.GuId);
-        int destroyBeforeMap = CompV2IdentityProbe.PostDestroyCalls;
-        int removedBefore = CompV2IdentityProbe.MapRemovedCalls;
+        var pocketDormantRecord = registry.Resolve(pocketDormant);
+        var pocketActiveRecord = registry.Resolve(pocketActive);
         PocketMapUtility.DestroyPocketMap(pocket);
-        Report($"OBS map-removal: map still loaded={Find.Maps.Contains(pocket)}; dormant destroyed={pocketDormant.Destroyed} spawned={pocketDormant.Spawned} holder={pocketDormant.ParentHolder?.GetType().Name ?? "none"}; comp PostDestroy calls={CompV2IdentityProbe.PostDestroyCalls - destroyBeforeMap}; comp Notify_MapRemoved calls={CompV2IdentityProbe.MapRemovedCalls - removedBefore}");
-        Report($"OBS map-removal: active Gu world pawn={Find.WorldPawns.Contains(pocketActive)} discarded={pocketActive.Discarded} dead={pocketActive.Dead}; raw records: dormant {State(pocketDormantRecord)} | active {State(pocketActiveRecord)}");
-        registry.Resolve(pocketDormant);
-        registry.Resolve(pocketActive);
-        Report($"OBS map-removal: after registry resolve: dormant {State(pocketDormantRecord)} | active {State(pocketActiveRecord)}");
+        Check(!Find.Maps.Contains(pocket), "The unprotected pocket map was removed");
+        ExpectUnresolved("map-removal-dormant", pocketDormantRecord, GuUnresolvedCause.ProjectionEnded,
+            GuTerminalEvidence.MapRemoved, GuTerminalEvidence.Discarded);
+        ExpectBound("map-removal-active-world-pawn", pocketActiveRecord, pocketActive, GuCustodyKind.WildPawn);
 
         // 9. Native Strip redistributes a living colonist's inventory.
         var stripTarget = ExtraColonist(home, colonists[0].Position);
         EnsureInventoryFixtureSpace(stripTarget);
         var strippedGu = PackTestGu(stripTarget);
-        var strippedRecord = registry.Individuals.Single(record => record.Id == strippedGu.GuId);
+        var strippedRecord = registry.Resolve(strippedGu);
         stripTarget.Strip();
-        Report($"OBS strip: Gu holder after native Strip: {Holder(strippedGu)}; raw record: {State(strippedRecord)}");
+        ExpectBound("strip", strippedRecord, strippedGu, GuCustodyKind.DormantGround);
 
         // 10. The holder changes faction while keeping the Gu in inventory.
         var defector = ExtraColonist(home, colonists[0].Position);
         EnsureInventoryFixtureSpace(defector);
         var defectorGu = PackTestGu(defector);
-        var defectorRecord = registry.Individuals.Single(record => record.Id == defectorGu.GuId);
+        var defectorRecord = registry.Resolve(defectorGu);
         defector.SetFaction(other);
-        Report($"OBS faction-change: Gu holder: {Holder(defectorGu)}; raw record: {State(defectorRecord)}");
-        registry.Resolve(defectorGu);
-        Report($"OBS faction-change: after registry resolve: {State(defectorRecord)}");
+        ExpectBound("faction-change", defectorRecord, defectorGu, GuCustodyKind.DormantInventory);
+        Check(defectorRecord.Custody.HolderPawnId == defector.GetUniqueLoadID(), "The observed holder is the defector");
 
-        Report($"OBS summary: records={registry.Individuals.Count} quarantined={registry.Individuals.Count(record => record.IsQuarantined)}");
+        Check(registry.Individuals.All(record => !record.IsQuarantined), "No ordinary-gameplay scenario quarantined a record");
+        Report($"OBS summary: records={registry.Individuals.Count} quarantined=0 unresolved={registry.Individuals.Count(record => record.IsUnresolved)}");
+        File.WriteAllText(V2ProbeFixturePath, JsonSerializer.Serialize(expectations));
         GameDataSaveLoader.SaveGame(SaveName);
     }
 
     private static void VerifyV2EngineProbeReload()
     {
         var registry = IndividualRegistry;
+        var expectations = JsonSerializer.Deserialize<List<ProbeExpectation>>(File.ReadAllText(V2ProbeFixturePath));
         var things = Find.Maps.SelectMany(map => ThingOwnerUtility.GetAllThingsRecursively(map, false))
             .Concat(PawnsFinder.All_AliveOrDead.Where(pawn => pawn.inventory != null)
                 .SelectMany(pawn => pawn.inventory.GetDirectlyHeldThings()))
@@ -205,10 +230,20 @@ public sealed partial class LiveLifecycleChecks
         var projections = things.Concat(pawns).Distinct().ToArray();
         int matched = projections.Count(thing => thing.GetComp<CompV2IdentityProbe>() is { } comp
             && comp.LoadedId == ((IGuProjection)thing).GuId && comp.LoadedRevision == ((IGuProjection)thing).GuRevision);
-        Report($"OBS comp-migration: projections={projections.Length}; comps attached={projections.Count(thing => thing.GetComp<CompV2IdentityProbe>() != null)}; comp read same keys={matched}");
-        Report($"OBS reload: records={registry.Individuals.Count} quarantined={registry.Individuals.Count(record => record.IsQuarantined)}");
-        foreach (var record in registry.Individuals)
-            Report($"OBS reload record {record.Id}: {State(record)}");
-        Check(projections.Length > 0 && matched == projections.Length, "Every loaded V1 projection exposed its saved ID and revision to an added comp");
+        Report($"OBS comp-migration: projections={projections.Length}; probe comps read the manifestation keys on {matched}");
+        Check(projections.Length > 0 && matched == projections.Length, "A second comp can read the manifestation keys on every loaded projection");
+
+        foreach (var expected in expectations)
+        {
+            var record = registry.FindRecord(expected.Id);
+            Check(record != null && !record.IsQuarantined, $"{expected.Case}: the record survived reload without quarantine");
+            if (expected.Outcome == "bound")
+                Check(registry.Resolve(record.Id) == record, $"{expected.Case}: rebound after a fresh-process reload. {State(record)}");
+            else
+                Check(record.Unresolved.ToString() == expected.Cause && record.TerminalEvidence.ToString() == expected.Evidence
+                    && registry.Resolve(record.Id) == null, $"{expected.Case}: unresolved cause and evidence persisted. {record.Unresolved}/{record.TerminalEvidence}");
+            Report($"OBS reload {expected.Case}: {(registry.Resolve(record.Id) != null ? "bound " + record.Custody.Kind : $"unresolved {record.Unresolved}/{record.TerminalEvidence}")}");
+        }
+        Check(registry.Individuals.All(record => !record.IsQuarantined), "No record is quarantined after reload");
     }
 }

@@ -22,27 +22,35 @@ public sealed partial class LiveLifecycleChecks
         var thing = PackTestGu(pawn);
         var record = IndividualRegistry.Resolve(thing);
         var original = Snapshot(record);
-        Check(GuGearInventoryGuard.Installed && original.Revision == 3 && original.Custody.Kind == GuCustodyKind.DormantInventory,
-            "The original projection is authorized in native inventory at revision three");
+        Check(original.Revision == 2 && original.Custody.Kind == GuCustodyKind.DormantInventory,
+            "The original projection is authorized in native inventory at custody revision two (V1: three, pickup no longer commits)");
 
         Prefs.DevMode = false;
+        // The V1 Gear guard is removed (RFC-0004 §15.3). The vanilla Gear handler now moves the Gu with no Project GU
+        // transaction, and the same Thing stays authorized wherever the engine places it.
+        var drop = AccessTools.DeclaredMethod(typeof(ITab_Pawn_Gear), "InterfaceDrop");
+        Check(Harmony.GetPatchInfo(drop)?.Owners.Any(owner => owner.StartsWith("projectgu.livingcultivation", StringComparison.Ordinal)) != true,
+            "Project GU no longer patches the Gear drop handler");
         var observer = new Harmony("projectgu.verification.ordinaryinventory");
         try
         {
             gearFaultObserved = false;
             gearFaultThing = thing;
             observer.Patch(AccessTools.DeclaredMethod(typeof(ThingWithComps), nameof(ThingWithComps.SpawnSetup)),
-                postfix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(InterruptGearPlacement)));
+                postfix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ObserveVanillaGearPlacement)));
             GearDrop(pawn, thing);
-            Check(gearFaultObserved && !thing.Spawned && thing.holdingOwner == pawn.inventory.GetDirectlyHeldThings()
-                && Snapshot(IndividualRegistry.Resolve(thing)) == original && thing.GuRevision == 3,
-                "Native Gear placement interrupted after spawn rolled back the exact Thing and preserved revision three");
+            Check(gearFaultObserved && thing.Spawned && Snapshot(IndividualRegistry.Resolve(thing)) == original with {
+                    Custody = new(GuCustodyKind.DormantGround, original.Custody.NativeOwnerId) } && thing.GuRevision == 2,
+                "The vanilla Gear drop placed the same authorized Thing on the map with no Project GU transaction and unchanged revisions");
         }
         finally
         {
             observer.UnpatchAll(observer.Id);
             gearFaultThing = null;
         }
+        thing.DeSpawn();
+        Check(pawn.inventory.GetDirectlyHeldThings().TryAdd(thing, false) && Snapshot(IndividualRegistry.Resolve(thing)) == original,
+            "A raw native return to inventory keeps the same authorization and revisions");
 
         var steel = ThingMaker.MakeThing(ThingDefOf.Steel);
         Check(pawn.inventory.GetDirectlyHeldThings().TryAdd(steel, false), "Added a vanilla Gear control item");
@@ -52,9 +60,10 @@ public sealed partial class LiveLifecycleChecks
         steel.Destroy();
 
         GearDrop(pawn, thing);
-        var dropped = AssertOrdinaryGround(thing, original, 4);
-        GearDrop(pawn, thing);
-        Check(Snapshot(IndividualRegistry.Resolve(thing)) == dropped, "A repeated Gear drop cannot advance a ground binding");
+        var dropped = AssertOrdinaryGround(thing, original);
+        // The Gear tab lists only held items, so a second drop cannot be requested. Native ownership and revisions are unchanged.
+        Check(!pawn.inventory.GetDirectlyHeldThings().Contains(thing) && Snapshot(IndividualRegistry.Resolve(thing)) == dropped,
+            "A ground binding is no longer offered by the Gear tab and keeps its revisions");
         TransferToFixture(pawn, map, EmptyCargoCell(map, thing.Position, pawn, 7));
         IntVec3 start = pawn.Position;
         var ballast = ThingMaker.MakeThing(ThingDefOf.Steel);
@@ -75,20 +84,36 @@ public sealed partial class LiveLifecycleChecks
         OrdinaryPickupOption(pawn, thing).action();
         TickUntil(() => thing.holdingOwner == pawn.inventory.GetDirectlyHeldThings(), 1000, "The walking pickup reached the thing");
         Check(pawn.Position != start && IndividualRegistry.Resolve(thing) == record
-            && Snapshot(record) == original with { Revision = 5 } && thing.GuRevision == 5,
-            "Ordinary pickup used native walking and committed inventory exactly once");
+            && Snapshot(record) == original && thing.GuRevision == original.Revision,
+            "Ordinary pickup used native walking and moved the same Thing into inventory without changing revisions");
 
         GearDrop(pawn, thing);
-        var nextGround = AssertOrdinaryGround(thing, original, 6);
+        var nextGround = AssertOrdinaryGround(thing, original);
+        // V1 rejected this order because the round trip changed the revision. In V2 nothing about the authorization
+        // changed, so the earlier option revalidates current conditions and may act. Loss of authorization is checked below.
+        // Stand away first: an adjacent pickup completes inside StartJob and leaves no job to observe.
+        TransferToFixture(pawn, map, EmptyCargoCell(map, thing.Position, pawn, 7));
         staleOption.action();
-        Check(pawn.CurJob?.def.defName != "GU_PickupDormant" && Snapshot(IndividualRegistry.Resolve(thing)) == nextGround,
-            "The earlier menu order cannot take the same Thing after a revision-changing round trip");
+        Check(pawn.CurJob?.def.defName == "GU_PickupDormant" && Snapshot(IndividualRegistry.Resolve(thing)) == nextGround,
+            "An earlier menu order revalidates at execution and acts only because the same Thing is still authorized");
+        pawn.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        // Fixture setup only: development spawn needs Development Mode. The ordinary action below runs with it off.
+        Prefs.DevMode = true;
+        EnsureInventoryFixtureSpace(pawn);
+        var revoked = SpawnGroundGu(pawn);
+        Prefs.DevMode = false;
+        var revokedOption = OrdinaryPickupOption(pawn, revoked);
+        Check(revokedOption != null, "A second ground Gu offers an ordinary pickup option");
+        revoked.Destroy(DestroyMode.Vanish);
+        IndividualRegistry.ApplyPendingEvents();
+        revokedOption.action();
+        Check(pawn.CurJob?.def.defName != "GU_PickupDormant", "A menu order whose Gu lost authorization issues no job");
         TransferToFixture(pawn, map, EmptyCargoCell(map, thing.Position, pawn, 7));
         OrdinaryPickupOption(pawn, thing).action();
         Check(pawn.CurJob?.def.defName == "GU_PickupDormant" && thing.Spawned, "Saved at a stable ground binding while the native pickup job was walking");
         File.WriteAllText(VanillaInventoryFixturePath, JsonSerializer.Serialize(new VanillaInventoryFixture(nextGround, pawn.GetUniqueLoadID())));
         GameDataSaveLoader.SaveGame(SaveName);
-        Report("Outside Development Mode, the native Gear handler and right-click pickup preserved one Thing through revisions 3â€“6. Gear staging fault, overweight pickup, a cancelled job, and stale controls preserved custody.");
+        Report("Outside Development Mode, the native Gear handler and right-click pickup preserved one Thing at a single custody revision through every physical move. Gear staging fault, overweight pickup, a cancelled job, and stale controls preserved custody.");
     }
 
     private static void VerifyVanillaGuInventoryReload()
@@ -102,22 +127,22 @@ public sealed partial class LiveLifecycleChecks
             "Fresh-process reload restored the original ground claim and the saved walking job");
         TickUntil(() => thing.holdingOwner == pawn.inventory.GetDirectlyHeldThings(), 1000, "The saved pickup job completed");
         Check(IndividualRegistry.Resolve(thing) == record && Snapshot(record) == fixture.Record with {
-            Revision = 7, Custody = new(GuCustodyKind.DormantInventory, fixture.Record.Custody.NativeOwnerId, fixture.PawnId)
-        } && thing.GuRevision == 7, "The saved job committed exact inventory custody at revision seven");
+            Custody = new(GuCustodyKind.DormantInventory, fixture.Record.Custody.NativeOwnerId, fixture.PawnId)
+        } && thing.GuRevision == fixture.Record.Revision, "The saved job moved the same Thing into the exact inventory without changing revisions");
         GearDrop(pawn, thing);
-        AssertOrdinaryGround(thing, fixture.Record, 8);
-        Check(IndividualRegistry.Individuals.Single() == record && ActuallyProjectedGu().Single() == thing,
+        AssertOrdinaryGround(thing, fixture.Record);
+        Check(IndividualRegistry.Individuals.Count(entry => entry.IsActionable) == 1 && ActuallyProjectedGu().Single() == thing,
             "Exactly one record and one physical projection survived the repeated pickup and drop");
-        Report("Fresh-process reload resumed the saved pickup to revision seven. The actual Gear handler returned the same Thing to its map at revision eight.");
+        Report("Fresh-process reload resumed the saved pickup. The actual Gear handler returned the same Thing to its map. Every physical move kept the custody revision.");
     }
 
-    private static GuRecordSnapshot AssertOrdinaryGround(Thing_GuDormantProjection thing, GuRecordSnapshot prior, int revision)
+    private static GuRecordSnapshot AssertOrdinaryGround(Thing_GuDormantProjection thing, GuRecordSnapshot prior)
     {
         var record = IndividualRegistry.Resolve(thing);
-        var expected = prior with { Revision = revision, Custody = new(GuCustodyKind.DormantGround, prior.Custody.NativeOwnerId) };
+        var expected = prior with { Custody = new(GuCustodyKind.DormantGround, prior.Custody.NativeOwnerId) };
         Check(record != null && thing.Spawned && thing.holdingOwner == thing.Map.GetDirectlyHeldThings()
-            && thing.GuRevision == revision && Snapshot(record) == expected,
-            $"The Gear handler committed ground custody of the same Thing at revision {revision}");
+            && thing.GuRevision == prior.Revision && Snapshot(record) == expected,
+            "The Gear handler placed the same authorized Thing on its map without changing revisions");
         return expected;
     }
 
@@ -130,11 +155,10 @@ public sealed partial class LiveLifecycleChecks
         return options.SingleOrDefault(option => option.Label == $"Pick up {thing.Label}");
     }
 
-    private static void InterruptGearPlacement(ThingWithComps __instance)
+    private static void ObserveVanillaGearPlacement(ThingWithComps __instance)
     {
-        if (__instance != gearFaultThing) return;
-        gearFaultObserved = __instance.Spawned && IndividualRegistry.CustodyTransitionInProgress && IndividualRegistry.Resolve(__instance) == null;
-        throw new InvalidOperationException("Injected interruption after native Gear placement");
+        if (__instance == gearFaultThing)
+            gearFaultObserved = __instance.Spawned && !IndividualRegistry.CustodyTransitionInProgress;
     }
 
     private static void GearDrop(Pawn pawn, Thing thing)

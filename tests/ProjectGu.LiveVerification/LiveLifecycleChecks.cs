@@ -36,7 +36,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         : Slice3B1 ? ExerciseSlice3B1 : Slice3A ? ExerciseSlice3A : EmptyCavernReset ? ExerciseEmptyCavernReset
         : AwakeningSafety ? ExerciseAwakening : Botanical ? ExerciseBotanical
         : CargoPrototype ? ExerciseCargoPrototype : AutomaticHauling ? ExerciseAutomaticHauling : GenerateAndExercise;
-    private Action ReloadCheck => V2Engine ? VerifyV2EngineProbeReload : VanillaGuInventory ? VerifyVanillaGuInventoryReload : Slice3B5A || Slice3B5B ? VerifySlice3B5AReload
+    private Action ReloadCheck => V1Migration ? VerifyV1Migration : V2Engine ? VerifyV2EngineProbeReload : VanillaGuInventory ? VerifyVanillaGuInventoryReload : Slice3B5A || Slice3B5B ? VerifySlice3B5AReload
         : Slice3B4 ? ReleaseAfterReload : Slice3B3B ? VerifySlice3B3BReload : Slice3B3A ? VerifySlice3B3AReload : Slice3B2 ? VerifySlice3B2Reload
         : Slice3B1 ? VerifySlice3B1Reload : Slice3A ? VerifySlice3AReload
         : GenCommandLine.CommandLineArgPassed("gulegacy31") ? () => VerifyHistoricalSpring(31)
@@ -59,6 +59,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     {
         if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(NewCheck, "new");
         else if (GuRegistryLoadTiming.Stage is { } benchmarkStage) Run(MeasureGuRegistryBenchmark, benchmarkStage);
+        else if (V1Resave) Run(VerifyV1MigrationResave, "resave");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b5baperture")) Run(ReleaseIntegratedCohort, "aperture");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b5breleased")) Run(VerifyIntegratedCohortRelease, "released");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b4released")) Run(VerifyReleasedReload, "released");
