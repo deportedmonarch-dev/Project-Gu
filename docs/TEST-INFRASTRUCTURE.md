@@ -17,6 +17,8 @@ A unit is one profile, one V1 source save or one historical save. Its stages are
 
 The benchmark `Slice3B5BPerf` refuses to run with another profile, with `-Parallel` above 1 or while any RimWorld process runs. Its processes get no timing patches and keep the engine file log, as before.
 
+The M0 throughput profile `Tps` has the same exclusivity, runs without timing patches or the engine file log, and stages a separate test-only probe mod. See [TPS measurement](TPS-MEASUREMENT.md).
+
 ## Isolation and ownership
 
 - **Run ownership.** Each run holds an exclusive handle on `run.lock` for its lifetime. The operating system releases it when the runner exits or is killed. Stale-run recovery removes another run's game copy only when that lock can be opened and no process runs from that run's folder. A lock held between fresh-process stages keeps the copy. Evidence beside a copy is never removed. Runs from before run locks are removed only after two hours without evidence writes.

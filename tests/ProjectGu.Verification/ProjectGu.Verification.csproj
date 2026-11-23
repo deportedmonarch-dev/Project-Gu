@@ -11,4 +11,9 @@
     <Reference Include="Waylith"><HintPath>$(RimWorldPath)/Waylith.dll</HintPath></Reference>
     <Reference Include="UnityStubs"><HintPath>$(RimWorldPath)/UnityStubs.dll</HintPath></Reference>
   </ItemGroup>
+  <ItemGroup>
+    <!-- Game-independent parts of the M0 TPS probe, compiled here for managed tests. -->
+    <Compile Include="../ProjectGu.TpsProbe/TpsStatistics.cs" Link="TpsProbe/TpsStatistics.cs" />
+    <Compile Include="../ProjectGu.TpsProbe/TpsConfig.cs" Link="TpsProbe/TpsConfig.cs" />
+  </ItemGroup>
 </Project>
