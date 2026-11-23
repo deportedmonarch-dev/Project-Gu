@@ -289,7 +289,7 @@ namespace ProjectGu
         private static void Inspect(Pawn pawn)
         {
             GuWorldComponent world = Current.Game?.GetComponent<GuWorldComponent>();
-            GuPawnRecord record = world?.GetOrCreate(pawn);
+            var record = world?.GetOrCreate(pawn);
             if (record == null) return;
             string grade = record.LatentAptitude == 0 ? "none" :
                 AptitudeRules.Grade(record.LatentAptitude) + " (" + record.LatentAptitude + ")";

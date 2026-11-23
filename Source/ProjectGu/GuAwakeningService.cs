@@ -30,17 +30,18 @@ namespace ProjectGu
         {
             result = "Invalid humanlike pawn or missing cultivation registry.";
             if (world == null || pawn == null || pawn.Dead) return false;
-            if (!world.TryBeginAwakening(pawn))
+            if (!world.TryBeginAwakening())
             {
-                result = "This person is already undergoing awakening.";
+                result = "Cultivator identity is unavailable or an awakening is already in progress.";
                 return false;
             }
 
             Hediff_Aperture aperture = null;
             bool committed = false;
+            bool publishing = false;
             try
             {
-                GuPawnRecord record = world.GetOrCreate(pawn);
+                var record = world.PrepareAwakeningRecord(pawn);
                 if (record == null) return false;
                 if (record.State != AwakeningState.Unattempted)
                 {
@@ -70,6 +71,8 @@ namespace ProjectGu
                     ? "Aperture opened: " + AptitudeRules.Grade(record.LatentAptitude) +
                         "-grade (" + record.LatentAptitude + "/100)."
                     : "Awakening failed: no aperture formed.";
+                result = "The prepared cultivator identity or aperture changed.";
+                if (!world.PrepareAwakeningPublication(record, aperture)) return false;
                 if (spring != null)
                 {
                     if (!CanUseSpring(pawn, spring))
@@ -77,15 +80,18 @@ namespace ProjectGu
                         result = "The spirit spring is unavailable.";
                         return false;
                     }
+                    publishing = true;
                     if (!spring.TryConsumeHopeGu())
                     {
+                        publishing = false;
                         result = "No Hope Gu are available at the spirit spring.";
                         return false;
                     }
                 }
 
                 // The debit and record assignment are synchronous and invoke no engine callbacks.
-                record.State = opensAperture ? AwakeningState.Awakened : AwakeningState.Failed;
+                publishing = true;
+                world.PublishAwakening(record, aperture);
                 committed = true;
                 result = outcome;
                 // These health markers are derived from the committed record. Discovery retries them.
@@ -95,6 +101,7 @@ namespace ProjectGu
             catch (Exception exception)
             {
                 Log.Error($"[Project GU] Awakening for {pawn} encountered an error. {exception}");
+                if (publishing && !committed) world.FailAwakeningRecovery(exception);
                 if (!committed) result = "The awakening ceremony was interrupted.";
                 return committed;
             }
@@ -103,11 +110,16 @@ namespace ProjectGu
                 try
                 {
                     if (!committed && aperture != null && pawn.health.hediffSet.hediffs.Contains(aperture))
+                    {
                         pawn.health.RemoveHediff(aperture);
+                        if (pawn.health.hediffSet.hediffs.Contains(aperture))
+                            throw new InvalidOperationException("Provisional aperture survived awakening rollback.");
+                    }
                 }
+                catch (Exception error) { world.FailAwakeningRecovery(error); }
                 finally
                 {
-                    world.EndAwakening(pawn);
+                    world.EndAwakening();
                 }
             }
         }

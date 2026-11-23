@@ -28,6 +28,7 @@ internal static class ManagedEngineChecks
             var restoredFlora = VerifySpringMigrationAndScribe(stone, targets);
             VerifyOverlappingHabitat(game, restoredFlora);
             UndergroundAddressChecks.Run(game, directory.FullName);
+            CultivatorFoundationChecks.Run(game, directory.FullName);
         }
         finally
         {

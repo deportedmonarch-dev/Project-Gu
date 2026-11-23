@@ -1,6 +1,6 @@
 # Phase 3A proposal — durable cultivator identity
 
-**Status — Revised for final owner approval. Implementation and native verification remain unauthorized.**
+**Status — Approved design baseline. Stage 3A-I is implemented and managed-checked. Stage 3A-II and native verification require separate authorization.** [Implementation ledger](IMPLEMENTATION-V2.md#phase-3a-i--durable-identity-and-lossless-migration-foundation)
 
 **Baseline —** `2705cfd9ae85782f6218a44193d205b388beff4c` on `feature/gu-framework-v2`. The independent review inspected the C# and the pinned RimWorld 1.7.5014 rev1195 assembly statically. [Acceptance plan](V2-PHASE3A-TEST-PLAN.md)
 
@@ -98,4 +98,4 @@ Budget work for record loading, derived indexing, incremental discovery and affe
 
 **Remaining risks and owner decisions.** Native tests must establish coverage for relevant holders and damaged inputs, corpse-less path evidence, nested hooks, the dead-Pawn discard baseline, and save ordering. Performance estimates and population targets remain hypotheses. The owner can separately decide which story roles receive automatic significance, when broader deletion is safe, and future inheritance, abstract NPC and integration rules. Existing Phase 2 behavior remains the regression baseline.
 
-**Recommendation.** Approve this narrow revision for staged implementation when the owner accepts the contract and test gates. Stop on failed checkpoints. Return the evidence at C2 and C4 for focused acceptance. Phase 3B and later work require separate authorization.
+Stop on failed checkpoints. Return the evidence at C2 and C4 for focused acceptance after authorization. Phase 3B and later work require separate authorization.

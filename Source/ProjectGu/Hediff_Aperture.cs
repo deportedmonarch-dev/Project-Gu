@@ -25,6 +25,12 @@ namespace ProjectGu
         /// <summary>Assigns the ID once. Called only by registry operations and migration.</summary>
         internal string EnsureApertureId() => apertureId ??= Guid.NewGuid().ToString("N");
 
+        internal void ReplaceCultivatorApertureId(string expected, string replacement)
+        {
+            if (apertureId != expected) throw new InvalidOperationException("Aperture ID changed outside the prepared write.");
+            apertureId = replacement;
+        }
+
         public bool HasExtremePhysique => !string.IsNullOrEmpty(ExtremePhysiqueId);
 
         public string AptitudeGrade
@@ -120,6 +126,7 @@ namespace ProjectGu
                 Rank = Math.Max(1, rank);
                 ExtremePhysiqueId = physique ?? "";
                 Essence = Math.Max(0f, Math.Min(MaxEssence, essence));
+                GuWorldComponent.NoteLoadedAperture(Current.Game, this);
             }
         }
     }

@@ -45,8 +45,9 @@ namespace ProjectGu
                 ready = false;
                 CompGuManifestation.LoadBuffer.Clear();
             }
-            if (Scribe.mode == LoadSaveMode.Saving && CustodyTransitionInProgress)
-                throw new InvalidOperationException("Wait for the Gu custody transition to finish before saving.");
+            if (Scribe.mode == LoadSaveMode.Saving && (CustodyTransitionInProgress
+                || Current.Game?.GetComponent<GuWorldComponent>()?.CanSaveCultivators == false))
+                throw new InvalidOperationException("Gu custody or cultivator identity is not ready to save.");
             // Native events reported since the last tick must reach the save, or demonstrated evidence would be lost.
             if (Scribe.mode == LoadSaveMode.Saving) ApplyPendingEvents();
             Scribe_Collections.Look(ref records, "guIndividualRecordsV2", LookMode.Deep);
@@ -60,6 +61,7 @@ namespace ProjectGu
             CompGuManifestation.LoadBuffer.Clear();
             legacyV1 = null;
             RebuildBindings(Array.Empty<CompGuManifestation>());
+            Current.Game?.GetComponent<GuWorldComponent>()?.GuRegistryCompleted(this);
         }
 
         public override void LoadedGame()
@@ -68,6 +70,7 @@ namespace ProjectGu
             CompGuManifestation.LoadBuffer.Clear();
             MigrateLegacyRecords(loaded);
             RebuildBindings(loaded);
+            Current.Game?.GetComponent<GuWorldComponent>()?.GuRegistryCompleted(this);
         }
 
         // ---- Pure validation ----------------------------------------------------------------------------------

@@ -28,7 +28,14 @@ namespace ProjectGu
 
         private static bool BeforeSave()
         {
-            if (Current.Game?.GetComponent<GuIndividualRegistry>()?.CustodyTransitionInProgress != true) return true;
+            var game = Current.Game;
+            if (game?.GetComponent<GuWorldComponent>()?.CanSaveCultivators == false)
+            {
+                Messages.Message("Cultivator identity is not ready to save. See the Project GU log if this persists.",
+                    MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+            if (game?.GetComponent<GuIndividualRegistry>()?.CustodyTransitionInProgress != true) return true;
             Messages.Message("Wait for the Gu custody transition to finish before saving.", MessageTypeDefOf.RejectInput, false);
             return false;
         }

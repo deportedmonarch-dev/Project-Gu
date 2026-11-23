@@ -1,6 +1,6 @@
 # Phase 3A acceptance plan
 
-**Status — Proposed for owner approval. This plan has not been executed.** C0 and all native runs require implementation authorization. The static findings and proposed design are in the [Phase 3A proposal](V2-PHASE3A-PROPOSAL.md).
+**Status — Stage 3A-I managed evidence is recorded. C0 and all native runs remain gated.** [Phase 3A proposal](V2-PHASE3A-PROPOSAL.md) · [Implementation ledger](IMPLEMENTATION-V2.md#phase-3a-i--durable-identity-and-lossless-migration-foundation)
 
 ## C0 — Equivalent benchmark inputs
 
@@ -74,7 +74,8 @@ Run the approved Gu fixture and regression set after C2 and C3, including the ex
 
 | Gate | Required evidence |
 | --- | --- |
-| Owner approval before implementation | Accept the revised proposal and these checkpoints. Documentation review alone supplies no managed or native pass. |
-| C0 and C1 | Reproducible inputs, measured Phase 2 baseline, managed failure-boundary checks and game-linked compilation. |
+| Stage 3A-I | Approved design and managed scope. Game-linked compilation and Stage 3A-I checks are in the ledger. |
+| Separate Stage 3A-II approval | Required before extending native observation, running C0 or executing any native profile. |
+| C0 and remaining C1 | Reproducible inputs, measured Phase 2 baseline, and additional checks for any newly authorized observation work. |
 | C2 | Focused evidence review of exact identity, native lifecycle observations, retention and save ordering before proceeding. |
 | C3 and C4 | Migration integrity, unchanged Gu custody and conservation, existing regressions and attributed benchmark costs. Return the evidence for owner acceptance before any later phase. |

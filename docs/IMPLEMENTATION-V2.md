@@ -194,3 +194,29 @@ Measured from evidence folders: copying the game and building takes 7–10 s per
 - Caravans, transport pods and trade with dormant Gu Things are untested. Tradeability stays `None`.
 - The original 31×31 and 39×39 historical saves are still unavailable. The copies passed.
 - Rendered owner checks of the Phase 2 developer actions and hauling are open.
+
+## Phase 3A-I — Durable identity and lossless migration foundation
+
+**Status — Implemented and checked with managed verification. Native execution remains gated.** Design baseline `61b4896cb7b5172913b998e71731f9e64f7f9dbd`. [Proposal](V2-PHASE3A-PROPOSAL.md) · [Acceptance plan](V2-PHASE3A-TEST-PLAN.md)
+
+| Review blocker | Stage 3A-I implementation and managed evidence | Native evidence still required |
+| --- | --- | --- |
+| Preserve inputs and load ordering | `LoadingVars` clones the complete legacy collection before the reference reader runs. The legacy DTO reads only the Pawn reference. The prepared index classifies raw cultivation fields, reserves conflicting tokens and retains the original unresolved XML. The managed Scribe fixture keeps malformed, explicit-null and unresolved-reference rows through `FinalizeLoading` and `PostLoadInit`. Both component callback orders publish once after the actual Phase 2 registry signal. | Fresh-process legacy sources, removed or suspended Pawns, corpse-held and off-map associations, and Phase 2 V1 Gu import ordering. |
+| Durable identity and lifecycle facets | Versioned store separates immutable identity, native association, observed life and bounded typed facts. Managed Scribe reloads preserve IDs and distinct body and discard facts. The same bound Pawn reports changes in life without allocating a new identity. | Engine-owned dead references, resurrection, corpse destruction, corpse-less death, and discard evidence. The foundation has no new native lifecycle observers. |
+| Transaction, authority and conflicts | Distinguishes absent, committed empty, incomplete, unsupported and dual-store envelopes. Aperture writes are staged and revalidated. The existing save guard and both component writers reject unsafe save authority. Failure injection after an aperture write or before publication restores preimages and leaves test custody revisions, stack counts and cohort totals unchanged. Duplicate Pawn, cultivator and aperture claims remain unresolved with evidence. A pending first awakening stays private until checked publication. | Native awakening callbacks, rejected debit, failure and save ordering, physical conservation, and two fresh-process reloads on disposable save copies. |
+| Exactly-once native observations | The store provides association revision and one confirmed-discard slot. A missing reference preserves evidence and supplies no discard fact. Phase 2 custody callbacks and retention rules are unchanged. | Stage 3A-II must implement and verify native event correlation, exception cleanup, deduplication and pre-save drain behavior. |
+| Benchmark equivalence | The accepted C0 plan uses independently prepared clones of the same hashed source with identical aperture IDs and comparable fingerprints. | C0 was gated. No equivalence, budget or population result is claimed. |
+
+### Build and managed checks
+
+- `scripts/verify.ps1 -Focused` passed structural checks, the Release build against RimWorld **1.7.5014 rev1195**, and the managed suite. The main build produced **0 warnings and 0 errors**. The pinned `Assembly-CSharp.dll` SHA-256 is `11D7C9FAF52BE22933DA840D906B1AF7B48F7EA574A886C045B1FB12BD366124`.
+- **46 focused cultivator checks** passed, plus the existing managed spring, cohort, custody, underground, 64 layout and 64 botanical scenarios. Managed checks link the actual game's Scribe and other assemblies. They execute without a RimWorld game process and provide no in-game acceptance.
+- The existing live verification harness compiled for API compatibility. Its profiles were not run. All build outputs were produced in an isolated snapshot. No game installs, user saves, mod profiles or packaged binaries in the active checkout were changed.
+
+### Limits and staged decisions
+
+- `GetOrCreate` returns the durable cultivator record. The original Pawn DTO serves the legacy read path. A first ceremony for a previously undiscovered Pawn caches its private aptitude draft for same-game retries. A save made after a failed unpublished attempt carries no private draft. Committed and legacy aptitude values remain authoritative.
+- Stage 3A-I saves an object reference only through recognized native ownership. A Pawn with unsupported or unavailable ownership keeps its durable record and last evidence. Native coverage for all relevant holders remains open. Retirement and record removal are deferred until confirmed-discard observation and dependency checks are verified.
+- The normal 600-tick discovery scan and Phase 2 Gu custody and retention policies are unchanged. The identity foundation adds per-load aperture intake, derived indexes, and one legacy-only Pawn pass. Runtime costs and long-save growth remain open.
+
+Stage 3A-II requires separate owner authorization before native lifecycle work, C0, or any game execution.
