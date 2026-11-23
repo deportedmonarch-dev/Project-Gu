@@ -1,6 +1,6 @@
 # Phase 3A acceptance plan
 
-**Status — Stage 3A-I managed evidence is recorded. C0 and all native runs remain gated.** [Phase 3A proposal](V2-PHASE3A-PROPOSAL.md) · [Implementation ledger](IMPLEMENTATION-V2.md#phase-3a-i--durable-identity-and-lossless-migration-foundation)
+**Status — The owner provisionally accepted Stage 3A-II. Under the revised development policy, Stage 3A-III acceptance is limited to current-format identity, conflict handling, Gu custody and fresh-process save/reload correctness. Historical V1 migration and recovery are deferred, unsupported or unverified for development builds. C0 equivalence and C4 benchmarking remain separately gated.** [Phase 3A proposal](V2-PHASE3A-PROPOSAL.md) · [Implementation ledger](IMPLEMENTATION-V2.md#phase-3a-iii--legacy-migration-conflict-handling-and-recovery)
 
 ## C0 — Equivalent benchmark inputs
 
@@ -52,9 +52,9 @@ Use disposable profiles and native saves on the pin. Record exact Pawn, cultivat
 
 ## C3 — Existing-save migration and recovery
 
-Use the seven V1 migration sources, representative Phase 2 V2 sources, both historical saves and the owner’s acceptance colony if supplied. Add disposable cases with a surviving raw reference token and a missing Pawn node, explicit null, duplicate claims, malformed aperture IDs, valid-empty committed store, and injected partial failure. Record provenance and hashes for every input.
+The original C3 migration matrix remains the comprehensive compatibility plan, but old experimental V1 and historical saves are outside the current development-build acceptance gate. Do not claim those saves are compatible without new evidence. For current development builds, use a disposable current-format Phase 2 source and test existing identity/aperture associations, conflicting and malformed claims, committed-empty authority where applicable, transactional failure safety, Gu custody conservation and two independent fresh-process reloads. Record source provenance and hashes. Preserve unresolved conflicts as evidence; do not select arbitrary winners.
 
-**Pass** requires source hashes unchanged. Each pre-3A row maps to one canonical identity or one explicit evidence entry, with raw conflicts available for inspection. Valid fields and preexisting aperture IDs match field by field, with zero rerolls or inferred links. An aperture-only identity preserves exact legacy Hediff values with no extra Hediff changes during import. For known legacy Gu inputs the Phase 2 baseline remains **17 bound, 12 unresolved and 12 quarantined**. Compare per-record classifications and custody, as totals alone can hide a swap. All durable states survive two fresh-process reloads with stable IDs, unchanged Gu custody revisions and exact physical conservation.
+**Current-format development pass** requires unchanged source hashes, one authoritative cultivator store, stable identity and conflict evidence across two independent fresh-process reloads, unchanged Gu custody revisions, and exact physical conservation. The broader legacy pass additionally requires the original migration criteria above; it is deferred and must be reported as unverified until performed.
 
 For each rollback trial compare the original representation, authority marker, aperture IDs, Gu revisions, Hope Gu balance and custody graph before and after. Keep the original source read-only. Verify that an unsafe completion leaves no writable half-migrated game. Test a repaired retry from a pristine copy and require that the next committed save contains one authoritative cultivator store.
 
@@ -76,5 +76,5 @@ Run the approved Gu fixture and regression set after C2 and C3, including the ex
 | --- | --- |
 | Stage 3A-I | Approved design and managed scope. Game-linked compilation and Stage 3A-I checks are in the ledger. |
 | Stage 3A-II | Owner authorized the focused native lifecycle, retention, Scribe, save authority and Phase 2 regression cases. See the [implementation ledger](IMPLEMENTATION-V2.md) for results. |
-| Separate Stage 3A-III approval | Run the broad migration and recovery matrix, including the C3 source and failure fixtures, once approved. |
+| Stage 3A-III development gate | Verify current-format identity, conflicts, custody conservation and fresh-process save/reload. Historical V1 migration, the original 31×31 and 39×39 saves, and the full legacy recovery matrix are deferred and remain unsupported or unverified. See the [implementation ledger](IMPLEMENTATION-V2.md#phase-3a-iii--legacy-migration-conflict-handling-and-recovery). |
 | Separate Stage 3A-IV approval | Establish C0 equivalence and run C4 benchmarking once approved. Confirm measurable budgets and population bounds with the owner after evidence is available. |

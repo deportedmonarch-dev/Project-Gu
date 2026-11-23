@@ -54,7 +54,9 @@ public sealed partial class LiveLifecycleChecks
             (string)node.Element("originNativeId"), (string)node.Element("cohortDebitCommitted") == "True")).ToArray();
     }
 
-    private static void VerifyV1Migration()
+    private static void VerifyV1Migration() => CheckV1Migration(save: true);
+
+    private static void CheckV1Migration(bool save)
     {
         string name = V1SourceName;
         Check(name != null && ExpectedMigration.ContainsKey(name), $"Known V1 migration source {name}");
@@ -104,6 +106,7 @@ public sealed partial class LiveLifecycleChecks
         Check(boundCount == expected.Bound && unresolvedCount == expected.Unresolved && quarantinedCount == expected.Quarantined,
             $"{name} migrated to the expected classification {expected}");
 
+        if (!save) return;
         File.WriteAllText(MigrationFixturePath, JsonSerializer.Serialize(records.Select(record => new MigratedRow(record.Id,
             DescribeStored(record), record.Unresolved.ToString(), record.QuarantineReason, registry.Resolve(record.Id) != null)).ToArray()));
         GameDataSaveLoader.SaveGame(SaveName);

@@ -1,12 +1,18 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
     # Saves written by the v0.2.5 Schema V1 build. Each is copied, never modified, and checked by SHA-256.
     [string[]]$V1Saves = @(),
+    [string]$V1Manifest = '',
+    [string]$V1Phase2Evidence = '',
+    [hashtable]$CultivatorV2Saves = @{},
+    [string]$CultivatorVariantsSource = '',
+    [string[]]$CultivatorFixtures = @(),
+    [switch]$PlanOnly,
     # Keep the disposable game copy after the run for debugging. It is removed by default.
     [switch]$KeepGameCopy,
     # Extra official expansions for any profile, for example royalty, biotech, anomaly, odyssey.
@@ -27,9 +33,48 @@ param(
     [switch]$CaptureFileLog
 )
 $ErrorActionPreference = 'Stop'
+$allowedCultivatorFixtures = @('aperture-conflicts', 'legacy-evidence', 'duplicate-identities',
+    'valid-committed', 'valid-empty', 'partial-failure', 'failed-rollback',
+    'V1-Slice3B1', 'V1-Slice3B2', 'V1-Slice3B3B', 'V1-Slice3B4', 'V1-Slice3B5A',
+    'V1-V2EngineProbe', 'V1-VanillaGuInventory', 'V2-Phase2Lifecycle', 'V2-Slice3B3B',
+    'V2-V2EngineProbe', 'Legacy31-derivative', 'Legacy39-derivative')
+if ($CultivatorFixtures) {
+    $unknownFixtures = @($CultivatorFixtures | Where-Object { $_ -notin $allowedCultivatorFixtures })
+    if ($unknownFixtures) { throw "Unknown cultivator fixture selection: $($unknownFixtures -join ', ')" }
+    if ('aperture-conflicts' -in $CultivatorFixtures -and !$CultivatorV2Saves['Phase2Lifecycle']) {
+        throw 'The aperture-conflicts fixture requires CultivatorV2Saves.Phase2Lifecycle.'
+    }
+}
+$historical = @{ Legacy31 = $Legacy31Save; Legacy39 = $Legacy39Save }
+$profiles = @(switch ($Profile) {
+    'Both' { 'Core', 'IdeologyOdyssey' }
+    'Regression' { 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling' }
+    default { $_ }
+})
+foreach ($legacy in @('Legacy31', 'Legacy39')) { if ($historical[$legacy]) { $profiles += $legacy } }
+$profiles = @($profiles | Select-Object -Unique)
+if ($CultivatorFixtures -and $profiles -notcontains 'CultivatorMigration') {
+    throw 'CultivatorFixtures requires -Profile CultivatorMigration.'
+}
+if ($PlanOnly) {
+    if ($Rendered -and $Parallel -gt 1) { throw 'Rendered runs require -Parallel 1.' }
+    if ($CaptureFileLog -and $Parallel -gt 1) { throw '-CaptureFileLog requires -Parallel 1.' }
+    if ($profiles -contains 'CultivatorMigration' -and !$CultivatorFixtures -and
+        (!$V1Saves -or !$V1Manifest -or !$V1Phase2Evidence -or !$CultivatorV2Saves['Phase2Lifecycle'] -or !$CultivatorVariantsSource)) {
+        throw 'CultivatorMigration requires all V1 and V2 fixture sources and the manifest.'
+    }
+    $selected = if ($CultivatorFixtures) { @($CultivatorFixtures) } else { @($allowedCultivatorFixtures) }
+    foreach ($fixture in $selected) {
+        $stages = if ($fixture -in @('partial-failure', 'failed-rollback')) {
+            'blocked, restore pristine input, migrate, reload1, reload2'
+        } else { 'migrate, reload1, reload2' }
+        Write-Output "C3-$($fixture): $stages"
+    }
+    if ($Profile -ne 'CultivatorMigration') { Write-Output "Profiles: $($profiles -join ', ')" }
+    return
+}
 $root = Split-Path -Parent $PSScriptRoot
 $campaignTimer = [Diagnostics.Stopwatch]::StartNew()
-$historical = @{ Legacy31 = $Legacy31Save; Legacy39 = $Legacy39Save }
 foreach ($path in $historical.Values) {
     if ($path -and !(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Historical save not found: $path" }
 }
@@ -42,13 +87,13 @@ $objRoot = [IO.Path]::GetFullPath((Join-Path $root 'tests/obj'))
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Profile planning and argument checks happen before any resource is created.
-$profiles = @(switch ($Profile) {
-    'Both' { 'Core', 'IdeologyOdyssey' }
-    'Regression' { 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling' }
-    default { $_ }
-})
-foreach ($legacy in @('Legacy31', 'Legacy39')) { if ($historical[$legacy]) { $profiles += $legacy } }
-$profiles = @($profiles | Select-Object -Unique)
+if ($profiles -contains 'CultivatorMigration' -and !$CultivatorFixtures -and
+    (!$V1Saves -or !$V1Manifest -or !$V1Phase2Evidence -or !$CultivatorV2Saves['Phase2Lifecycle'] -or !$CultivatorVariantsSource)) {
+    throw 'CultivatorMigration requires the V1 saves, manifest and Phase 2 result directory, a named Phase2Lifecycle V2 save and a legacy evidence source.'
+}
+if ($CultivatorFixtures -and !$CultivatorV2Saves['Phase2Lifecycle']) {
+    throw 'Targeted cultivator fixtures require the Phase2Lifecycle source save.'
+}
 if ($Rendered -and $Parallel -gt 1) { throw 'Rendered runs open game windows and must use -Parallel 1.' }
 if ($CaptureFileLog -and $Parallel -gt 1) { throw '-CaptureFileLog uses the shared engine log file and must use -Parallel 1.' }
 if ($profiles -contains 'Slice3B5BPerf') {
@@ -160,6 +205,22 @@ function Write-Manifest($Manifest, [string]$Path) {
     [IO.File]::WriteAllLines($Path, [string[]]@($Manifest.GetEnumerator() | ForEach-Object { "$($_.Key)`t$($_.Value)" }))
 }
 
+function Copy-CheckedSave([string]$Source, [string]$Destination) {
+    $path = (Resolve-Path -LiteralPath $Source).Path
+    $entry = $sourceSaves[$path]
+    Copy-Item -LiteralPath $path -Destination $Destination
+    if ((Get-FileHash -LiteralPath $Destination).Hash -ne $entry.Before) {
+        throw "Save copy does not match the locked source: $Destination"
+    }
+    ([IO.FileInfo]$Destination).IsReadOnly = $false
+}
+
+function Write-SourceSaveEvidence {
+    $entries = @($sourceSaves.Values | Sort-Object Path | Select-Object Path, Before, After, Expected, Unchanged, Error)
+    ConvertTo-Json -InputObject $entries |
+        Set-Content -Encoding UTF8 -LiteralPath (Join-Path $testRoot 'source-save-hashes.json')
+}
+
 # ---------------------------------------------------------------------------------------------------------------------
 $runId = [Guid]::NewGuid().ToString('N')
 $testRoot = Join-Path $root ('tests/obj/Priority0-' + $runId)
@@ -170,9 +231,10 @@ $games = @(if ($GameCopyMode -eq 'PerWorker') { 1..$workerSlots | ForEach-Object
 $phases = [ordered]@{}
 $units = New-Object System.Collections.Generic.List[object]
 $samples = New-Object System.Collections.Generic.List[object]
-$integrity = [ordered]@{ ReadOnlyEnforced = $false; ReadOnlyProbe = @(); GameCopyChanges = @(); IsolationProblems = @(); UserDataFolderChanged = $null; SystemSleep = @() }
+$integrity = [ordered]@{ ReadOnlyEnforced = $false; ReadOnlyProbe = @(); GameCopyChanges = @(); IsolationProblems = @(); UserDataFolderChanged = $null; SystemSleep = @(); SystemSleepCheck = 'not checked' }
 $campaignFailed = $false
 $state = @{ StopScheduling = $false; AnyFailure = $false }
+$sourceSaves = @{}
 [ordered]@{
     RunId = $runId; ProcessId = $PID; StartedUtc = [DateTime]::UtcNow.ToString('o'); Machine = $env:COMPUTERNAME
     Profiles = $profiles; Parallel = $Parallel; FailFast = $FailFast.IsPresent; GameCopyMode = $GameCopyMode; Expansions = $Expansions
@@ -197,6 +259,35 @@ Add-Type -Namespace ProjectGuRunner -Name Power -MemberDefinition '[DllImport("k
 $campaignStartLocal = Get-Date
 
 try {
+Measure-Phase 'sourcePreflight' {
+    $expected = @{}
+    if ($V1Manifest) {
+        $manifestPath = (Resolve-Path -LiteralPath $V1Manifest).Path
+        foreach ($line in Get-Content -LiteralPath $manifestPath) {
+            if ($line -notmatch '^([A-Fa-f0-9]{64}) \*([^/\\]+\.rws)$') { throw "Invalid V1 manifest line: $line" }
+            $hash = $Matches[1]
+            $path = (Resolve-Path -LiteralPath (Join-Path (Split-Path $manifestPath) $Matches[2])).Path
+            $expected.Add($path, $hash)
+        }
+        $v1Paths = @($V1Saves | ForEach-Object { (Resolve-Path -LiteralPath $_).Path } | Select-Object -Unique)
+        if ($v1Paths.Count -ne $expected.Count -or @($v1Paths | Where-Object { !$expected.ContainsKey($_) }).Count) {
+            throw 'The supplied V1 saves must match the manifest inventory.'
+        }
+    }
+    $sources = @($historical.Values) + @($V1Saves) + @($CultivatorV2Saves.Values) + @($CultivatorVariantsSource)
+    foreach ($sourcePath in $sources | Where-Object { $_ }) {
+        $path = (Resolve-Path -LiteralPath $sourcePath).Path
+        if ($sourceSaves.ContainsKey($path)) { continue }
+        # FileShare.Read permits independent copies and denies writers, rename and deletion until final hashing.
+        $handle = [IO.File]::Open($path, 'Open', 'Read', 'Read')
+        $entry = [pscustomobject]@{ Path = $path; Handle = $handle; Before = $null; After = $null
+            Expected = $expected[$path]; Unchanged = $null; Error = $null }
+        $sourceSaves.Add($path, $entry)
+        $entry.Before = (Get-FileHash -InputStream $handle).Hash
+        if ($entry.Expected -and $entry.Before -ne $entry.Expected) { throw "V1 source hash does not match the manifest: $path" }
+    }
+    if ($sourceSaves.Count) { Write-SourceSaveEvidence }
+}
 Measure-Phase 'staleRecovery' { Remove-StaleGameCopies $testRoot }
 
 # Free-space preflight: every game copy plus saves and a safety margin.
@@ -295,8 +386,63 @@ function Add-Action($Unit, [string]$Kind, [hashtable]$Data) {
     $Unit.Steps.Add($step)
 }
 
+function Add-CultivatorMigrationUnit([string]$Label, [string]$Path, [string]$Case, [string]$Extra = '') {
+    if ($Label -notmatch '^[a-zA-Z0-9_-]+$') { throw "Invalid migration fixture label: $Label" }
+    $name = "C3-$Label"
+    $data = Join-Path $testRoot $name
+    New-ProfileConfig $data $name
+    New-Item -ItemType Directory -Path (Join-Path $data 'Saves') | Out-Null
+    $working = Join-Path $data 'Saves/autostart.rws'
+    Copy-CheckedSave $Path $working
+    if ($Case -ne 'archive') {
+        & (Join-Path $PSScriptRoot 'prepare-cultivator-migration-fixture.ps1') -Path $working -Case $Case
+    }
+    $inputCopy = Join-Path $data 'c3-input.rws'
+    Copy-Item -LiteralPath $working -Destination $inputCopy
+    $inputHash = (Get-FileHash -LiteralPath $inputCopy).Hash
+    if ((Get-FileHash -LiteralPath $working).Hash -ne $inputHash) { throw "C3 working copy differs from its input: $name" }
+    ([IO.FileInfo]$inputCopy).IsReadOnly = $true
+    if ($Extra -like '*-guv1migration*') {
+        Copy-CheckedSave $Path (Join-Path $data 'v1-source.rws')
+        $v1name = [IO.Path]::GetFileNameWithoutExtension($Path)
+        Copy-Item -LiteralPath (Join-Path $V1Phase2Evidence "V1Migration-$v1name/gu-migration-fixture.json") -Destination (Join-Path $data 'c3-phase2-baseline.json')
+    }
+    $sourcePath = (Resolve-Path -LiteralPath $Path).Path
+    [ordered]@{ Case = $Case; Source = $sourcePath; SourceSHA256 = $sourceSaves[$sourcePath].Before; InputSHA256 = $inputHash } |
+        ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath (Join-Path $data 'c3-fixture-provenance.json')
+    $unit = New-Unit $name $data "PASS $name migration and two independent reloads. Evidence in $data"
+    $probe = "-guc3=$Case $Extra"
+    if ($Case -in @('partial-failure', 'failed-rollback')) {
+        Add-Launch $unit 'blocked' $false $false "$probe -guc3stage=blocked"
+        Add-Action $unit 'RestoreC3Input' @{ From = $inputCopy; To = $working; Hash = $inputHash }
+    }
+    foreach ($stage in @('migrate', 'reload1', 'reload2')) {
+        Add-Launch $unit $stage $false $false "$probe -guc3stage=$stage"
+    }
+}
+
 Measure-Phase 'planning' {
     foreach ($name in $profiles) {
+        if ($name -eq 'CultivatorMigration') {
+            if (!$CultivatorFixtures -or $CultivatorFixtures -contains 'aperture-conflicts') {
+                Add-CultivatorMigrationUnit 'aperture-conflicts' $CultivatorV2Saves['Phase2Lifecycle'] 'aperture-conflicts'
+            }
+            if (!$CultivatorFixtures) { foreach ($path in $V1Saves) {
+                $label = [IO.Path]::GetFileNameWithoutExtension($path)
+                Add-CultivatorMigrationUnit "V1-$label" $path 'archive' "-guv1migration -guv1source=$label"
+            }
+            foreach ($label in $CultivatorV2Saves.Keys | Sort-Object) {
+                Add-CultivatorMigrationUnit "V2-$label" $CultivatorV2Saves[$label] 'archive'
+            }
+            Add-CultivatorMigrationUnit 'legacy-evidence' $CultivatorVariantsSource 'legacy-evidence'
+            foreach ($case in @('aperture-conflicts', 'duplicate-identities', 'valid-committed', 'valid-empty', 'partial-failure', 'failed-rollback')) {
+                if ($case -eq 'aperture-conflicts') { continue }
+                if ($CultivatorFixtures -and $CultivatorFixtures -notcontains $case) { continue }
+                Add-CultivatorMigrationUnit $case $CultivatorV2Saves['Phase2Lifecycle'] $case
+            }
+            }
+            continue
+        }
         $probe = switch ($name) {
             'IdeologyReset' { '-guemptycavernreset' }
             'Awakening' { '-guawakeningsafety' }
@@ -324,37 +470,38 @@ Measure-Phase 'planning' {
         }
         $saveData = Join-Path $testRoot $name
         if ($historical[$name]) {
+            if ($profiles -contains 'CultivatorMigration') {
+                $size = $name.Substring(6)
+                Add-CultivatorMigrationUnit "$name-derivative" $historical[$name] "historical-$size"
+                continue
+            }
             New-ProfileConfig $saveData $name
             $original = (Resolve-Path -LiteralPath $historical[$name]).Path
             $saves = Join-Path $saveData 'Saves'
             New-Item -ItemType Directory -Path $saves | Out-Null
             $copy = Join-Path $saves 'autostart.rws'
-            $hash = (Get-FileHash -LiteralPath $original).Hash
-            Copy-Item -LiteralPath $original -Destination $copy
+            Copy-CheckedSave $original $copy
             if ($name -eq 'Legacy31') {
                 # The historical generator left an empty test-only component in this fixture.
                 $xml = [IO.File]::ReadAllText($copy)
                 [IO.File]::WriteAllText($copy, $xml.Replace('<li Class="Legacy31" />', ''))
             }
-            $unit = New-Unit $name $saveData "PASS $name historical copy loaded. The original SHA-256 is unchanged. Evidence in $saveData"
+            $unit = New-Unit $name $saveData "PASS $name historical copy loaded. Evidence in $saveData"
             Add-Launch $unit 'reload' $false $Rendered.IsPresent $probe
-            Add-Action $unit 'AssertHash' @{ Path = $original; Hash = $hash; Message = "Historical source file changed: $original" }
             continue
         }
         if ($name -eq 'V1Migration') {
             foreach ($sourceSave in $V1Saves) {
                 $original = (Resolve-Path -LiteralPath $sourceSave).Path
-                $hash = (Get-FileHash -LiteralPath $original).Hash
                 $sourceName = [IO.Path]::GetFileNameWithoutExtension($original)
                 $migrationData = Join-Path $testRoot "V1Migration-$sourceName"
                 New-ProfileConfig $migrationData $name
                 New-Item -ItemType Directory -Path (Join-Path $migrationData 'Saves') -Force | Out-Null
-                Copy-Item -LiteralPath $original -Destination (Join-Path $migrationData 'Saves/autostart.rws')
-                Copy-Item -LiteralPath $original -Destination (Join-Path $migrationData 'v1-source.rws')
-                $unit = New-Unit "V1Migration-$sourceName" $migrationData "PASS V1Migration $sourceName. The original SHA-256 is unchanged. Evidence in $migrationData"
+                Copy-CheckedSave $original (Join-Path $migrationData 'Saves/autostart.rws')
+                Copy-CheckedSave $original (Join-Path $migrationData 'v1-source.rws')
+                $unit = New-Unit "V1Migration-$sourceName" $migrationData "PASS V1Migration $sourceName. Evidence in $migrationData"
                 Add-Launch $unit 'reload' $false $false "-guv1migration -guv1source=$sourceName"
                 Add-Launch $unit 'resave' $false $false "-guv1migration -guv1resave -guv1source=$sourceName"
-                Add-Action $unit 'AssertHash' @{ Path = $original; Hash = $hash; Message = "V1 source save changed: $original" }
             }
             continue
         }
@@ -517,6 +664,15 @@ function Step-Unit($Unit) {
         switch ($step.Kind) {
             'Launch' { Start-Launch $Unit $step; return }
             'Copy' { Copy-Item -LiteralPath $step.From -Destination $step.To -Force }
+            'RestoreC3Input' {
+                if ((Get-FileHash -LiteralPath $step.From).Hash -ne $step.Hash -or
+                    (Get-FileHash -LiteralPath $step.To).Hash -ne $step.Hash) {
+                    Set-UnitFailed $Unit $step 'The failed load changed a fixture input.'
+                    return
+                }
+                Copy-Item -LiteralPath $step.From -Destination $step.To -Force
+                ([IO.FileInfo]$step.To).IsReadOnly = $false
+            }
             'CultivatorInvalidFixture' {
                 $workingSave = Join-Path $Unit.SaveData 'Saves/autostart.rws'
                 $verifiedCopy = Join-Path $Unit.SaveData 'cultivator-after-reload2.backup.rws'
@@ -538,9 +694,6 @@ function Step-Unit($Unit) {
                     return
                 }
                 $step.Detail = "Invalid fixture created from unchanged backup SHA-256 $sourceHash"
-            }
-            'AssertHash' {
-                if ((Get-FileHash -LiteralPath $step.Path).Hash -ne $step.Hash) { Set-UnitFailed $Unit $step $step.Message; return }
             }
         }
         $step.Status = 'PASS'
@@ -646,7 +799,7 @@ Measure-Phase 'hashAfter' {
 foreach ($unit in $units) {
     foreach ($step in $unit.Steps | Where-Object { $_.Kind -eq 'Launch' -and $_.LaunchUtc }) {
         $log = Join-Path $unit.SaveData "$($step.Stage).stdout.txt"
-        $head = if (Test-Path -LiteralPath $log) { (Get-Content -LiteralPath $log -TotalCount 20) -join "`n" } else { '' }
+        $head = if (Test-Path -LiteralPath $log) { (Get-Content -LiteralPath $log -TotalCount 40) -join "`n" } else { '' }
         if ($head -notlike "*-savedatafolder=$($unit.SaveData)*" -or $head -notlike "*Save data folder overridden to $($unit.SaveData)*") {
             $integrity.IsolationProblems += "$($unit.Name)/$($step.Stage): log does not show its own save data folder"
         }
@@ -663,22 +816,56 @@ if ($integrity.IsolationProblems) { $campaignFailed = $true }
 finally {
     # Runs after success, failure and Ctrl+C. Only this run's own child processes and game copies are touched.
     foreach ($unit in $units) {
-        if ($unit.Process -and !$unit.Process.HasExited) {
-            try { $unit.Process.Kill(); [void]$unit.Process.WaitForExit(15000) } catch { }
-            $unit.Status = 'ABORTED'
-            $state.AnyFailure = $true
+        try {
+            if ($unit.Process -and !$unit.Process.HasExited) {
+                $unit.Status = 'ABORTED'
+                $state.AnyFailure = $true
+                $unit.Process.Kill()
+                [void]$unit.Process.WaitForExit(15000)
+            }
+        }
+        catch { Write-Warning "Could not stop the game for $($unit.Name): $($_.Exception.Message)" }
+    }
+    try {
+        foreach ($entry in $sourceSaves.Values) {
+            try {
+                $entry.Handle.Position = 0
+                $entry.After = (Get-FileHash -InputStream $entry.Handle).Hash
+                $entry.Unchanged = $entry.Before -eq $entry.After
+            }
+            catch { $entry.Error = $_.Exception.Message }
+            finally { $entry.Handle.Dispose() }
+            if (!$entry.Unchanged) {
+                $campaignFailed = $true
+                Write-Warning "Source save could not be verified after campaign: $($entry.Path) $($entry.Error)"
+            }
+        }
+        if ($sourceSaves.Count) { Write-SourceSaveEvidence }
+    }
+    finally {
+        try {
+            $cleanupTimer = [Diagnostics.Stopwatch]::StartNew()
+            foreach ($game in $games) { Remove-GameCopy $game }
+            $phases['cleanup'] = [math]::Round($cleanupTimer.Elapsed.TotalMilliseconds)
+        }
+        finally {
+            [void][ProjectGuRunner.Power]::SetThreadExecutionState([uint32]'0x80000000')
+            $runLock.Dispose()
         }
     }
-    $cleanupTimer = [Diagnostics.Stopwatch]::StartNew()
-    foreach ($game in $games) { Remove-GameCopy $game }
-    $phases['cleanup'] = [math]::Round($cleanupTimer.Elapsed.TotalMilliseconds)
-    [void][ProjectGuRunner.Power]::SetThreadExecutionState([uint32]'0x80000000')
-    $runLock.Dispose()
 }
 
 # A resume from sleep or hibernation during the run invalidates its timings and any timeout it produced.
-$integrity.SystemSleep = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 42, 107; StartTime = $campaignStartLocal } -ErrorAction SilentlyContinue |
-    ForEach-Object { '{0:o} {1}' -f $_.TimeCreated, $(if ($_.Id -eq 42) { 'entering sleep' } else { 'resumed' }) })
+try {
+    $integrity.SystemSleep = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 42, 107; StartTime = $campaignStartLocal } -ErrorAction Stop |
+        ForEach-Object { '{0:o} {1}' -f $_.TimeCreated, $(if ($_.Id -eq 42) { 'entering sleep' } else { 'resumed' }) })
+    $integrity.SystemSleepCheck = 'complete'
+}
+catch {
+    $integrity.SystemSleep = @()
+    $integrity.SystemSleepCheck = "unavailable: $($_.Exception.Message)"
+    Write-Warning "System sleep events could not be inspected; campaign timing validity is unverified: $($_.Exception.Message)"
+}
 if ($integrity.SystemSleep) { $campaignFailed = $true; Write-Warning "The system slept during this run. Its timings and timeouts are not valid: $($integrity.SystemSleep -join '; ')" }
 
 # ---------------------------------------------------------------------------------------------------------------------

@@ -70,10 +70,31 @@ internal static class CultivatorFoundationChecks
             world.LoadedGame();
             Check(!world.CanSaveCultivators && world.PendingLegacyRows.SourceXml == original.SourceXml,
                 "LoadedGame without a successful registry handoff retains input and blocks saving.");
-            Scribe.mode = LoadSaveMode.Saving;
-            try { ExpectFailure(world.ExposeData); }
-            finally { Scribe.mode = LoadSaveMode.Inactive; }
-            Check(!world.CanSaveCultivators, "Scribe refuses an unsafe write before emitting cultivator fields.");
+            var originalComponents = game.components;
+            var brokenRegistry = new GuIndividualRegistry(game);
+            game.components = [brokenRegistry, world];
+            try
+            {
+                typeof(GuIndividualRegistry).GetField("records", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(brokenRegistry, null);
+                try
+                {
+                    brokenRegistry.LoadedGame();
+                    throw new InvalidOperationException("Expected the synthetic upstream registry failure.");
+                }
+                catch (NullReferenceException) { }
+                Check(!world.CanSaveCultivators && ReferenceEquals(world.PendingLegacyRows, original),
+                    "An exception before the upstream success handoff leaves the cultivator source intact.");
+                Scribe.mode = LoadSaveMode.Saving;
+                try
+                {
+                    ExpectFailure(world.ExposeData);
+                    ExpectFailure(brokenRegistry.ExposeData);
+                }
+                finally { Scribe.mode = LoadSaveMode.Inactive; }
+                Check(!world.CanSaveCultivators, "Both Scribe writers reject a save after upstream load failure.");
+            }
+            finally { game.components = originalComponents; }
         }
         finally { File.Delete(path); }
     }
@@ -133,6 +154,15 @@ internal static class CultivatorFoundationChecks
             && plan.Evidence.Any(entry => entry.RawEvidence.Contains(a.GetUniqueLoadID()) && entry.RawEvidence.Contains(b.GetUniqueLoadID())),
             "Existing aperture IDs and both conflicting claims survive, with no provisional write.");
 
+        var savedConflict = plan.Evidence.Single(entry => entry.Key.StartsWith("aperture:", StringComparison.Ordinal));
+        string savedPayload = savedConflict.RawEvidence.Replace("\n", "\r\n", StringComparison.Ordinal);
+        savedConflict.RawEvidence = savedPayload;
+        int evidenceCount = plan.Evidence.Count;
+        var reopened = GuCultivatorPlan.PrepareCommitted(plan.Records, plan.Evidence, [a, b, c], []);
+        Check(reopened.Evidence.Count == evidenceCount && savedConflict.RawEvidence == savedPayload
+            && reopened.ByPawn.Count == 0 && reopened.ByAperture.Count == 0,
+            "Windows Scribe diagnostic line endings preserve the saved conflict without appending a duplicate.");
+
         var one = GuCultivatorPlan.NewRecord(first.GetUniqueLoadID(), "duplicate", first);
         var two = GuCultivatorPlan.NewRecord(second.GetUniqueLoadID(), "duplicate", second);
         two.Id = one.Id.ToUpperInvariant();
@@ -175,6 +205,26 @@ internal static class CultivatorFoundationChecks
         Check(supply.MatureCount == 3 && supply.JuvenileCount == 1 && supply.Revision == 0
             && inventoryStack.stackCount == 2 && existing.CustodyRevision == revision && existing.AnchorHint == originalAnchor,
             "Failure preserves managed quantities and the exact existing Gu binding.");
+
+        const string interference = "rollback-conflicting-preimage";
+        var failure = new InvalidOperationException("Injected after the second aperture write.");
+        AggregateException rollback = null;
+        try
+        {
+            plan.CommitApertureWrites(() => publications++, count =>
+            {
+                if (count != 2) return;
+                b.ReplaceCultivatorApertureId(b.ApertureId, interference);
+                throw failure;
+            });
+        }
+        catch (AggregateException error) { rollback = error; }
+        Check(rollback?.InnerExceptions.Count == 2 && rollback.InnerExceptions[0] == failure
+            && rollback.InnerExceptions[1].Message.Contains(b.GetUniqueLoadID(), StringComparison.Ordinal)
+            && rollback.InnerExceptions[1].Message.Contains(interference, StringComparison.Ordinal)
+            && publications == 0 && a.ApertureId == null && b.ApertureId == interference,
+            "Failed rollback reports the affected aperture and observed ID, restores other preimages and publishes nothing.");
+        b.ReplaceCultivatorApertureId(interference, null);
 
         var external = Guid.NewGuid().ToString("N");
         b.ReplaceCultivatorApertureId(null, external);

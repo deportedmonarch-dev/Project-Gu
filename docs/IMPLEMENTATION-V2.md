@@ -192,7 +192,7 @@ Measured from evidence folders: copying the game and building takes 7–10 s per
 - Binding still requires the legacy wild Pawn class (F15). Missing species-state classes are not yet preserved as opaque XML.
 - World-location recovery is a development operation. Expeditions, notifications and rival claims are future work.
 - Caravans, transport pods and trade with dormant Gu Things are untested. Tradeability stays `None`.
-- The original 31×31 and 39×39 historical saves are still unavailable. The copies passed.
+- The original 31×31 and 39×39 historical saves are still unavailable. Derivative copies were exercised in earlier campaigns, but that limited evidence is not a compatibility guarantee; historical-save support is outside the current development-build acceptance gate.
 - Rendered owner checks of the Phase 2 developer actions and hauling are open.
 
 ## Phase 3A-I — Durable identity and lossless migration foundation
@@ -259,4 +259,26 @@ The Phase 2 lifecycle, awakening, cargo and core fixtures passed generation and 
 
 This matrix covers the tested Core-only native paths and the injected failure points. Broad legacy migration, additional holder and mod combinations, generalized recovery, long-history bounds and C0/C4 measurements are open for their respective approval gates.
 
-**Stage 3A-III recommendation:** Approve the planned migration and recovery matrix separately. Begin with archived legacy saves and conflict or failure fixtures, then verify identity, Gu custody and conservation across independent reloads.
+## Phase 3A-III — Legacy migration, conflict handling and recovery
+
+The owner provisionally accepted Stage 3A-II and authorized the C3 matrix on `efd328257d1c95675f738e3bb118a360315361ec`, including the hash-verified historical derivatives. The baseline was pushed to `feature/gu-framework-v2` by fast-forward.
+
+The runner validates all seven V1 sources against `SHA256SUMS` before launching the game. It denies writes and deletion to every source by holding a read-sharing handle, verifies the working copies before loading them, and hashes all held sources in cleanup even if a stage fails. Every mutation and resave targets a disposable copy. The local V1 archives and historical derivatives also have the read-only file attribute. The failed-preflight control `cc784414e9e747919951b2f933179271` stopped on a deliberately missing input and finalized matching before and after SHA-256 values for the seven sources already held.
+
+The first native campaign, `6255242e35b8451dacdb63e4c047f6d6`, exposed a duplicate aperture-conflict entry after fresh reload. Windows Scribe can return CRLF for a diagnostic built with LF. Conflict comparison now treats those line endings as equivalent and retains the saved payload verbatim. Failed rollback diagnostics now identify the affected native Hediff and Pawn, the intended preimage, the applied ID and the observed ID. Both corrections are limited to load and recovery.
+
+`scripts/verify.ps1 -Focused` passed structural checks, Release compilation with zero warnings and errors, **49 cultivator foundation checks** and the existing managed regressions. The new checks cover the actual upstream failure boundary and both Scribe writers, rollback failure and restoration of unaffected preimages, and repeated diagnostics with Windows line endings. The engine pin is **1.7.5014 rev1195**. The `Assembly-CSharp.dll` SHA-256 was `11D7C9FAF52BE22933DA840D906B1AF7B48F7EA574A886C045B1FB12BD366124`.
+
+### Revised development acceptance and current-format evidence
+
+The owner has explicitly removed compatibility with old experimental V1 saves from the development-build release gate. Historical V1 migration, the seven archived sources, the two derivatives and recovery cases specific to those formats remain unverified for this milestone; the missing original 31×31 and 39×39 saves were not tested. The legacy migration code and fixtures are retained in the working changes for future use, but no compatibility claim is made.
+
+The retained current-format corrections are CRLF-insensitive conflict de-duplication that preserves the original saved payload, and rollback diagnostics that identify the aperture, Pawn, preimage, applied value and observed value. Managed coverage checks repeated Scribe conflict loading and failed rollback. `LiveCultivatorMigration` supplies the current Phase 2 conflict case; its optional V1 branches are not part of this acceptance.
+
+On RimWorld **1.7.5014 rev1195**, the focused native `CultivatorLifecycle` fixture passed generation, reload, second reload and invalid-save rejection in campaign `Priority0-55d25c8814544699a4e54110ffc212af`. The runner preserved the per-fixture PASS results but its overall invocation ended during final reporting because the System event log was inaccessible; this campaign is used only for its completed fixture evidence, not as a successful overall campaign.
+
+The complete focused C3 current-format conflict campaign `Priority0-1b2b00cced14478694ea55bae5639f20` passed migration and two independent fresh-process reloads. Each process reported 3 cultivator records, 0 bound Pawn claims, 0 aperture owners, 5 evidence entries and 56 Gu records. The saved snapshot contains 3 records, 5 evidence entries and 64 conservation facts. The harness compared record identity, raw conflict evidence and conservation against the migration snapshot on both reloads. It verified exactly one committed cultivator store, no arbitrary conflict winner, stable evidence, unchanged Gu custody and physical conservation. The current-format Phase 2 source SHA-256 was unchanged (`8AEBD9259A230255942AD5FABBD4C3B0B7DCB5E04224A549F8B2421167EEE8CE`); the disposable game-copy hash had zero changes and runner isolation checks had zero findings. Seven V1 archive hashes and both derivative hashes were also rechecked unchanged, without loading those saves.
+
+The machine's shared-copy ACL probe cannot enforce its deny ACE in this workspace. Focused native runs used the runner's existing sequential `PerWorker` mode, one disposable game copy, and post-run tree hashing instead. RimWorld execution passed; only timing validity is unverified because Windows denied access to the System sleep event log. No throughput benchmark was run.
+
+The revised Stage 3A development acceptance criteria are therefore met by managed verification, game-linked Release compilation and the focused current-format native evidence above. Historical migration, old-save recovery, C0/C4 measurements and broader population-cost claims remain open and are not represented as passed.

@@ -1,6 +1,6 @@
 # Phase 3A proposal — durable cultivator identity
 
-**Status — Approved design baseline. Stage 3A-I is implemented and managed-checked. Stage 3A-II and native verification require separate authorization.** [Implementation ledger](IMPLEMENTATION-V2.md#phase-3a-i--durable-identity-and-lossless-migration-foundation)
+**Status — Approved design baseline. Stage 3A-I is complete and Stage 3A-II is provisionally accepted. Under the revised development policy, old experimental V1 save compatibility is not a release blocker; Stage 3A-III focuses on current-format identity, conflicts, custody and save/reload integrity. Historical migration remains unsupported or unverified unless separately demonstrated. Benchmark equivalence and measurements have a separate approval gate.** [Implementation ledger](IMPLEMENTATION-V2.md#phase-3a-iii--legacy-migration-conflict-handling-and-recovery)
 
 **Baseline —** `2705cfd9ae85782f6218a44193d205b388beff4c` on `feature/gu-framework-v2`. The independent review inspected the C# and the pinned RimWorld 1.7.5014 rev1195 assembly statically. [Acceptance plan](V2-PHASE3A-TEST-PLAN.md)
 

@@ -213,8 +213,16 @@ namespace ProjectGu
             {
                 var errors = new List<Exception> { original };
                 for (int i = applied - 1; i >= 0; i--)
-                    try { writes[i].Aperture.ReplaceCultivatorApertureId(writes[i].After, writes[i].Before); }
-                    catch (Exception error) { errors.Add(error); }
+                {
+                    var write = writes[i];
+                    try { write.Aperture.ReplaceCultivatorApertureId(write.After, write.Before); }
+                    catch (Exception error)
+                    {
+                        errors.Add(new InvalidOperationException(
+                            $"Aperture {write.Aperture.GetUniqueLoadID()} on {write.Owner.GetUniqueLoadID()} failed rollback. "
+                            + $"Preimage {write.Before ?? "<absent>"}, applied {write.After}, observed {write.Aperture.ApertureId ?? "<absent>"}.", error));
+                    }
+                }
                 if (errors.Count != 1)
                     throw new AggregateException("Cultivator aperture rollback could not restore all preimages.", errors);
                 throw;
@@ -304,8 +312,10 @@ namespace ProjectGu
         private void RecordConflict(string key, string[] tokens, IEnumerable<string> claims, string reason)
         {
             string facts = string.Join("\n", claims.OrderBy(claim => claim, StringComparer.Ordinal));
+            // Scribe on Windows can reopen the generated diagnostic with CRLF. Keep the saved payload intact.
+            string comparableFacts = facts.Replace("\r\n", "\n", StringComparison.Ordinal);
             if (Evidence.Any(entry => (entry.Key == key || entry.Key.StartsWith(key + ":", StringComparison.Ordinal))
-                && entry.RawEvidence == facts)) return;
+                && entry.RawEvidence.Replace("\r\n", "\n", StringComparison.Ordinal) == comparableFacts)) return;
             // Distinct observations under the same key preserve both sets of claimants.
             string evidenceKey = key;
             for (int suffix = 2; Evidence.Any(entry => entry.Key == evidenceKey); suffix++)

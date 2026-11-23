@@ -58,6 +58,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     public override void LoadedGame() => pending = () =>
     {
         if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(NewCheck, "new");
+        else if (C3Stage is { } c3Stage) Run(VerifyCultivatorMigration, c3Stage);
         else if (CultivatorLifecycle && GenCommandLine.CommandLineArgPassed("gucultivatorreload2")) Run(VerifyCultivatorLifecycleSecondReload, "reload2");
         else if (CultivatorLifecycle && GenCommandLine.CommandLineArgPassed("gucultivatorinvalid")) Run(VerifyCultivatorInvalidSave, "invalid");
         else if (GuRegistryLoadTiming.Stage is { } benchmarkStage) Run(MeasureGuRegistryBenchmark, benchmarkStage);
