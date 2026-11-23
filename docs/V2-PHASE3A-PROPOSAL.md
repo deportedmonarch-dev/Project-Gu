@@ -52,7 +52,7 @@ During `LoadingVars`, capture a detached copy of the complete `guPawnRecords` no
 | Missing token, literal `null`, malformed data, inconsistent resolution, or contradictory claims | Preserve the raw row and any independent Gu anchor evidence. Hold affected bindings unresolved. A Gu anchor, a name, a shared aptitude value or a lone candidate cannot substitute for the missing token. |
 | Evidence already erased by an earlier load and resave | Report the limit. Preserve the surrounding Gu evidence still present. Recovery requires an older trustworthy source or a separately authorized evidence-based action. |
 
-Use exact, ordinal matching for same-save Pawn tokens. Validate GUIDs and use one canonical identity comparison for valid GUIDs. An existing nonempty malformed aperture ID remains evidence. Exact duplicate rows and conflicting rows all survive classification. Conflicting Pawn, cultivator or aperture claims block the shared key and every affected ownership lookup. Preserve source keys, all claimants and any already established Phase 2 Gu placement. Phase 3A makes no automatic merge, reassignment or repair of existing Gu custody.
+Use exact, ordinal matching for same-save Pawn tokens. Validate GUIDs and use one canonical identity comparison for valid GUIDs. An existing nonempty malformed aperture ID remains evidence. Exact duplicate rows and conflicting rows all survive classification. Conflicting Pawn, cultivator or aperture claims block the shared key and every affected ownership lookup. Discovery and awakening must check those blocked keys before allocating an identity or rolling aptitude. Preserve source keys, all claimants and any already established Phase 2 Gu placement. Phase 3A makes no automatic merge, reassignment or repair of existing Gu custody.
 
 ### 4.2 Readiness, ordering and commit
 
@@ -74,6 +74,8 @@ The new store has an explicit supported schema version and a committed migration
 | Incomplete or inconsistent marker, unsupported schema, invalid envelope or contradictory dual authorities | Keep the input for diagnosis. Block normal mutation and saving until an explicit recovery succeeds. An invalid new key never triggers silent legacy import or replacement with an empty store. |
 
 Extend the existing save guard to include migration, awakening publication and native teardown reconciliation while they are in flight. Retain a serialization-time check before writing either section. The smallest safe policy on migration failure is save blocking. A later legacy-writing fallback would need to write the original Pawn token and all relevant evidence losslessly. Re-serializing a resolved-null legacy object through normal Scribe is insufficient.
+
+Save the validated Pawn load ID independently of the Scribe reference. For a verified bound dead Pawn with native save ownership, use the pinned reference option `saveDestroyedThings: true` so an engine-owned Pawn marked `Destroyed` can round-trip. Verify this on both a corpse-held and a dead world Pawn. An unowned or discarded Pawn gets no saved object reference. Cultivator records never deep-save Pawns or act as a retention root.
 
 A successful next save writes the new authoritative cultivator store and its evidence. Keep the existing Gu V2 data, Scribe keys, binding revisions, Phase 2 placement authority and aperture IDs. A pre-3A V2 build cannot safely read a 3A-written cultivator store and is outside the downgrade contract. Work on disposable copies and hash originals before and after any future verification.
 
