@@ -36,7 +36,7 @@ namespace ProjectGu.Jobs
                         && Current.Game?.GetComponent<GuIndividualRegistry>()?.TryCaptureWild(wild, expectedRevision, pawn,
                             wild.Position, out _, out reason) == true)
                     {
-                        Messages.Message("Captured Gu as a dormant, unrefined physical possession. Its allegiance did not change.",
+                        Messages.Message("Captured Gu in dormant form. It remains unrefined on the ground; pick it up to carry it.",
                             MessageTypeDefOf.NeutralEvent, false);
                         return;
                     }
