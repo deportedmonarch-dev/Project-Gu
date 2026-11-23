@@ -35,6 +35,12 @@ namespace ProjectGu.Clan
         private int nextAttemptTick;
         private int failedAttempts;
 
+        // Aptitude decided at game creation, keyed by pawn ThingID, so a save made before founding
+        // cannot reroll it. Cleared once founding hands the values to the cultivator records.
+        private Dictionary<string, int> plannedAptitudes = new();
+        private List<string> plannedKeys;
+        private List<int> plannedValues;
+
         private const int RetryInterval = 60;
         private const int MaxAttempts = 600; // About ten in-game minutes of waiting for the registry.
 
@@ -51,6 +57,8 @@ namespace ProjectGu.Clan
             Scribe_Values.Look(ref foundingPending, "guFoundingPending");
             Scribe_Values.Look(ref foundingDone, "guFoundingDone");
             Scribe_Values.Look(ref failedAttempts, "guFoundingAttempts");
+            Scribe_Collections.Look(ref plannedAptitudes, "guPlannedAptitudes", LookMode.Value, LookMode.Value, ref plannedKeys, ref plannedValues);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit) plannedAptitudes ??= new Dictionary<string, int>();
         }
 
         public override string Summary(Scenario scen) =>
@@ -80,6 +88,7 @@ namespace ProjectGu.Clan
         {
             foundingPending = foundingDone = false;
             nextAttemptTick = failedAttempts = 0;
+            plannedAptitudes = new Dictionary<string, int>();
         }
 
         public override void PostGameStart()
@@ -92,6 +101,7 @@ namespace ProjectGu.Clan
                 return;
             }
             GuClanRoles.Assign(map.mapPawns.FreeColonistsSpawned.ToList(), discipleCount, discipleMinAge);
+            PlanAptitudes(map.mapPawns.FreeColonistsSpawned);
             if (placeSpringEntrance) TryPlaceSpringEntrance(map);
             foundingPending = true;
         }
@@ -129,7 +139,7 @@ namespace ProjectGu.Clan
             {
                 GuCultivatorRecord record = world.GetOrCreate(elder);
                 if (record != null && record.State == AwakeningState.Unattempted)
-                    record.LatentAptitude = AptitudeRules.ClampOrdinary(elderAptitude.RandomInRange);
+                    record.LatentAptitude = PlannedAptitude(elder, GuClanRole.Elder);
                 if (record != null && record.State == AwakeningState.Unattempted
                     && GuAwakeningService.TryAwaken(world, elder, out string outcome))
                     letter.AppendLine($"Elder {elder.LabelShort}: {outcome}");
@@ -141,14 +151,19 @@ namespace ProjectGu.Clan
                 }
             }
 
-            foreach (Pawn disciple in disciples)
+            // Disciples and workers keep the aptitude planned at game creation, so reloading a save made
+            // before founding cannot change it. The grade stays hidden until an awakening attempt.
+            foreach (Pawn founder in disciples.Concat(workers))
             {
-                GuCultivatorRecord record = world.GetOrCreate(disciple);
-                if (record == null) continue;
-                if (disciplesHaveAptitude && record.State == AwakeningState.Unattempted && record.LatentAptitude == 0)
-                    record.LatentAptitude = GuClanRoles.GiftedAptitude();
+                GuCultivatorRecord record = world.GetOrCreate(founder);
+                if (record?.State == AwakeningState.Unattempted
+                    && plannedAptitudes.TryGetValue(founder.ThingID, out int planned))
+                    record.LatentAptitude = planned;
+                else if (record?.State == AwakeningState.Unattempted && disciplesHaveAptitude
+                    && GuClanRoles.RoleOf(founder) == GuClanRole.Disciple && record.LatentAptitude == 0)
+                    record.LatentAptitude = GuClanRoles.GiftedAptitude(); // Save from before planned aptitudes.
             }
-            foreach (Pawn worker in workers) world.GetOrCreate(worker);
+            plannedAptitudes.Clear();
 
             if (disciples.Count > 0)
                 letter.AppendLine("Disciples: " + string.Join(", ", disciples.Select(p => p.LabelShort))
@@ -165,6 +180,32 @@ namespace ProjectGu.Clan
             Find.LetterStack.ReceiveLetter("Clan founded", letter.ToString().TrimEnd(), LetterDefOf.PositiveEvent,
                 elder != null ? new LookTargets(elder) : LookTargets.Invalid);
         }
+
+        /// <summary>
+        /// Rolls each founder's hidden aptitude once, when the game is created. The odds match what
+        /// founding produced before: the elder rolls the configured B-grade range, mortals roll the
+        /// ordinary latent-aptitude table, and a gifted disciple who rolls no aptitude rerolls on the
+        /// gifted table.
+        /// </summary>
+        private void PlanAptitudes(IEnumerable<Pawn> colonists)
+        {
+            foreach (Pawn pawn in colonists)
+            {
+                GuClanRole role = GuClanRoles.RoleOf(pawn);
+                if (role != GuClanRole.None) plannedAptitudes[pawn.ThingID] = RollAptitude(role);
+            }
+        }
+
+        private int RollAptitude(GuClanRole role)
+        {
+            if (role == GuClanRole.Elder) return AptitudeRules.ClampOrdinary(elderAptitude.RandomInRange);
+            int natural = LatentAptitudeRules.Generate();
+            return natural == 0 && role == GuClanRole.Disciple && disciplesHaveAptitude ? GuClanRoles.GiftedAptitude() : natural;
+        }
+
+        // Saves from before planned aptitudes have no value, so the elder rolls once here.
+        private int PlannedAptitude(Pawn pawn, GuClanRole role) =>
+            plannedAptitudes.TryGetValue(pawn.ThingID, out int value) ? value : RollAptitude(role);
 
         private void Abandon(string reason)
         {

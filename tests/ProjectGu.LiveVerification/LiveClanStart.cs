@@ -102,6 +102,10 @@ public sealed partial class LiveLifecycleChecks
     private static List<Building_GuPocketProbeEndpoint> Pits(Map map) =>
         map.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.endpoint).OfType<Building_GuPocketProbeEndpoint>().ToList();
     private static string ClanStatePath => Path.Combine(GenFilePaths.SaveDataFolderPath, "clan-state.txt");
+    private static string ClanPlanPath => Path.Combine(GenFilePaths.SaveDataFolderPath, "clan-plan.txt");
+    private static Dictionary<string, int> PlannedAptitudes =>
+        (Dictionary<string, int>)AccessTools.Field(typeof(ScenPart_GuClanStart), "plannedAptitudes").GetValue(ClanPart);
+    private static Pawn firstSessionElder;
     private static string FoundingState => $"pending={FoundingPending} done={FoundingDone} letters={FoundedLetters} tick={Find.TickManager.TicksGame} "
         + $"elderApertures={Clan(GuClanRole.Elder).Sum(p => Apertures(p).Count)} registryReady={Cultivators?.CanSaveCultivators}";
 
@@ -146,9 +150,12 @@ public sealed partial class LiveLifecycleChecks
         Check(stones == 60, $"The clan starts with 60 primeval stones, found {stones}");
         Report($"Start: elder {Describe(elder)}; disciples {string.Join(", ", disciples.Select(Describe))}; workers {string.Join(", ", workers.Select(Describe))}; pit {distance:0.0} cells from the nearest colonist at {pit.Position}; biome {home.Biome.defName}, hilliness {home.TileInfo.hilliness}.");
 
+        var plan = AssertPlanned(colonists);
+        File.WriteAllLines(ClanPlanPath, plan.Select(p => $"{p.Key}={p.Value}"));
         GameDataSaveLoader.SaveGame(PrefoundingSave);
         TickUntil(() => FoundingDone, 600, "Founding completed within ten seconds of play");
         var elderRecord = AssertFounded(elder, disciples, workers);
+        AssertPlanApplied(plan, elder, disciples, workers);
         var elderAperture = Apertures(elder).Single();
 
         // Ordinary play: no Development Mode from here on.
@@ -175,14 +182,24 @@ public sealed partial class LiveLifecycleChecks
         Check(!disciple.health.hediffSet.hediffs.Any(h => h.def.defName == "GU_MortalUnawakened") && GuClanRoles.RoleOf(disciple) == GuClanRole.Disciple,
             "The disciple keeps the clan role and loses the unawakened marker");
         var discipleAperture = Apertures(disciple).Single();
+        Check(discipleAperture.Aptitude == plan[disciple.ThingID],
+            $"The disciple's aperture used the aptitude planned at game creation ({plan[disciple.ThingID]})");
         Report($"Ordinary travel and awakening: {disciple.LabelShort} descended in {ticks} ticks and opened a {discipleAperture.AptitudeGrade}-grade aperture ({discipleAperture.Aptitude}). Hope Gu {mature}+{juvenile} -> {spring.HopeGuAvailable}+{spring.HopeGuJuvenile}.");
 
         var exit = site.Endpoints.Single(end => !end.IsSurface).Anchor;
         Order(disciple, exit, "Use underground passage");
         TickUntil(() => disciple.Map == home, 3000, "The disciple climbed back to the surface");
 
-        ExerciseClanHauling(home, site, pit, cave, spring, workers);
-        ExerciseClanTrade(home, elder);
+        // A day of simulated hauling must not depend on what the storyteller sends. One run lost the elder
+        // (the trade negotiator) to an unlogged event during that day. Fixture-fired incidents still run.
+        DebugSettings.enableStoryteller = false;
+        try
+        {
+            ExerciseClanHauling(home, site, pit, cave, spring, workers);
+            Check(!elder.Dead && elder.Map == home, "The elder survived the simulated day and can negotiate");
+            ExerciseClanTrade(home, elder);
+        }
+        finally { DebugSettings.enableStoryteller = true; }
         ExerciseObstructedPit(home);
 
         File.WriteAllLines(ClanStatePath, new[]
@@ -192,6 +209,31 @@ public sealed partial class LiveLifecycleChecks
         });
         AssertNoErrors("new");
         GameDataSaveLoader.SaveGame(SaveName);
+    }
+
+    // Every founder's aptitude is rolled once in PostGameStart and kept on the scenario part until founding.
+    private static Dictionary<string, int> AssertPlanned(List<Pawn> colonists)
+    {
+        var plan = new Dictionary<string, int>(PlannedAptitudes);
+        Check(plan.Count == colonists.Count && colonists.All(p => plan.ContainsKey(p.ThingID)), $"Every founder has a planned aptitude ({plan.Count})");
+        Pawn elder = Clan(GuClanRole.Elder).Single();
+        Check(plan[elder.ThingID] is >= 60 and <= 74, $"The elder's planned aptitude is B-grade ({plan[elder.ThingID]})");
+        Check(Clan(GuClanRole.Disciple).All(d => plan[d.ThingID] is >= 20 and <= 99), "Each disciple's planned aptitude is ordinary and nonzero");
+        Report("Planned aptitudes: " + string.Join(", ", colonists.Select(p => $"{p.LabelShort} {GuClanRoles.RoleOf(p)} {plan[p.ThingID]}")) + ".");
+        return plan;
+    }
+
+    private static void AssertPlanApplied(Dictionary<string, int> plan, Pawn elder, List<Pawn> disciples, List<Pawn> workers)
+    {
+        int aptitude = Apertures(elder).Single().Aptitude;
+        Check(aptitude == plan[elder.ThingID], $"The elder awakened with the planned aptitude ({plan[elder.ThingID]}, got {aptitude})");
+        foreach (Pawn founder in disciples.Concat(workers))
+        {
+            var r = Cultivators.GetOrCreate(founder);
+            Check(r.State == AwakeningState.Unattempted && r.LatentAptitude == plan[founder.ThingID],
+                $"{founder.LabelShort} keeps the planned hidden aptitude ({plan[founder.ThingID]}, record {r.LatentAptitude})");
+        }
+        Check(PlannedAptitudes.Count == 0, "Founding handed the planned aptitudes to the records and cleared them");
     }
 
     private static GuCultivatorRecord AssertFounded(Pawn elder, List<Pawn> disciples, List<Pawn> workers)
@@ -320,14 +362,19 @@ public sealed partial class LiveLifecycleChecks
     private static void VerifyClanPrefounding()
     {
         Check(FoundingPending && !FoundingDone && FoundedLetters == 0, $"The pre-founding save restored pending founding ({FoundingState})");
+        var saved = File.ReadAllLines(ClanPlanPath).Select(line => line.Split('=')).ToDictionary(p => p[0], p => int.Parse(p[1]));
+        Check(PlannedAptitudes.Count == saved.Count && saved.All(p => PlannedAptitudes.TryGetValue(p.Key, out int v) && v == p.Value),
+            "The pre-founding save restored every planned aptitude unchanged");
         Pawn elder = Clan(GuClanRole.Elder).Single();
         Check(Apertures(elder).Count == 0 && Pits(Home).Count == 1, "Before play the elder is unawakened and one pit exists");
         TickUntil(() => FoundingDone, 600, "Founding completed after loading the pre-founding save");
         AssertFounded(elder, Clan(GuClanRole.Disciple), Clan(GuClanRole.MortalWorker));
+        AssertPlanApplied(saved, elder, Clan(GuClanRole.Disciple), Clan(GuClanRole.MortalWorker));
         TickUntil(() => false, 600);
         Check(FoundedLetters == 1 && Apertures(elder).Count == 1 && Pits(Home).Count == 1, "Founding ran once; no extra pit or aperture");
         AssertNoErrors("prefounding");
-        Report("Pre-founding save: founding ran exactly once after load.");
+        Report($"Pre-founding save: founding ran exactly once after load; the elder awakened at {Apertures(elder)[0].AptitudeGrade}-grade "
+            + $"({Apertures(elder)[0].Aptitude}), matching the value planned at game creation, and every founder kept the planned aptitude.");
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -341,7 +388,10 @@ public sealed partial class LiveLifecycleChecks
             {
                 Find.TickManager.Pause();
                 Check(FoundingPending && !FoundingDone, $"First game: founding pending ({FoundingState})");
+                var firstPlan = AssertPlanned(Home.mapPawns.FreeColonistsSpawned.ToList());
+                firstSessionElder = Clan(GuClanRole.Elder).Single();
                 TickUntil(() => FoundingDone, 600, "First game: founding completed");
+                AssertPlanApplied(firstPlan, firstSessionElder, Clan(GuClanRole.Disciple), Clan(GuClanRole.MortalWorker));
                 Check(FoundedLetters == 1 && Apertures(Clan(GuClanRole.Elder).Single()).Count == 1, "First game: one letter and one elder aperture");
                 Report($"Session game 1: founded on {Home.Biome.defName}/{Home.TileInfo.hilliness}; ScenPart instance {RuntimeHelpers(ClanPart)}.");
                 ClanQuickStart.StartAnotherGame();
@@ -365,9 +415,13 @@ public sealed partial class LiveLifecycleChecks
         Map home = Home;
         Check(home.mapPawns.FreeColonistsSpawned.Count == 6 && Clan(GuClanRole.Elder).Count == 1 && Clan(GuClanRole.Disciple).Count == 2,
             "Second game: six colonists with fresh roles");
+        var secondPlan = AssertPlanned(home.mapPawns.FreeColonistsSpawned.ToList());
+        Check(firstSessionElder != null && !home.mapPawns.FreeColonistsSpawned.Contains(firstSessionElder),
+            "Second game: the founders are new pawns, not game 1's");
         TickUntil(() => FoundingDone, 600, "Second game: founding completed");
         Pawn elder = Clan(GuClanRole.Elder).Single();
         AssertFounded(elder, Clan(GuClanRole.Disciple), Clan(GuClanRole.MortalWorker));
+        AssertPlanApplied(secondPlan, elder, Clan(GuClanRole.Disciple), Clan(GuClanRole.MortalWorker));
         int pits = Pits(home).Count;
         string pitResult = pits == 1
             ? $"pit placed {home.mapPawns.FreeColonistsSpawned.Min(p => p.Position.DistanceTo(Pits(home)[0].Position)):0.0} cells from the colonists"

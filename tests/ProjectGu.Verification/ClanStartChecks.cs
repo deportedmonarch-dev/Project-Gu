@@ -21,7 +21,7 @@ internal static class ClanStartChecks
         CheckTravel(root);
         CheckPlanner();
         CheckAptitude();
-        CheckConfigErrors();
+        CheckConfigErrors(root);
         Console.WriteLine($"PASS: {passed} clan start checks (managed; no RimWorld process).");
     }
 
@@ -118,7 +118,7 @@ internal static class ClanStartChecks
             "The default elder range is B-grade.");
     }
 
-    private static void CheckConfigErrors()
+    private static void CheckConfigErrors(string root)
     {
         var part = new ScenPart_GuClanStart { def = new ScenPartDef() };
         Check(!part.ConfigErrors().Any(), "Default clan part configuration is valid.");
@@ -135,6 +135,32 @@ internal static class ClanStartChecks
         pending.SetValue(part, true);
         part.PreConfigure();
         Check(!(bool)done.GetValue(part)! && !(bool)pending.GetValue(part)!, "A new game configuration resets founding progress.");
+
+        // Founders' aptitude is rolled once at game creation and saved, so a pre-founding save cannot reroll it.
+        var planned = typeof(ScenPart_GuClanStart).GetField("plannedAptitudes", flags)!;
+        ((Dictionary<string, int>)planned.GetValue(part)!)["Human123"] = 67;
+        part.PreConfigure();
+        Check(((Dictionary<string, int>)planned.GetValue(part)!).Count == 0, "A new game configuration discards the previous game's planned aptitudes.");
+        string source = File.ReadAllText(Path.Combine(root, "Source", "ProjectGu", "Clan", "ScenPart_GuClanStart.cs"));
+        Check(source.Contains("Scribe_Collections.Look(ref plannedAptitudes, \"guPlannedAptitudes\""), "Planned aptitudes are saved under guPlannedAptitudes.");
+        var roll = typeof(ScenPart_GuClanStart).GetMethod("RollAptitude", flags)!;
+        var fresh = new ScenPart_GuClanStart { def = new ScenPartDef() };
+        bool elderB = true, discipleGifted = true, workerOrdinary = true;
+        int workerNone = 0;
+        for (int i = 0; i < 5000; i++)
+        {
+            int elder = (int)roll.Invoke(fresh, new object[] { GuClanRole.Elder })!;
+            elderB &= elder is >= 60 and <= 74 && AptitudeRules.Grade(elder) == "B";
+            int disciple = (int)roll.Invoke(fresh, new object[] { GuClanRole.Disciple })!;
+            discipleGifted &= disciple is >= 20 and <= 99;
+            int worker = (int)roll.Invoke(fresh, new object[] { GuClanRole.MortalWorker })!;
+            if (worker == 0) workerNone++;
+            else workerOrdinary &= worker is >= 20 and <= 99;
+        }
+        Check(elderB, "5,000 planned elder aptitudes are all B-grade within 60~74.");
+        Check(discipleGifted, "5,000 planned gifted-disciple aptitudes are all ordinary and nonzero.");
+        Check(workerOrdinary, "5,000 planned worker aptitudes are zero or ordinary.");
+        Check(workerNone is > 2000 and < 3000, $"Mortal workers keep the ordinary half-chance of no aptitude ({workerNone}/5000).");
     }
 
     private static void Check(bool condition, string message)
