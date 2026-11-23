@@ -58,6 +58,7 @@ Same 12 profiles (`Slice3B1` … `ManifestationProbe`, 26–27 processes). Windo
 | N=4 | `334b8ac7` | 329 s | 247 s | 885 s | 3.8 GB | 74% | 13.0 GB | 12/12 ⁴ |
 | N=6 | `1207bb61` | 226 s | 176 s | 881 s | 5.4 GB | 69% | 12.9 GB | 11/12 ³ |
 | N=6 | `3226bfe1` | 199 s | 148 s | 748 s | 5.3 GB | 83% | 10.7 GB | 12/12 ⁴ |
+| N=4 | `cbda4ca7` | 255 s | 204 s | 701 s | 3.9 GB | 69% | 13.7 GB | 12/12 ⁵ |
 
 Every run reported zero game copy changes, zero isolation problems and no change to the shared user data folder from its own processes. Disk use stayed at one 1.11 GB copy, removed after the run, plus 148–199 MB of evidence per 12-profile campaign (about 12–17 MB per profile).
 
@@ -65,23 +66,45 @@ Every run reported zero game copy changes, zero isolation problems and no change
 2. `Phase2Lifecycle` failed once when earlier drops filled every side of its actor. `SpawnGroundGu` now makes space first, as the other call sites do.
 3. `V2EngineProbe` found seven projections after reload instead of six, and one lacked the manifestation keys. It was seen once, at N=6, and was not reproduced in later runs. The check now names each unmatched projection. One hypothesis is that native world-pawn GC does not finish before the save under heavy load. Unconfirmed.
 4. Another RimWorld instance from a different project ran during these samples (about 8% CPU). It wrote the shared user data folder, which the runner detected and reported.
+5. Final acceptance campaign with no other RimWorld process on the machine. The shared user data folder did not change, the game copy did not change, no isolation problem was found, the system did not sleep, and V2EngineProbe found the expected six projections.
 
 The startup cost per process rose from 10.7 s at N=1 to 14–15 s at N=2 and then stayed flat to N=6. A single instance already uses up to 61% of the machine's CPU during startup, and the laptop processor runs lower all-core clocks under sustained load. The slowest process at any level took 43 s against the 180 s timeout.
 
-**Recommendation.** Use `-Parallel 4` for development and campaign runs of independent profiles. It cut this set from 653 s to 282–329 s, with 12/12 on the final code and over 13 GB of free memory. N=6 saves a further 50–80 s but is the only level with an unexplained intermittent failure, so it is not yet recommended. Keep the benchmark sequential and alone.
+**Recommendation (accepted by the owner, 2026-11-22).** Use `-Parallel 4` for development and campaign runs of independent profiles. It cut this set from 653 s to 255–329 s, with 12/12 on the final code and over 13 GB of free memory. The runner's own default stays `-Parallel 1`; changing it needs separate authorization, so pass `-Parallel 4` explicitly. N=6 saves a further 50–80 s but is the only level with an unexplained intermittent failure, so it is not recommended. Keep the benchmark sequential and alone.
+
+## Benchmark on the new runner
+
+`Slice3B5BPerf` run `a6ab7840` passed alone, with no other RimWorld process on the machine: seven fresh processes, matched 0/120 snapshots with the same 120 hosts and aperture Hediffs, zero physical Gu, and identical save files within each variant. The game copy did not change and no isolation problem was found. The runner reported the shared user data folder as changed. Only `Logs\Player.log` and `Player-prev.log` were written, because the benchmark keeps the engine file log as it always has.
+
+Medians of three processes per variant, against the accepted Phase 2 baseline `75b5cdc3`:
+
+| Measurement | Phase 2 baseline | `a6ab7840` |
+|---|---:|---:|
+| World things / empty save | 3,728 / 4.77 MB | 13,075 / 8.66 MB |
+| Save size added by 120 records | 94,585 B | 94,702 B |
+| Registry rebuild | 584 µs | 708 µs |
+| Sweep (every 250 ticks) | 45.6 µs, 15,360 B | 54.8 µs, 16,296 B |
+| Ordinary registry tick | 0.003 µs | 0.004 µs |
+| Native save, 120 records / empty | 545 / 523 ms | 751 / 527 ms |
+| `Game.LoadGame`, 120 records / empty | 4,555 / 4,223 ms | 5,924 / 4,491 ms |
+
+**World seed limitation.** `-quicktest` generates a world from a random seed in every run. The benchmark's absolute save size, save time and load time therefore depend on the world, not only on the code. Earlier benchmark worlds held 3,728 to 41,016 things, with empty saves of 4.8 to 20.3 MB. The Phase 2 baseline happened to draw a sparse world. Only the 120-record minus empty differences, measured within one run, compare across runs, and even those can scale with the world. The per-record save cost matches the baseline within 117 B. Rebuild and sweep rose about 20%, which fits a larger world: an earlier run on a 41,016-thing world (`fc03d159`) measured 1,374 µs and 78.6 µs.
+
+**Unresolved load-time difference.** In this run, loading with 120 records took 1.1–1.4 s longer than loading the empty variant (contained 5,575–5,938 ms, warm empty 4,111–4,491 ms), and saving took about 200 ms longer. The gap was 0.3 s and 22 ms on the Phase 2 baseline world. The Phase 1 run `0c111560` on a world of similar size (12,614 things) showed no gap. Every 120-record process was slow, including the last, so cold reads of the fresh copy do not explain it. A quick reading of the load path found no scan that obviously scales with records times world size. With three samples per variant and different worlds, the cause is unknown. Confirming it needs repeated runs on a fixed seed.
 
 ## Other verification
 
 - **Fail-fast** (`41a14ba1`). A V1 migration unit with an unknown source failed. Its dependent resave was `SKIPPED`. Slice3B1's running `new` process finished with its evidence, its reload was not started, Slice3B3A never started, and the run exited 1. The source save hash was unchanged.
 - **Ownership.** A second runner started while the first was running Slice3B5B. Both passed and neither removed the other's copy. A synthetic test of the recovery code kept a copy whose owner held its lock with no game running (a stage gap), and kept one whose owner was gone but whose child process still ran. It removed the copy of a dead owner, kept a recent legacy run, removed one idle for three hours, and never touched evidence. A runner killed mid-campaign left a read-only copy that the next run recovered.
 - **Migration and historical saves** (`657838e7`, N=4). All seven V1 saves migrated with the Phase 2 classification of 17 bound, 12 unresolved and 12 quarantined among 41 records, and reloaded in fresh processes. Both historical copies loaded. Every source hash was unchanged and matched `SHA256SUMS`.
-- **Benchmark.** All three isolation refusals were verified. The benchmark itself was not rerun on the new runner because another RimWorld process was running, so the refusal was correct. Its stage flow is unchanged apart from the scheduler, and it remains to be exercised.
+- **Benchmark.** All three isolation refusals were verified: another profile in the same run, `-Parallel` above 1, and another RimWorld process running. Run `a6ab7840` then passed alone (see above).
 - `scripts/verify.ps1` passed: static checks, game-linked compilation and managed tests.
 
 ## Remaining concerns
 
-- The V2EngineProbe seven-projection case at N=6 needs a reproduction with the new diagnostic before N=6 is used.
-- The benchmark has not been run on the new runner.
+- **Unresolved:** the V2EngineProbe seven-projection case at N=6. It was not reproduced and is not fixed. It needs a reproduction with the new diagnostic before N=6 is used.
+- **Unresolved:** the benchmark load-time difference with 120 records on a larger world. It needs fixed-seed runs.
+- Benchmark absolute times depend on the random quicktest world. Compare within-run differences, not absolute times across runs.
 - The first read of a fresh game copy costs about 30 s, probably antivirus scanning. An exclusion for `tests/obj` would remove it, but that is a system security decision for the owner.
 - The deny rule binds the current user's processes. Changing the folder's access rules would bypass it, which the game does not do. The hash manifest remains the backstop.
 - With `-NoFileLog`, evidence contains standard output (warnings, errors and fixture lines) but not the engine's verbose file log. Use `-CaptureFileLog` sequentially to keep it.
