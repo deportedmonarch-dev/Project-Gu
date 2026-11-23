@@ -10,7 +10,7 @@ namespace ProjectGu.Domain
     public enum GuNativeAssociation { Unresolved, Bound, Detached }
     public enum GuObservedLife { Unknown, Alive, Dead }
 
-    /// <summary>Confirmed facts are separate from the Pawn binding. Native observers land after 3A-I.</summary>
+    /// <summary>Confirmed native facts are separate from the current Pawn binding.</summary>
     public sealed class GuCultivatorFact : IExposable
     {
         public string EventKey;
@@ -180,6 +180,21 @@ namespace ProjectGu.Domain
             if (Scribe.mode == LoadSaveMode.LoadingVars && PawnClaims == null) PawnClaims = [];
             Scribe_Values.Look(ref RawEvidence, "rawEvidence");
             Scribe_Values.Look(ref Reason, "reason");
+        }
+    }
+
+    /// <summary>An unpublished aptitude sample, with no durable cultivator or aperture ID.</summary>
+    public sealed class GuAwakeningAptitudeDraft : IExposable
+    {
+        internal Pawn Pawn;
+        internal string PawnLoadId;
+        internal int Aptitude = -1;
+
+        public void ExposeData()
+        {
+            Scribe_References.Look(ref Pawn, "pawn", saveDestroyedThings: true);
+            Scribe_Values.Look(ref PawnLoadId, "pawnLoadId");
+            Scribe_Values.Look(ref Aptitude, "aptitude", -1);
         }
     }
 }

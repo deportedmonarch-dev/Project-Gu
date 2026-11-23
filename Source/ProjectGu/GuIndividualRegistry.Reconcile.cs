@@ -101,6 +101,7 @@ namespace ProjectGu
         {
             if (!ready || CustodyTransitionInProgress) return;
             if (pending.Count > 0) ApplyPendingEvents();
+            Current.Game?.GetComponent<GuWorldComponent>()?.ApplyNativeCultivatorObservations();
             int tick = Find.TickManager.TicksGame;
             if (tick % SweepInterval == 0) Sweep(SweepBudget);
             if (tick % CompactionInterval == 0) CompactRecords(tick, CompactionBudget);
@@ -111,7 +112,7 @@ namespace ProjectGu
         /// <summary>Applies queued native events. Exposed for fixtures that need a deterministic reconciliation point.</summary>
         internal void ApplyPendingEvents()
         {
-            if (!ready || CustodyTransitionInProgress) return;
+            if (!ready || CustodyTransitionInProgress || pending.Count == 0) return;
             int tick = Find.TickManager.TicksGame;
             while (pending.Count > 0)
             {

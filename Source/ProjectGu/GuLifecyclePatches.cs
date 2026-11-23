@@ -16,6 +16,7 @@ namespace ProjectGu
         internal static bool Installed { get; }
 
         private static GuIndividualRegistry Registry => Current.Game?.GetComponent<GuIndividualRegistry>();
+        private static GuWorldComponent Cultivators => Current.Game?.GetComponent<GuWorldComponent>();
 
         static GuLifecyclePatches()
         {
@@ -31,7 +32,17 @@ namespace ProjectGu
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(Corpse), nameof(Corpse.PostCorpseDestroy))),
                     prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforePostCorpseDestroy)));
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(Pawn), nameof(Pawn.Destroy))),
-                    prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforePawnDestroy)));
+                    prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforePawnDestroy)),
+                    finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterCultivatorScope)));
+                harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(Pawn), nameof(Pawn.Kill))),
+                    prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforePawnKill)),
+                    finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterCultivatorScope)));
+                harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(Pawn), nameof(Pawn.Discard))),
+                    prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforePawnDiscard)) { priority = Priority.First },
+                    finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterCultivatorScope)));
+                harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(WorldPawns), "RemoveAndDiscardPawnViaGC", new[] { typeof(Pawn) })),
+                    prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforeWorldGcDiscard)),
+                    finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterCultivatorScope)));
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(WorldPawnGC), "GetCriticalPawnReason")),
                     postfix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(RetainGuCustody)));
                 Installed = true;
@@ -54,21 +65,48 @@ namespace ProjectGu
         }
 
         // Destroy clears the corpse contents before the finalizer runs, so the inner Pawn travels in __state.
-        private static void BeforeCorpseDestroy(Corpse __instance, out Pawn __state)
+        private sealed record CorpseScope(Pawn Pawn, GuWorldComponent.NativeScope Identity);
+
+        private static void BeforeCorpseDestroy(Corpse __instance, out CorpseScope __state)
         {
-            __state = __instance?.InnerPawn;
+            var pawn = __instance?.InnerPawn;
+            __state = new CorpseScope(pawn, Cultivators?.BeginNativeObservation(pawn, GuWorldComponent.NativePath.CorpseDestroy, __instance));
             Registry?.NoteCorpseTeardown(__instance);
         }
 
-        private static Exception AfterCorpseDestroy(Pawn __state, Exception __exception)
+        private static Exception AfterCorpseDestroy(CorpseScope __state, Exception __exception)
         {
-            Registry?.ForgetCorpseTeardown(__state);
-            return __exception;
+            Registry?.ForgetCorpseTeardown(__state?.Pawn);
+            return AfterCultivatorScope(__state?.Identity, __exception);
         }
 
-        private static void BeforePostCorpseDestroy(Pawn pawn, bool discarded) => Registry?.BeforeHolderTeardown(pawn, discarded);
+        private static void BeforePostCorpseDestroy(Pawn pawn, bool discarded)
+        {
+            Cultivators?.ObservePostCorpse(pawn, discarded);
+            Registry?.BeforeHolderTeardown(pawn, discarded);
+        }
 
-        private static void BeforePawnDestroy(Pawn __instance, DestroyMode mode) => Registry?.BeforeHolderVanish(__instance, mode);
+        private static void BeforePawnDestroy(Pawn __instance, DestroyMode mode, out GuWorldComponent.NativeScope __state)
+        {
+            __state = Cultivators?.BeginNativeObservation(__instance, GuWorldComponent.NativePath.PawnDestroy);
+            Registry?.BeforeHolderVanish(__instance, mode);
+        }
+
+        private static void BeforePawnKill(Pawn __instance, out GuWorldComponent.NativeScope __state) =>
+            __state = Cultivators?.BeginNativeObservation(__instance, GuWorldComponent.NativePath.Kill);
+
+        private static void BeforePawnDiscard(Pawn __instance, out GuWorldComponent.NativeScope __state) =>
+            __state = Cultivators?.BeginNativeObservation(__instance, GuWorldComponent.NativePath.Discard);
+
+        private static void BeforeWorldGcDiscard(Pawn __0, out GuWorldComponent.NativeScope __state) =>
+            __state = Cultivators?.BeginNativeObservation(__0, GuWorldComponent.NativePath.Gc);
+
+        private static Exception AfterCultivatorScope(GuWorldComponent.NativeScope __state, Exception __exception)
+        {
+            try { __state?.World.EndNativeObservation(__state, __exception); }
+            catch (Exception error) { Log.Error($"[Project GU] Cultivator native observation failed. {error}"); }
+            return __exception;
+        }
 
         private static void RetainGuCustody(Pawn pawn, ref string __result)
         {

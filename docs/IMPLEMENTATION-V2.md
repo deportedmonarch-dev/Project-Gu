@@ -220,3 +220,43 @@ Measured from evidence folders: copying the game and building takes 7–10 s per
 - The normal 600-tick discovery scan and Phase 2 Gu custody and retention policies are unchanged. The identity foundation adds per-load aperture intake, derived indexes, and one legacy-only Pawn pass. Runtime costs and long-save growth remain open.
 
 Stage 3A-II requires separate owner authorization before native lifecycle work, C0, or any game execution.
+
+## Phase 3A-II — Native lifecycle validation
+
+The owner authorized the focused lifecycle and custody matrix against Stage 3A-I commit `8271c9a2b018d5b7d8bca8b4b2a17573c8b4d768`. Broad migration and recovery and benchmark equivalence remain separate approval gates.
+
+### Implementation and evidence boundaries
+
+- Observe only an already bound Pawn. Nested native calls share a scope by exact Pawn object and game. The GC marker exists for that Pawn's GC call and unwinds through Harmony finalizers even on exceptions. A discard fact requires the native false-to-true `Discarded` transition. Corpse destruction captures the prior inner Pawn, then checks that the body was destroyed. Corpse-less death requires native `Pawn.Kill` and the corpse-less `PostCorpseDestroy(false)` path. A GC interruption that removes the native save owner produces an unresolved association and an evidence row.
+- Complete observations enter a queue. The existing save guard rejects saves inside an active identity scope and drains completed observations after the Phase 2 events. Regular draining occurs at the existing registry tick. Each association has one discard slot and a stable event key. Current native life and historical observations remain separate. Phase 2's retention reason and its custody callbacks use their previous rules.
+- The Stage 3A-I private aptitude sample vanished on reload. The optional V1 draft list carries the sample and exact native reference for an unpublished candidate with a native save owner. The provisional cultivator ID and aperture ID remain private. Existing committed saves can omit the list. An empty Phase 2 queue now returns before accessing the game tick, including when a managed fixture writes an empty identity store.
+- Tests used the pinned RimWorld **1.7.5014 rev1195** engine. `Assembly-CSharp.dll` SHA-256 was `11D7C9FAF52BE22933DA840D906B1AF7B48F7EA574A886C045B1FB12BD366124`. Ordered lifecycle profile mods were `brrainz.harmony`, `ludeon.rimworld`, `projectgu.livingcultivation`, and `projectgu.priority0test`. The runner copied the installation, used a separate save-data folder for each fixture, suppressed shared file logging, and verified source and backup hashes around destructive fixture operations.
+
+### Iteration failures kept in the evidence
+
+| Evidence | Result and disposition |
+| --- | --- |
+| `78cc3eee65034534959652a1d35909a3/CultivatorLifecycle` | **FAIL new.** The generated landing area had no empty adjacent cell. The fixture now searches a reachable area for placement. The four independent regressions in the same campaign passed. |
+| `a50318fdfe1445a9b21fd2053f524b05/CultivatorLifecycle` | **PASS new, FAIL reload.** The reader correctly returned `Unresolved` for the deliberately unowned live Pawn. The fixture expected `Bound` because it read the omitted default enum as if it were a literal value. The corrected assertion checks that current life is unknown and the last live observation and original token survive. |
+| First Stage 3A-II managed run | **FAIL.** The added pre-save drain accessed the native clock for an empty Phase 2 queue. The empty-queue fast path restored the prior empty-store behavior. The subsequent focused run passed all 46 cultivator checks and the existing managed regressions. Release compilation had zero warnings and errors. |
+
+### Native matrix and observations
+
+Campaign `3f75fc1fb27c45b8ba95d28f97984c70` records the final focused build. Its lifecycle result, trace and fixture snapshots are `CultivatorLifecycle/priority0-result.txt`, `CultivatorLifecycle/cultivator-callbacks.txt` and `CultivatorLifecycle/cultivator-fixture.json` under the runner's campaign directory.
+
+| Case | Native result |
+| --- | --- |
+| Ordinary death, corpse destruction and corpse-less death | **PASS.** Corpse-owned and world-owned dead Pawns remained distinguishable. Actual body teardown and the corpse-less native path produced separate facts. The first fresh process restored both types of native ownership. |
+| Native Pawn destruction, native discard, dead discard and actual GC | **PASS.** Nonlethal destruction of a held world Pawn preserved its binding. Six confirmed discards each produced one commit and one association-qualified key. The dead world discard recorded `Dead`. The collector naturally discarded the otherwise unprotected identity. |
+| Nested callbacks and injected GC failure | **PASS.** GC entered `Pawn.Destroy`, then `Pawn.Discard`, then `Corpse.PostCorpseDestroy(true)`. Scope finalizers exited before the single discard commit. An unrelated Pawn discarded during the outer call received `NativeDiscard`. The injected exception after native ownership removal propagated and left one unresolved evidence row without a discard fact. A later explicit discard correctly used the native cause. |
+| Save ordering and missing references | **PASS.** A save attempted inside the discard callback produced no file. A save on the same tick after native completion drained the queue before writing. The deliberately unowned live Pawn round-tripped as unresolved with an unknown current state, the original token and the last live observation. |
+| Invalid store save authority | **PASS.** A separate process loaded a disposable clone with the completion marker set to false. The engine save entry point rejected both a new save and an overwrite of that clone. The attempt preserved the clone's bytes and the runner preserved the original checkpoint backup. |
+| Retention and off-map transition | **PASS.** The native collector retained the Pawn marked `ProjectGuCustody` with the exact Gu Thing. The unprotected control was collected. The map-to-world Pawn restored as world-owned and returned to the map with the same cultivator ID. |
+| Resurrection, contained Gu and aptitude | **PASS.** The first fresh process used ordinary resurrection and retained the cultivator ID, aperture and contained Gu revision 3. The injected `Hediff.PostAdd` failure left the spring at three adults. The first fresh process restored the unpublished aptitude of 73, committed one identity and aperture, and consumed one adult. The second fresh process kept that result and restored the exact retained physical Gu with custody revision 2. |
+| Backup integrity | **PASS.** Both fresh processes confirmed the pre-event source and backup were unchanged. Their SHA-256 was `A2CE48C3CEA8D1F0A08434667013EB0ADE72529079C97D78050C4A02E4D3F581`. |
+
+The Phase 2 lifecycle, awakening, cargo and core fixtures passed generation and fresh reload in both the final campaign and the Stage 3A-I baseline campaign `16cb3694f8e2481bbc5dfd057963ac5c`. They check the existing custody outcomes, awakening rollback, native underground transport and physical conservation. The cargo fixture transports one original 37-stone stack and delivers all 37 through vanilla hauling after a fresh load. The final campaign passed **5 profiles across 12 native processes**, with zero game-copy mutations, zero isolation problems and an unchanged normal RimWorld data folder.
+
+This matrix covers the tested Core-only native paths and the injected failure points. Broad legacy migration, additional holder and mod combinations, generalized recovery, long-history bounds and C0/C4 measurements are open for their respective approval gates.
+
+**Stage 3A-III recommendation:** Approve the planned migration and recovery matrix separately. Begin with archived legacy saves and conflict or failure fixtures, then verify identity, Gu custody and conservation across independent reloads.

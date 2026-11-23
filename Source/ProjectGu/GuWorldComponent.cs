@@ -13,8 +13,7 @@ namespace ProjectGu
     /// </summary>
     public partial class GuWorldComponent : GameComponent
     {
-        // A failed first ceremony can retry the same unpublished aptitude in this game.
-        private readonly ConditionalWeakTable<Pawn, GuCultivatorRecord> pendingDiscovery = new();
+        private ConditionalWeakTable<Pawn, GuCultivatorRecord> pendingDiscovery = new();
         private static HediffDef MortalDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_MortalUnawakened");
         private static HediffDef FailedDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_MortalNoAptitude");
         internal static HediffDef ApertureDef => DefDatabase<HediffDef>.GetNamedSilentFail("GU_Aperture");

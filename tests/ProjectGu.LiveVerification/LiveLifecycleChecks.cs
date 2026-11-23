@@ -30,13 +30,13 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static bool Botanical => GenCommandLine.CommandLineArgPassed("gubotanical");
     private static bool CargoPrototype => GenCommandLine.CommandLineArgPassed("gucargoprototype");
     private static bool AutomaticHauling => GenCommandLine.CommandLineArgPassed("guautomatichauling");
-    private Action NewCheck => ManifestationProbe ? ExerciseManifestationProbe : Phase2Lifecycle ? ExercisePhase2Lifecycle : DormantHauling ? ExerciseDormantHauling : V2Engine ? ExerciseV2EngineProbe : VanillaGuInventory ? ExerciseVanillaGuInventory
+    private Action NewCheck => CultivatorLifecycle ? ExerciseCultivatorLifecycle : ManifestationProbe ? ExerciseManifestationProbe : Phase2Lifecycle ? ExercisePhase2Lifecycle : DormantHauling ? ExerciseDormantHauling : V2Engine ? ExerciseV2EngineProbe : VanillaGuInventory ? ExerciseVanillaGuInventory
         : Slice3B5BPerf ? PrepareGuRegistryBenchmark : Slice3B5A || Slice3B5B ? ExerciseSlice3B5A
         : Slice3B4 ? ExerciseSlice3B4 : Slice3B3B ? ExerciseSlice3B3B : Slice3B3A ? ExerciseSlice3B3A : Slice3B2 ? ExerciseSlice3B2
         : Slice3B1 ? ExerciseSlice3B1 : Slice3A ? ExerciseSlice3A : EmptyCavernReset ? ExerciseEmptyCavernReset
         : AwakeningSafety ? ExerciseAwakening : Botanical ? ExerciseBotanical
         : CargoPrototype ? ExerciseCargoPrototype : AutomaticHauling ? ExerciseAutomaticHauling : GenerateAndExercise;
-    private Action ReloadCheck => ManifestationProbe ? VerifyManifestationProbeReload : Phase2Lifecycle ? VerifyPhase2LifecycleReload : DormantHauling ? VerifyDormantHaulingReload : V1Migration ? VerifyV1Migration : V2Engine ? VerifyV2EngineProbeReload : VanillaGuInventory ? VerifyVanillaGuInventoryReload : Slice3B5A || Slice3B5B ? VerifySlice3B5AReload
+    private Action ReloadCheck => CultivatorLifecycle ? VerifyCultivatorLifecycleReload : ManifestationProbe ? VerifyManifestationProbeReload : Phase2Lifecycle ? VerifyPhase2LifecycleReload : DormantHauling ? VerifyDormantHaulingReload : V1Migration ? VerifyV1Migration : V2Engine ? VerifyV2EngineProbeReload : VanillaGuInventory ? VerifyVanillaGuInventoryReload : Slice3B5A || Slice3B5B ? VerifySlice3B5AReload
         : Slice3B4 ? ReleaseAfterReload : Slice3B3B ? VerifySlice3B3BReload : Slice3B3A ? VerifySlice3B3AReload : Slice3B2 ? VerifySlice3B2Reload
         : Slice3B1 ? VerifySlice3B1Reload : Slice3A ? VerifySlice3AReload
         : GenCommandLine.CommandLineArgPassed("gulegacy31") ? () => VerifyHistoricalSpring(31)
@@ -58,6 +58,8 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     public override void LoadedGame() => pending = () =>
     {
         if (GenCommandLine.CommandLineArgPassed("gupriority0fixture")) Run(NewCheck, "new");
+        else if (CultivatorLifecycle && GenCommandLine.CommandLineArgPassed("gucultivatorreload2")) Run(VerifyCultivatorLifecycleSecondReload, "reload2");
+        else if (CultivatorLifecycle && GenCommandLine.CommandLineArgPassed("gucultivatorinvalid")) Run(VerifyCultivatorInvalidSave, "invalid");
         else if (GuRegistryLoadTiming.Stage is { } benchmarkStage) Run(MeasureGuRegistryBenchmark, benchmarkStage);
         else if (V1Resave) Run(VerifyV1MigrationResave, "resave");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b5baperture")) Run(ReleaseIntegratedCohort, "aperture");

@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -315,6 +315,7 @@ Measure-Phase 'planning' {
             'VanillaGuInventory' { '-guvanillainventory' }
             'V2EngineProbe' { '-guv2engine' }
             'Phase2Lifecycle' { '-guphase2lifecycle' }
+            'CultivatorLifecycle' { '-gucultivatorlifecycle' }
             'DormantHauling' { '-gudormanthauling' }
             'ManifestationProbe' { '-gumanifestprobe' }
             'Legacy31' { '-gulegacy31' }
@@ -380,6 +381,11 @@ Measure-Phase 'planning' {
             Add-Launch $unit 'new' $true $false $probe
         }
         Add-Launch $unit 'reload' $false $Rendered.IsPresent $probe
+        if ($name -eq 'CultivatorLifecycle') {
+            Add-Launch $unit 'reload2' $false $Rendered.IsPresent "$probe -gucultivatorreload2"
+            Add-Action $unit 'CultivatorInvalidFixture' @{}
+            Add-Launch $unit 'invalid' $false $Rendered.IsPresent "$probe -gucultivatorinvalid"
+        }
         if ($name -eq 'Slice3B4') { Add-Launch $unit 'released' $false $Rendered.IsPresent "$probe -guslice3b4released" }
         if ($name -eq 'Slice3B5B') {
             Add-Launch $unit 'aperture' $false $Rendered.IsPresent "$probe -guslice3b5baperture"
@@ -511,6 +517,28 @@ function Step-Unit($Unit) {
         switch ($step.Kind) {
             'Launch' { Start-Launch $Unit $step; return }
             'Copy' { Copy-Item -LiteralPath $step.From -Destination $step.To -Force }
+            'CultivatorInvalidFixture' {
+                $workingSave = Join-Path $Unit.SaveData 'Saves/autostart.rws'
+                $verifiedCopy = Join-Path $Unit.SaveData 'cultivator-after-reload2.backup.rws'
+                $sourceHash = (Get-FileHash -LiteralPath $workingSave).Hash
+                Copy-Item -LiteralPath $workingSave -Destination $verifiedCopy
+                if ((Get-FileHash -LiteralPath $verifiedCopy).Hash -ne $sourceHash) {
+                    Set-UnitFailed $Unit $step 'Cultivator checkpoint backup differs from its source.'
+                    return
+                }
+                $doc = New-Object Xml.XmlDocument
+                $doc.PreserveWhitespace = $true
+                $doc.Load($verifiedCopy)
+                $marker = $doc.SelectSingleNode('//guCultivatorMigrationComplete')
+                if ($null -eq $marker) { Set-UnitFailed $Unit $step 'Cultivator commit marker missing from checkpoint.'; return }
+                $marker.InnerText = 'False'
+                $doc.Save($workingSave)
+                if ((Get-FileHash -LiteralPath $verifiedCopy).Hash -ne $sourceHash) {
+                    Set-UnitFailed $Unit $step 'The immutable cultivator checkpoint changed.'
+                    return
+                }
+                $step.Detail = "Invalid fixture created from unchanged backup SHA-256 $sourceHash"
+            }
             'AssertHash' {
                 if ((Get-FileHash -LiteralPath $step.Path).Hash -ne $step.Hash) { Set-UnitFailed $Unit $step $step.Message; return }
             }

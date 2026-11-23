@@ -35,9 +35,16 @@ namespace ProjectGu
                     MessageTypeDefOf.RejectInput, false);
                 return false;
             }
-            if (game?.GetComponent<GuIndividualRegistry>()?.CustodyTransitionInProgress != true) return true;
-            Messages.Message("Wait for the Gu custody transition to finish before saving.", MessageTypeDefOf.RejectInput, false);
-            return false;
+            var registry = game?.GetComponent<GuIndividualRegistry>();
+            if (registry?.CustodyTransitionInProgress == true)
+            {
+                Messages.Message("Wait for the Gu custody transition to finish before saving.", MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+
+            registry?.ApplyPendingEvents();
+            game?.GetComponent<GuWorldComponent>()?.ApplyNativeCultivatorObservations();
+            return true;
         }
     }
 }

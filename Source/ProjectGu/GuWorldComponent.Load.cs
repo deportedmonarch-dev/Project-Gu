@@ -17,6 +17,7 @@ namespace ProjectGu
         private const string LegacyKey = "guPawnRecords";
         private const string RecordsKey = "guCultivatorRecordsV1";
         private const string EvidenceKey = "guCultivatorIntegrityV1";
+        private const string DraftKey = "guAwakeningAptitudeDraftsV1";
         private const string SchemaKey = "guCultivatorSchemaVersion";
         private const string CompleteKey = "guCultivatorMigrationComplete";
         private const int CurrentSchema = 1;
@@ -28,8 +29,10 @@ namespace ProjectGu
         private List<GuPawnRecord> legacyReferences;
         private List<GuCultivatorRecord> readRecords;
         private List<GuCultivatorEvidence> readEvidence;
+        private List<GuAwakeningAptitudeDraft> readDrafts;
         private int expectedRecords;
         private int expectedEvidence;
+        private int expectedDrafts;
         private GuCultivatorLoadKind loadKind;
         private bool postLoadComplete;
         private bool componentLoaded;
@@ -37,7 +40,7 @@ namespace ProjectGu
         private bool awakeningInProgress;
         private GuIndividualRegistry readyRegistry;
 
-        internal bool CanSaveCultivators => store != null && !loadFailed && !awakeningInProgress;
+        internal bool CanSaveCultivators => store != null && !loadFailed && !awakeningInProgress && nativeScopes.Count == 0;
         internal GuLegacyCultivatorRows PendingLegacyRows => legacyRows;
         internal GuCultivatorRecord FindCultivator(string id) => CanSaveCultivators && id != null ? store.ById.GetValueOrDefault(id) : null;
 
@@ -50,7 +53,7 @@ namespace ProjectGu
         {
             if (component == null) return GuCultivatorLoadKind.Invalid;
             if (component[SchemaKey] == null && component[CompleteKey] == null
-                && component[RecordsKey] == null && component[EvidenceKey] == null)
+                && component[RecordsKey] == null && component[EvidenceKey] == null && component[DraftKey] == null)
                 return component.ChildNodes.OfType<XmlElement>().Count(node => node.Name == LegacyKey) <= 1
                     ? GuCultivatorLoadKind.Legacy : GuCultivatorLoadKind.Invalid;
             bool HasOne(string key) => component.ChildNodes.OfType<XmlElement>().Count(node => node.Name == key) == 1;
@@ -62,7 +65,7 @@ namespace ProjectGu
             return component[LegacyKey] == null && IsMarker(SchemaKey) && IsMarker(CompleteKey)
                 && component[SchemaKey].InnerText == CurrentSchema.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 && bool.TryParse(component[CompleteKey].InnerText, out bool complete) && complete
-                && IsList(RecordsKey) && IsList(EvidenceKey)
+                && IsList(RecordsKey) && IsList(EvidenceKey) && (component[DraftKey] == null || IsList(DraftKey))
                 ? GuCultivatorLoadKind.Committed : GuCultivatorLoadKind.Invalid;
         }
 
@@ -73,6 +76,8 @@ namespace ProjectGu
             {
                 if (!CanSaveCultivators)
                     throw new InvalidOperationException("Cultivator identity has no safe save authority.");
+                Current.Game?.GetComponent<GuIndividualRegistry>()?.ApplyPendingEvents();
+                ApplyNativeCultivatorObservations();
                 int version = CurrentSchema;
                 bool complete = true;
                 Scribe_Values.Look(ref version, SchemaKey);
@@ -82,6 +87,13 @@ namespace ProjectGu
                 var evidence = store.Evidence;
                 Scribe_Collections.Look(ref records, RecordsKey, LookMode.Deep);
                 Scribe_Collections.Look(ref evidence, EvidenceKey, LookMode.Deep);
+                var drafts = pendingDiscovery.Where(entry => HasNativeSaveOwner(entry.Key)
+                        && entry.Value.State == AwakeningState.Unattempted && !store.PawnClaims.Contains(entry.Value.PawnLoadId))
+                    .Select(entry => new GuAwakeningAptitudeDraft
+                    {
+                        Pawn = entry.Key, PawnLoadId = entry.Value.PawnLoadId, Aptitude = entry.Value.LatentAptitude
+                    }).ToList();
+                if (drafts.Count > 0) Scribe_Collections.Look(ref drafts, DraftKey, LookMode.Deep);
                 return;
             }
 
@@ -94,6 +106,8 @@ namespace ProjectGu
                 legacyReferences = null;
                 readRecords = null;
                 readEvidence = null;
+                readDrafts = null;
+                expectedDrafts = 0;
                 postLoadComplete = false;
                 componentLoaded = false;
                 loadFailed = false;
@@ -108,6 +122,7 @@ namespace ProjectGu
                 {
                     expectedRecords = xml[RecordsKey].ChildNodes.OfType<XmlElement>().Count();
                     expectedEvidence = xml[EvidenceKey].ChildNodes.OfType<XmlElement>().Count();
+                    expectedDrafts = xml[DraftKey]?.ChildNodes.OfType<XmlElement>().Count() ?? 0;
                 }
             }
 
@@ -120,6 +135,7 @@ namespace ProjectGu
                 {
                     Scribe_Collections.Look(ref readRecords, RecordsKey, LookMode.Deep);
                     Scribe_Collections.Look(ref readEvidence, EvidenceKey, LookMode.Deep);
+                    Scribe_Collections.Look(ref readDrafts, DraftKey, LookMode.Deep);
                 }
 
                 if (Scribe.mode == LoadSaveMode.PostLoadInit) postLoadComplete = true;
@@ -143,6 +159,8 @@ namespace ProjectGu
             readRecords = [];
             readEvidence = [];
             expectedRecords = expectedEvidence = 0;
+            readDrafts = null;
+            expectedDrafts = 0;
             postLoadComplete = true;
             componentLoaded = true;
             CompleteLoad();
@@ -187,8 +205,12 @@ namespace ProjectGu
                     prepared = GuCultivatorPlan.PrepareCommitted(readRecords, readEvidence, apertures, readyRegistry.Records);
                 }
 
-                // Publishing the prepared reference is the last operation in the commit.
-                prepared.CommitApertureWrites(() => store = prepared);
+                var drafts = PrepareAptitudeDrafts(prepared);
+                prepared.CommitApertureWrites(() =>
+                {
+                    pendingDiscovery = drafts;
+                    store = prepared;
+                });
             }
             catch (Exception error)
             {
@@ -199,8 +221,30 @@ namespace ProjectGu
             legacyReferences = null;
             readRecords = null;
             readEvidence = null;
+            readDrafts = null;
             if (store.Evidence.Count > 0)
                 Log.Warning($"[Project GU] Cultivator identity retained {store.Evidence.Count} unresolved evidence entries.");
+        }
+
+        private ConditionalWeakTable<Pawn, GuCultivatorRecord> PrepareAptitudeDrafts(GuCultivatorPlan prepared)
+        {
+            var result = new ConditionalWeakTable<Pawn, GuCultivatorRecord>();
+            var drafts = readDrafts ?? [];
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            if (drafts.Count != expectedDrafts) throw new InvalidOperationException("Missing awakening aptitude draft rows.");
+            foreach (var draft in drafts)
+            {
+                if (draft == null || !GuLegacyCultivatorRow.IsPawnKey(draft.PawnLoadId)
+                    || !GuCultivatorRecord.ValidAptitude(draft.Aptitude) || !seen.Add(draft.PawnLoadId))
+                    throw new InvalidOperationException("Invalid or duplicate awakening aptitude draft.");
+                if (!GuCultivatorPlan.IsCandidate(draft.Pawn) || draft.Pawn.GetUniqueLoadID() != draft.PawnLoadId
+                    || prepared.PawnClaims.Contains(draft.PawnLoadId))
+                    continue;
+                var record = GuCultivatorPlan.NewRecord(draft.PawnLoadId, $"native:{draft.PawnLoadId}", draft.Pawn);
+                record.LatentAptitude = draft.Aptitude;
+                result.Add(draft.Pawn, record);
+            }
+            return result;
         }
 
         private void FailLoad(string detail)
