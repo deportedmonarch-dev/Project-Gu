@@ -1,0 +1,55 @@
+using System.Collections.Generic;
+using ProjectGu;
+using RimWorld;
+using Verse;
+using Verse.AI;
+
+namespace ProjectGu.Jobs
+{
+    /// <summary>Physically converts one available unrefined wild Gu into its dormant ground manifestation.</summary>
+    public sealed class JobDriver_GuCaptureWild : JobDriver
+    {
+        private int expectedRevision = -1;
+
+        public override bool TryMakePreToilReservations(bool errorOnFailed)
+        {
+            if (job.targetA.Thing is not Pawn_GuWildProjection wild
+                || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry) return false;
+            int revision = expectedRevision < 0 ? wild.GuRevision : expectedRevision;
+            if (wild.GuRevision != revision || !registry.CanOrderWildCapture(wild, pawn)
+                || !pawn.Reserve(wild, job, 1, -1, null, errorOnFailed)) return false;
+            expectedRevision = revision;
+            return true;
+        }
+
+        protected override IEnumerable<Toil> MakeNewToils()
+        {
+            this.FailOnDespawnedNullOrForbidden(TargetIndex.A);
+            yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
+            yield return new Toil
+            {
+                defaultCompleteMode = ToilCompleteMode.Instant,
+                initAction = () =>
+                {
+                    string reason = "The wild Gu is unavailable.";
+                    if (job.targetA.Thing is Pawn_GuWildProjection wild
+                        && Current.Game?.GetComponent<GuIndividualRegistry>()?.TryCaptureWild(wild, expectedRevision, pawn,
+                            wild.Position, out _, out reason) == true)
+                    {
+                        Messages.Message("Captured Gu as a dormant, unrefined physical possession. Its allegiance did not change.",
+                            MessageTypeDefOf.NeutralEvent, false);
+                        return;
+                    }
+                    Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
+                    EndJobWith(JobCondition.Incompletable);
+                }
+            };
+        }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Values.Look(ref expectedRevision, "guExpectedRevision", -1);
+        }
+    }
+}

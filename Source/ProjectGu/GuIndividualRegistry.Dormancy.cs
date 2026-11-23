@@ -5,6 +5,7 @@ using ProjectGu.Underground;
 using RimWorld;
 using RimWorld.Planet;
 using Verse;
+using Verse.AI;
 using Verse.AI.Group;
 
 namespace ProjectGu
@@ -12,11 +13,26 @@ namespace ProjectGu
     public sealed partial class GuIndividualRegistry
     {
         internal bool TryMakeDormant(Pawn_GuWildProjection pawn, int expectedRevision, IntVec3 destination,
-            out Thing_GuDormantProjection dormant, out string reason)
+            out Thing_GuDormantProjection dormant, out string reason) =>
+            TryMakeDormant(pawn, expectedRevision, destination, captor: null, development: true, out dormant, out reason);
+
+        internal bool CanOrderWildCapture(Pawn_GuWildProjection wild, Pawn captor) =>
+            CanUseCustody && Resolve(wild) is { } record && record.Condition == GuCondition.Active
+            && record.Refinement?.CultivatorId == null && Thing_GuDormantProjection.IsConfigured(record.Species?.dormantProjectionDef)
+            && CanRetire(wild) && wild.Spawned && captor?.IsColonistPlayerControlled == true
+            && !captor.Downed && IsMapOwned(captor) && captor.Map == wild.Map
+            && captor.CanReserveAndReach(wild, PathEndMode.Touch, captor.NormalMaxDanger());
+
+        internal bool TryCaptureWild(Pawn_GuWildProjection wild, int expectedRevision, Pawn captor, IntVec3 destination,
+            out Thing_GuDormantProjection dormant, out string reason) =>
+            TryMakeDormant(wild, expectedRevision, destination, captor, development: false, out dormant, out reason);
+
+        private bool TryMakeDormant(Pawn_GuWildProjection pawn, int expectedRevision, IntVec3 destination, Pawn captor,
+            bool development, out Thing_GuDormantProjection dormant, out string reason)
         {
             dormant = null;
             reason = "The Gu's wild binding or revision is unavailable.";
-            if (!Prefs.DevMode || CustodyTransitionInProgress || LongEventHandler.AnyEventNowOrWaiting || Scribe.mode != LoadSaveMode.Inactive
+            if (!(development ? CanUseDevelopmentCustody : CanUseCustody)
                 || Resolve(pawn) is not { } record || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue) return false;
             if (!GuCustodySaveGuard.Installed)
             {
@@ -24,15 +40,23 @@ namespace ProjectGu
                 return false;
             }
             var def = record.Species?.dormantProjectionDef;
-            if (record.Species?.capabilityTags?.Contains("development_test") != true || !Thing_GuDormantProjection.IsConfigured(def) || !CanRetire(pawn))
+            if (record.Condition != GuCondition.Active || record.Refinement?.CultivatorId != null
+                || development && record.Species?.capabilityTags?.Contains("development_test") != true
+                || !Thing_GuDormantProjection.IsConfigured(def) || !CanRetire(pawn))
             {
-                reason = "The development Gu must be an unowned, unharmed wild Pawn with empty equipment and inventory.";
+                reason = "Only a living, unrefined Gu with a safe dormant projection can be captured.";
                 return false;
             }
 
             Map map = pawn.Map;
             IntVec3 origin = pawn.Position;
             Rot4 rotation = pawn.Rotation;
+            IntVec3 captorOrigin = captor?.Position ?? IntVec3.Invalid;
+            bool CaptorReady() => development || captor?.IsColonistPlayerControlled == true && !captor.Downed
+                && IsMapOwned(captor) && captor.Map == map && captor.Position == captorOrigin
+                && captor.Position.DistanceToSquared(origin) <= 2;
+            reason = "A player-controlled colonist must remain beside the wild Gu while capturing it.";
+            if (!development && (!CanOrderWildCapture(pawn, captor) || !CaptorReady())) return false;
             reason = "The dormant Gu needs an open cell.";
             if (!CanPlaceDormant(map, destination, pawn)) return false;
 
@@ -47,11 +71,11 @@ namespace ProjectGu
                     staged = (Thing_GuDormantProjection)ThingMaker.MakeThing(def);
                     staged.InitializeBinding(record);
                     pawn.DeSpawnOrDeselect(DestroyMode.Vanish);
-                    if (!CanRestoreDetached(pawn) || !CanPlaceDormant(map, destination, null)
+                    if (!CanRestoreDetached(pawn) || !CaptorReady() || !CanPlaceDormant(map, destination, null)
                         || !GenPlace.TryPlaceThing(staged, destination, map, ThingPlaceMode.Direct, out Thing placed)
                         || placed != staged || !IsMapOwned(staged) || staged.Map != map || staged.Position != destination
                         || staged.def != def || staged.stackCount != 1 || staged.GuId != record.Id || staged.GuRevision != expectedRevision
-                        || !CanRestoreDetached(pawn) || !CanRetire(pawn) || pawn.GuId != record.Id || pawn.GuRevision != expectedRevision
+                        || !CanRestoreDetached(pawn) || !CaptorReady() || !CanRetire(pawn) || pawn.GuId != record.Id || pawn.GuRevision != expectedRevision
                         || pawn.GetUniqueLoadID() != record.ProjectionId) return false;
                 }
                 catch (Exception exception)

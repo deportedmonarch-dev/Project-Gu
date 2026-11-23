@@ -39,7 +39,7 @@ namespace ProjectGu
             var command = new Command_Action
             {
                 defaultLabel = "Manage aperture Gu",
-                defaultDesc = "Inspect the Gu identities in this aperture, store a dormant Gu from the colonist's inventory, or withdraw one.",
+                defaultDesc = "Inspect Gu identities. Only Gu refined by this cultivator can be stored in or withdrawn from the mortal aperture.",
                 action = () => OpenManagementMenu(__instance, aperture, registry)
             };
             __result = (__result ?? Enumerable.Empty<Gizmo>()).Concat(new Gizmo[] { command });
@@ -62,7 +62,7 @@ namespace ProjectGu
             {
                 foreach (var thing in inventory.OfType<Thing_GuDormantProjection>())
                 {
-                    if (registry.Resolve(thing) is not { } record) continue;
+                    if (registry.Resolve(thing) is not { } record || !registry.IsRecognizedByCultivator(record, host)) continue;
                     options.Add(new FloatMenuOption($"Store {Describe(record)}", () =>
                     {
                         bool stored = registry.TryStoreDormant(thing, thing.GuRevision, host, aperture, out string reason);
@@ -72,7 +72,7 @@ namespace ProjectGu
                 }
             }
 
-            foreach (var record in occupants)
+            foreach (var record in occupants.Where(record => registry.IsRecognizedByCultivator(record, host)))
             {
                 options.Add(new FloatMenuOption($"Withdraw {Describe(record)}", () =>
                 {
@@ -99,7 +99,7 @@ namespace ProjectGu
         {
             if (!IsCurrentAperture(aperture?.pawn, aperture) || Current.Game?.GetComponent<GuIndividualRegistry>() != registry) return;
             string details = occupants.Count == 0 ? "No bound Gu." : string.Join("\n\n", occupants.Select(record =>
-                $"{Describe(record)}\nCondition: {record.Condition}; custody revision: {record.CustodyRevision}; "
+                $"{Describe(record)}\n{RefinementStatus(record)}\nCondition: {record.Condition}; custody revision: {record.CustodyRevision}; "
                 + $"identity: {record.Id}; aperture: {aperture.ApertureId}"));
             Find.WindowStack.Add(new Dialog_MessageBox(
                 $"{aperture.pawn.LabelShort}'s mortal aperture ({registry.ApertureClaimCount(aperture)}/{GuIndividualRegistry.MortalApertureCapacity})\n\n{details}"));
@@ -107,6 +107,14 @@ namespace ProjectGu
 
         private static string Describe(GuRecord record) =>
             $"{record.SpeciesDefName} [{record.Id}]";
+
+        private static string RefinementStatus(GuRecord record)
+        {
+            string ownerId = record?.Refinement?.CultivatorId;
+            if (string.IsNullOrWhiteSpace(ownerId)) return "Unrefined; no cultivator recognizes this Gu.";
+            var owner = Current.Game?.GetComponent<GuWorldComponent>()?.FindCultivator(ownerId);
+            return $"Recognized cultivator: {owner?.CachedName ?? ownerId}";
+        }
 
         private static Hediff_Aperture FindAperture(Pawn host)
         {

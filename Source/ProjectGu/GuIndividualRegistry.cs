@@ -217,16 +217,23 @@ namespace ProjectGu
 
         internal static string InspectProjection(Thing thing, string native)
         {
-            if (!Prefs.DevMode || thing.GuTag() is not { } tag) return native;
+            if (thing.GuTag() is not { } tag) return native;
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
             string binding;
             if (registry?.Resolve(thing) is { } record)
             {
                 var observed = registry.Observe(record);
-                binding = record.DebugDescription + $"\nObserved: {observed.Form}" + (observed.HolderId == null ? "" : $" held by {observed.HolderId}");
+                string ownerId = record.Refinement?.CultivatorId;
+                string ownerStatus = string.IsNullOrWhiteSpace(ownerId) ? "Unrefined; no cultivator recognizes this Gu."
+                    : $"Recognized cultivator: {Current.Game?.GetComponent<GuWorldComponent>()?.FindCultivator(ownerId)?.CachedName ?? ownerId}";
+                binding = $"Species: {record.Species?.label ?? record.SpeciesDefName}\nIndividual identity: {record.Id}"
+                    + $"\nPhysical custody: {observed.Form}" + (observed.HolderId == null ? "" : $" ({observed.HolderId})")
+                    + $"\nRefinement allegiance: {ownerStatus}";
+                if (Prefs.DevMode) binding += "\n" + record.DebugDescription;
             }
             else
             {
+                if (!Prefs.DevMode) return native;
                 string state = registry == null ? "registry unavailable"
                     : registry.CustodyTransitionInProgress ? "transition in progress"
                     : tag.Rogue ? "rogue projection, not authorized"

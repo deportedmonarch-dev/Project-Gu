@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using ProjectGu.Domain;
+using RimWorld;
 using Verse;
+using Verse.AI;
 
 namespace ProjectGu
 {
@@ -51,8 +53,21 @@ namespace ProjectGu
         }
 
         public override IEnumerable<Gizmo> GetGizmos() => releaseSuppressed ? Array.Empty<Gizmo>() : base.GetGizmos();
-        public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn) =>
-            releaseSuppressed ? Array.Empty<FloatMenuOption>() : base.GetFloatMenuOptions(selPawn);
+        public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
+        {
+            if (releaseSuppressed) yield break;
+            foreach (var option in base.GetFloatMenuOptions(selPawn)) yield return option;
+
+            var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+            var jobDef = DefDatabase<JobDef>.GetNamedSilentFail("GU_CaptureWildGu");
+            if (jobDef == null || registry?.CanOrderWildCapture(this, selPawn) != true) yield break;
+            string speciesName = registry.Resolve(this)?.Species?.label ?? "wild Gu";
+            yield return new FloatMenuOption($"Capture {speciesName} (unrefined)", () =>
+            {
+                if (registry.CanOrderWildCapture(this, selPawn))
+                    selPawn.jobs.TryTakeOrderedJob(JobMaker.MakeJob(jobDef, this));
+            });
+        }
 
         public override string GetInspectString() => GuIndividualRegistry.InspectProjection(this, base.GetInspectString());
     }

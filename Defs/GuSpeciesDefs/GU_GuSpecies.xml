@@ -8,6 +8,8 @@
     <minRank>1</minRank>
     <maxRank>1</maxRank>
     <wildPopulationEnabled>true</wildPopulationEnabled>
+    <wildProjectionKind>GU_WildGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DormantGu</dormantProjectionDef>
     <pathTags><li>human</li></pathTags>
     <habitatTags><li>spirit_spring</li></habitatTags>
     <capabilityTags><li>awakening_consumable</li></capabilityTags>

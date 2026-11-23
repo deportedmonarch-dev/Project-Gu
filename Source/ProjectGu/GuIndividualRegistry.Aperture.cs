@@ -19,6 +19,14 @@ namespace ProjectGu
             && record.Existence == GuExistence.Living && !record.IsQuarantined && record.Placement == GuPlacementKind.Contained
             && record.ContainerKind == GuContainerKind.MortalAperture && record.ContainerId == aperture.ApertureId);
 
+        internal bool IsRecognizedByCultivator(GuRecord record, Pawn host)
+        {
+            string ownerId = record?.Refinement?.CultivatorId;
+            var cultivator = Current.Game?.GetComponent<GuWorldComponent>()?.FindCultivator(host);
+            return !string.IsNullOrEmpty(ownerId) && cultivator != null
+                && string.Equals(ownerId, cultivator.CultivatorId, StringComparison.OrdinalIgnoreCase);
+        }
+
         internal bool TryStoreDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn host, Hediff_Aperture aperture,
             out string reason)
         {
@@ -31,6 +39,8 @@ namespace ProjectGu
             if (aperture == null || aperture.pawn != host || !host.IsColonistPlayerControlled || InventoryOf(host) is not { } inventory
                 || !IsMapOwned(host) || !IsInInventory(thing, inventory) || aperture.def != GuWorldComponent.ApertureDef
                 || !host.health.hediffSet.hediffs.Contains(aperture)) return false;
+            reason = "This Gu has not been refined by this cultivator and will not enter their mortal aperture.";
+            if (!IsRecognizedByCultivator(record, host)) return false;
             string apertureId = aperture.EnsureApertureId();
             reason = "This aperture has no free capacity.";
             if (ApertureClaimCount(aperture) >= MortalApertureCapacity) return false;
@@ -47,7 +57,8 @@ namespace ProjectGu
                 {
                     if (!inventory.Remove(thing) || !IsDetached(thing) || inventory.Any(item => item == thing)
                         || !MatchesManifestation(record, thing) || InventoryOf(host) != inventory || !IsMapOwned(host)
-                        || host.Map != map || aperture.pawn != host || !host.health.hediffSet.hediffs.Contains(aperture)) return false;
+                        || host.Map != map || aperture.pawn != host || !host.health.hediffSet.hediffs.Contains(aperture)
+                        || !IsRecognizedByCultivator(record, host)) return false;
                 }
                 catch (Exception exception)
                 {
@@ -86,6 +97,9 @@ namespace ProjectGu
                 || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue
                 || !apertureOf.TryGetValue(record.Id, out var bound) || bound != aperture || aperture.pawn != host)
                 return false;
+
+            reason = "This Gu does not recognize this cultivator as its refiner.";
+            if (!IsRecognizedByCultivator(record, host)) return false;
 
             reason = "The aperture host must be a free colonist with a native inventory on a loaded map.";
             if (!host.IsColonistPlayerControlled || InventoryOf(host) is not { } inventory || !IsMapOwned(host)) return false;

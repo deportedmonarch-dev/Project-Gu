@@ -1,5 +1,6 @@
 using ProjectGu.Springs;
 using ProjectGu.Underground;
+using ProjectGu.Domain;
 using Verse;
 using System.Xml.Linq;
 
@@ -9,6 +10,25 @@ var root = args[0];
 var springDef = XDocument.Load(Path.Combine(root, "Defs/ThingDefs/GU_SpiritSpring.xml"));
 var springSettings = springDef.Descendants("li")
     .Single(node => (string)node.Attribute("Class") == "ProjectGu.Springs.CompProperties_GuSpiritSpring");
+var speciesDefs = XDocument.Load(Path.Combine(root, "Defs/GuSpeciesDefs/GU_GuSpecies.xml"));
+var hopeSpecies = speciesDefs.Descendants("ProjectGu.Domain.GuSpeciesDef")
+    .Single(node => (string)node.Element("defName")! == "GU_HopeGu");
+var captureJob = XDocument.Load(Path.Combine(root, "Defs/JobDefs/GU_CaptureWild.xml"))
+    .Descendants("JobDef").Single(node => (string)node.Element("defName")! == "GU_CaptureWildGu");
+var wildGuDef = XDocument.Load(Path.Combine(root, "Defs/ThingDefs/GU_WildGu.xml"));
+var dormantGuDef = XDocument.Load(Path.Combine(root, "Defs/ThingDefs/GU_DormantGu.xml"));
+Check((string)hopeSpecies.Element("wildProjectionKind")! == "GU_WildGu"
+    && (string)hopeSpecies.Element("dormantProjectionDef")! == "GU_DormantGu"
+    && wildGuDef.Descendants("ThingDef").Any(node => (string)node.Element("thingClass")! == "ProjectGu.Pawn_GuWildProjection")
+    && dormantGuDef.Descendants("ThingDef").Any(node => (string)node.Element("thingClass")! == "ProjectGu.Thing_GuDormantProjection")
+    && (string)captureJob.Element("driverClass")! == "ProjectGu.Jobs.JobDriver_GuCaptureWild",
+    "Ordinary Hope Gu acquisition uses configured species projections and a dedicated capture job");
+Check(new GuRefinement().CultivatorId == null
+    && File.ReadAllText(Path.Combine(root, "Source/ProjectGu/GuIndividualRegistry.Dormancy.cs"))
+        .Contains("record.Refinement?.CultivatorId != null", StringComparison.Ordinal)
+    && File.ReadAllText(Path.Combine(root, "Source/ProjectGu/GuIndividualRegistry.Aperture.cs"))
+        .Contains("IsRecognizedByCultivator", StringComparison.Ordinal),
+    "Physical Gu possession begins without refinement allegiance and mortal aperture access checks the existing bond");
 int unitsPerPoint = (int)springSettings.Element("cavernSupportUnitsPerPoint")!;
 int supportCap = (int)springSettings.Element("cavernMaxFloraSupport")!;
 int maximumHope = (int)springSettings.Element("maxHopeGu")!;

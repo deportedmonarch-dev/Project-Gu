@@ -42,6 +42,8 @@ namespace ProjectGu
 
         internal bool CanSaveCultivators => store != null && !loadFailed && !awakeningInProgress && nativeScopes.Count == 0;
         internal GuLegacyCultivatorRows PendingLegacyRows => legacyRows;
+        internal GuCultivatorRecord FindCultivator(Pawn pawn) => CanSaveCultivators && pawn != null
+            && store.ByPawn.TryGetValue(pawn, out var record) ? record : null;
         internal GuCultivatorRecord FindCultivator(string id) => CanSaveCultivators && id != null ? store.ById.GetValueOrDefault(id) : null;
 
         internal static void NoteLoadedAperture(Game game, Hediff_Aperture aperture)

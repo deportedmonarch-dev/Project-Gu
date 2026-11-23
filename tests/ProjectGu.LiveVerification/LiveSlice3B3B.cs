@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using HarmonyLib;
 using ProjectGu;
 using ProjectGu.Domain;
+using ProjectGu.Springs;
 using ProjectGu.Underground;
 using RimWorld;
 using Verse;
@@ -18,7 +19,7 @@ public sealed partial class LiveLifecycleChecks
 
     /// <summary>A lost aperture claim and the unresolved cause V2 must report. V1 quarantined all of these.</summary>
     private record ApertureClaim(GuRecordSnapshot Record, GuUnresolvedCause Cause);
-    private record ApertureFixture(string CaveId, GuRecordSnapshot[] Stored, GuRecordSnapshot Packed, ApertureClaim[] Lost);
+    private record ApertureFixture(string CaveId, string CultivatorId, GuRecordSnapshot[] Stored, GuRecordSnapshot Packed, ApertureClaim[] Lost);
 
     private static void ExerciseSlice3B3B()
     {
@@ -34,10 +35,15 @@ public sealed partial class LiveLifecycleChecks
         var aperture = AddProbeAperture(host);
         var otherAperture = AddProbeAperture(replacementHost);
         var inventory = host.inventory.GetDirectlyHeldThings();
-        var thing = PackTestGu(host);
+        var thing = AcquireOrdinaryGu(host, home);
         var record = registry.Resolve(thing);
         var carried = Snapshot(record);
         Prefs.DevMode = false;
+        bool unrefinedRejected = !registry.TryStoreDormant(thing, carried.Revision, host, aperture, out string unrefinedReason)
+            && record.Refinement == null && thing.holdingOwner == inventory;
+        Check(unrefinedRejected, $"Physical possession did not grant refinement allegiance or mortal-aperture access. {unrefinedReason}");
+        string fixtureCultivatorId = BindFixtureRefinement(record, host);
+        carried = Snapshot(record);
         bool storedOutsideDevelopment = registry.TryStoreDormant(thing, carried.Revision, host, aperture, out string ordinaryStoreReason);
         var ordinaryStored = Snapshot(record);
         Thing_GuDormantProjection ordinaryWithdrawal = null;
@@ -110,6 +116,7 @@ public sealed partial class LiveLifecycleChecks
 
             var secondThing = PackTestGu(host);
             var secondRecord = registry.Resolve(secondThing);
+            BindFixtureRefinement(secondRecord, host);
             var secondCarried = Snapshot(secondRecord);
             Check(registry.TryStoreDormant(secondThing, secondCarried.Revision, host, aperture, out string secondReason),
                 $"A second distinct Gu entered the same mortal aperture. {secondReason}");
@@ -169,6 +176,8 @@ public sealed partial class LiveLifecycleChecks
 
         var packed = PackTestGu(host);
         var packedSnapshot = Snapshot(registry.Resolve(packed));
+        BindFixtureRefinement(registry.Resolve(packed), host);
+        packedSnapshot = Snapshot(registry.Resolve(packed));
         Check(!registry.TryStoreDormant(packed, packed.GuRevision, host, aperture, out _)
             && Snapshot(registry.Resolve(packed)) == packedSnapshot && Snapshot(registry.Resolve(record.Id)) == stored
             && Snapshot(registry.Resolve(storedSecond.Id)) == storedSecond && registry.ApertureClaimCount(aperture) == 2,
@@ -223,7 +232,8 @@ public sealed partial class LiveLifecycleChecks
                 .SequenceEqual(new[] { stored, storedSecond }.OrderBy(item => item.Id, StringComparer.Ordinal)),
             $"The original host and exact aperture moved underground with two stored and one packed Gu. {travelReason}");
         Check(ActuallyProjectedGu().Single() == packed, "All aperture Gu are records only");
-        var fixture = new ApertureFixture(cave.GetUniqueLoadID(), new[] { stored, storedSecond }.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(), packedSnapshot, new[] {
+        var fixture = new ApertureFixture(cave.GetUniqueLoadID(), fixtureCultivatorId,
+            new[] { stored, storedSecond }.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(), packedSnapshot, new[] {
             interrupted, new(Snapshot(replaced), GuUnresolvedCause.ApertureMissing), new(Snapshot(missing), GuUnresolvedCause.ApertureMissing),
             new(Snapshot(death), GuUnresolvedCause.None), new(Snapshot(destroyed), GuUnresolvedCause.HostUnavailable)
         });
@@ -254,6 +264,7 @@ public sealed partial class LiveLifecycleChecks
         var inventory = host.inventory.GetDirectlyHeldThings();
         Check(storedRecords.Length == 2 && storedRecords.Select(Snapshot).SequenceEqual(fixture.Stored)
             && storedRecords.All(record => registry.Resolve(record.Id) == record) && registry.ResolveApertureOccupant(aperture) == null
+            && storedRecords.All(record => record.Refinement?.CultivatorId == fixture.CultivatorId)
             && packed.holdingOwner == inventory && Snapshot(registry.Resolve(packed)) == fixture.Packed
             && registry.Individuals.Count == fixture.Lost.Length + 3, "Fresh reload rebuilt two exact aperture bindings and one inventory binding");
         foreach (var expected in fixture.Lost)
@@ -297,6 +308,47 @@ public sealed partial class LiveLifecycleChecks
         && record.StateRevision == snapshot.StateRevision && record.ContainerId == snapshot.Custody.NativeOwnerId
         && record.AnchorHint == snapshot.Custody.HolderPawnId && record.Placement == GuPlacementKind.Contained;
 
+    private static Thing_GuDormantProjection AcquireOrdinaryGu(Pawn colonist, Map map)
+    {
+        var registry = IndividualRegistry;
+        int springCellMinDistance = 4;
+        var springThing = GenSpawn.Spawn(DefDatabase<ThingDef>.GetNamed("GU_SpiritSpring"),
+            EmptyCargoCell(map, colonist.Position, colonist, springCellMinDistance), map);
+        var spring = springThing.TryGetComp<CompGuSpiritSpring>();
+        int beforeAdults = spring.MatureCountFor("GU_HopeGu");
+        var beforeIds = registry.Records.Select(record => record.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Prefs.DevMode = false;
+        var search = spring.CompGetGizmosExtra().OfType<Command_Action>()
+            .Single(command => command.defaultLabel == "Search for Hope Gu");
+        search.action();
+        var record = registry.Records.Single(candidate => !beforeIds.Contains(candidate.Id));
+        var wild = registry.ProjectionOf(record) as Pawn_GuWildProjection;
+        Check(wild is { Spawned: true } && record.SpeciesDefName == "GU_HopeGu" && record.Refinement == null
+            && spring.MatureCountFor("GU_HopeGu") == beforeAdults - 1,
+            "The ordinary spring encounter materializes one available individual without creating an owner bond");
+        Check(wild.GetFloatMenuOptions(colonist).Any(option => option.Label.Contains("Capture Hope Gu (unrefined)", StringComparison.Ordinal)),
+            "The living Gu exposes an ordinary colonist capture interaction that explicitly preserves unrefined status");
+
+        var capture = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("GU_CaptureWildGu"), wild);
+        Check(colonist.jobs.TryTakeOrderedJob(capture), "The colonist can order the wild Gu capture job");
+        TickUntil(() => registry.ProjectionOf(record) is Thing_GuDormantProjection, 2400,
+            "The capture job completes without losing the canonical Gu identity");
+        var dormant = registry.ProjectionOf(record) as Thing_GuDormantProjection;
+        Check(dormant is { Spawned: true } && record.Refinement == null && dormant.GuId == record.Id,
+            "Capture changes the same Gu to a dormant ground Thing without assigning refinement ownership");
+
+        var pickup = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("GU_PickupDormant"), dormant);
+        Check(colonist.jobs.TryTakeOrderedJob(pickup), "The existing ordinary dormant-Gu pickup interaction accepts the captured Gu");
+        TickUntil(() => dormant.holdingOwner == colonist.inventory.GetDirectlyHeldThings(), 2400,
+            "The pickup job transfers the same Gu Thing into colonist inventory");
+        string inspect = dormant.GetInspectString();
+        Check(registry.Resolve(dormant) == record && dormant.GuId == record.Id && dormant.GuRevision == record.CustodyRevision
+            && record.Refinement == null && inspect.Contains("Unrefined; no cultivator recognizes this Gu.", StringComparison.Ordinal)
+            && inspect.Contains(record.Id, StringComparison.Ordinal),
+            "The possessed Gu reports its stable identity and unrefined allegiance after ordinary pickup");
+        return dormant;
+    }
+
     private static Thing_GuDormantProjection PackTestGu(Pawn host)
     {
         var gu = SpawnGroundGu(host);
@@ -308,9 +360,20 @@ public sealed partial class LiveLifecycleChecks
     {
         var gu = PackTestGu(host);
         var record = IndividualRegistry.Resolve(gu);
+        BindFixtureRefinement(record, host);
         Check(IndividualRegistry.TryStoreDormant(gu, gu.GuRevision, host, aperture, out string reason) && gu.Destroyed,
             $"Created record-only aperture custody. {reason}");
         return record;
+    }
+
+    private static string BindFixtureRefinement(GuRecord record, Pawn host)
+    {
+        var cultivator = Current.Game.GetComponent<GuWorldComponent>().GetOrCreate(host);
+        if (cultivator == null) throw new InvalidOperationException("Fixture host has no durable cultivator identity.");
+        var refinement = new GuRefinement();
+        AccessTools.Field(typeof(GuRefinement), "cultivatorId").SetValue(refinement, cultivator.CultivatorId);
+        AccessTools.Field(typeof(GuRecord), "refinement").SetValue(record, refinement);
+        return cultivator.CultivatorId;
     }
 
     private static IEnumerable<Thing> ActuallyProjectedGu() => GroundDormantGu().Cast<Thing>()

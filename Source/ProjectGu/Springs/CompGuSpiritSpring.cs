@@ -5,6 +5,7 @@ using RimWorld;
 using Verse;
 using Verse.AI;
 using ProjectGu.Domain;
+using ProjectGu.Underground;
 
 namespace ProjectGu.Springs
 {
@@ -191,6 +192,61 @@ namespace ProjectGu.Springs
                 Messages.Message("GU: secondary test cohort added to spring.",
                     MessageTypeDefOf.NeutralEvent, false);
         }
+
+        private IEnumerable<Gizmo> EncounterGizmos()
+        {
+            if (!populationsReady || parent?.Spawned != true || !PlayerCanAccessEncounterMap(parent.Map)) yield break;
+            foreach (GuPopulationRecord cohort in populations)
+            {
+                if (cohort?.MatureCount <= 0 || DefDatabase<GuSpeciesDef>.GetNamedSilentFail(cohort.SpeciesDefName) is not { } species
+                    || !species.wildPopulationEnabled || species.capabilityTags?.Contains("development_test") == true
+                    || species.wildProjectionKind == null || !Thing_GuDormantProjection.IsConfigured(species.dormantProjectionDef)) continue;
+
+                string speciesName = species.label;
+                yield return new Command_Action
+                {
+                    defaultLabel = $"Search for {speciesName}",
+                    defaultDesc = $"Draw one mature {speciesName} from this spring cohort. It remains wild and unrefined until separately captured and refined.",
+                    action = () => EncounterWildGu(species)
+                };
+            }
+        }
+
+        private void EncounterWildGu(GuSpeciesDef species)
+        {
+            if (parent?.Spawned != true || !PlayerCanAccessEncounterMap(parent.Map) || species == null
+                || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry)
+            {
+                Messages.Message("This spring cannot provide a wild Gu on an inaccessible map.", MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
+            var cohort = GuPopulationLedger.Find(populations, species.defName);
+            if (cohort == null || cohort.MatureCount <= 0)
+            {
+                Messages.Message($"No mature {species.label} remain in this spring cohort.", MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
+            Map map = parent.Map;
+            IntVec3 cell = GenRadial.RadialCellsAround(parent.Position, 6f, true).FirstOrDefault(candidate =>
+                candidate.InBounds(map) && !candidate.Fogged(map) && candidate.Standable(map)
+                && !map.reservationManager.IsReserved(candidate)
+                && candidate.GetThingList(map).Count == 0, IntVec3.Invalid);
+            string eventKey = $"player-encounter:{HabitatId}:{species.defName}:{cohort.Revision}";
+            string reason = "No safe nearby place is available for a wild Gu.";
+            bool success = cell.IsValid
+                && GuIndividualRegistry.TryPrepareMaterializationRequest(this, species.defName, eventKey, out var request)
+                && registry.TryEncounterWildCohort(this, request, map, cell, out _, out reason);
+            if (success)
+                Messages.Message($"A wild {species.label} emerged from the spring. It has no refined owner.", MessageTypeDefOf.PositiveEvent, false);
+            else
+                Messages.Message(cell.IsValid ? reason ?? "The spring could not safely release a Gu." : "No safe nearby place is available for a wild Gu.",
+                    MessageTypeDefOf.RejectInput, false);
+        }
+
+        private static bool PlayerCanAccessEncounterMap(Map map) => map is { Disposed: false }
+            && (map.IsPlayerHome || Current.Game?.GetComponent<GuPocketProbeComponent>()?.HasProtectedProjectionRoute(map) == true);
         private void EcologyDayStep()
         {
             if (!populationsReady || DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) == null) return;
@@ -209,6 +265,7 @@ namespace ProjectGu.Springs
         public override IEnumerable<Gizmo> CompGetGizmosExtra()
         {
             foreach (Gizmo g in base.CompGetGizmosExtra()) yield return g;
+            foreach (Gizmo gizmo in EncounterGizmos()) yield return gizmo;
             if (Prefs.DevMode && parent.Spawned)
             {
                 foreach (Gizmo gizmo in ProductionGizmos())

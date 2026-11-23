@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ProjectGu.Domain;
+using ProjectGu.Springs;
 using ProjectGu.Underground;
 using Verse;
 
@@ -38,11 +39,24 @@ namespace ProjectGu
         }
 
         internal bool TryMaterializeCohort(IGuCohortHabitat habitat, GuCohortMaterializationRequest request, Map map, IntVec3 cell,
-            out GuRecord individual, out string reason)
+            out GuRecord individual, out string reason) => TryMaterializeCohort(habitat, request, map, cell,
+                playerEncounter: false, out individual, out reason);
+
+        internal bool TryEncounterWildCohort(IGuCohortHabitat habitat, GuCohortMaterializationRequest request, Map map,
+            IntVec3 cell, out GuRecord individual, out string reason) => TryMaterializeCohort(habitat, request, map, cell,
+                playerEncounter: true, out individual, out reason);
+
+        private bool TryMaterializeCohort(IGuCohortHabitat habitat, GuCohortMaterializationRequest request, Map map,
+            IntVec3 cell, bool playerEncounter, out GuRecord individual, out string reason)
         {
             individual = null;
             reason = "The native cohort materialization safeguards are unavailable for this game configuration.";
-            if (!CanUseDevelopmentCustody) return false;
+            if (playerEncounter ? !CanUseCustody : !CanUseDevelopmentCustody) return false;
+            if (playerEncounter && (habitat is not CompGuSpiritSpring || map?.Disposed != false))
+            {
+                reason = "Wild Gu can only be encountered from a live spirit spring.";
+                return false;
+            }
             reason = "The cohort materialization request has no exact habitat or event.";
             if (string.IsNullOrWhiteSpace(request.EventKey) || string.IsNullOrWhiteSpace(request.HabitatId)
                 || string.IsNullOrWhiteSpace(request.SpeciesDefName) || request.ExpectedRevision < 0
@@ -62,7 +76,10 @@ namespace ProjectGu
 
             reason = "This species has no eligible wild cohort projection.";
             var species = DefDatabase<GuSpeciesDef>.GetNamedSilentFail(request.SpeciesDefName);
-            if (species?.wildPopulationEnabled != true || FirstAdultProjectionStage(species.wildProjectionKind) is not { } adult)
+            if (species?.wildPopulationEnabled != true
+                || playerEncounter && species.capabilityTags?.Contains("development_test") == true
+                || !Thing_GuDormantProjection.IsConfigured(species?.dormantProjectionDef)
+                || FirstAdultProjectionStage(species.wildProjectionKind) is not { } adult)
                 return false;
             reason = "The exact habitat cohort or revision is unavailable.";
             if (habitat.CohortFor(request.SpeciesDefName) is not { } cohort
@@ -75,7 +92,9 @@ namespace ProjectGu
                 IsMapOwned(anchor) && anchor.Map == map && habitat.Anchor == anchor && habitat.HabitatId == request.HabitatId
                 && anchor.GetUniqueLoadID() == request.SourceNativeId && habitat.HasUniqueIdentity
                 && CanPlaceDormant(map, cell, staged) && anchor.Position.DistanceToSquared(cell) <= 36
-                && !map.reservationManager.IsReserved(cell) && underground?.HasProtectedProjectionRoute(map) == true
+                && !map.reservationManager.IsReserved(cell)
+                && (playerEncounter ? map.IsPlayerHome || underground?.HasProtectedProjectionRoute(map) == true
+                    : underground?.HasProtectedProjectionRoute(map) == true)
                 && habitat.CohortFor(request.SpeciesDefName) == cohort && cohort.Revision == request.ExpectedRevision
                 && cohort.MatureCount > 0;
 
