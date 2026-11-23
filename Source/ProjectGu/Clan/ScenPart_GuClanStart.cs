@@ -176,16 +176,19 @@ namespace ProjectGu.Clan
         private void TryPlaceSpringEntrance(Map map)
         {
             GuPocketSiteDef kind = GuPocketSiteDef.SpiritSpring;
-            Pawn anchor = map.mapPawns.FreeColonistsSpawned.FirstOrDefault();
-            if (kind == null || anchor == null)
+            var colonists = map.mapPawns.FreeColonistsSpawned.ToList();
+            if (kind == null || colonists.Count == 0)
             {
                 Log.Warning("[Project GU] Clan start could not place a spirit spring pit (missing site Def or colonist).");
                 return;
             }
-            IntVec3 center = anchor.Position;
+            // Measure from the whole starting group so the pit stays clear of every colonist's arrival area.
+            IntVec3 center = new((int)System.Math.Round(colonists.Average(p => p.Position.x)), 0,
+                (int)System.Math.Round(colonists.Average(p => p.Position.z)));
+            Pawn anchor = colonists.MinBy(p => p.Position.DistanceToSquared(center));
             foreach (IntVec3 cell in GenRadial.RadialCellsAround(center, entranceMaxDistance, false))
             {
-                if (cell.DistanceTo(center) < entranceMinDistance || cell.Roofed(map)
+                if (colonists.Any(p => p.Position.DistanceTo(cell) < entranceMinDistance) || !cell.InBounds(map) || cell.Roofed(map)
                     || !Building_GuPocketProbeEndpoint.CanPlaceEntrance(kind, map, cell)
                     || !anchor.CanReach(cell, PathEndMode.OnCell, Danger.Deadly))
                     continue;

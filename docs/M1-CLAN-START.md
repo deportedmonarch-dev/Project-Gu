@@ -14,7 +14,7 @@ New game → scenario **Southern Border Clan** (`GU_SouthernBorderClan`). The pl
 
 Role stat offsets and the disciple distribution are provisional M1 tuning, not canon.
 
-A **spirit spring pit** spawns on clear, unroofed, reachable ground 7–28 cells from the colonists. Ordinary play (no Development Mode) can now:
+A **spirit spring pit** spawns on clear, unroofed, reachable ground within 28 cells of the colonists' centre and at least 7 cells from every colonist. Ordinary play (no Development Mode) can now:
 
 1. Right-click the pit → **Enter underground level**. The first entry generates the 39×39 spring cavern.
 2. Right-click the spring with a disciple → **Attempt awakening at spirit spring**. This is the existing job and consumes one mature Hope Gu.
@@ -41,13 +41,30 @@ No existing Def names, Scribe keys or package IDs changed. New Scribe keys exist
 |---|---|
 | `scripts/verify.ps1` (full and `-Focused`) against RimWorld 1.7 assemblies in `C:\Program Files (x86)\Steam\steamapps\common\RimWorld` | Passed: static checks, game-linked build with 0 warnings, all existing managed suites |
 | `ClanStartChecks` (managed, no RimWorld process), 61 checks | Scenario parts, `thingDef` and `stuff` references resolve against Core and mod Defs. The scenario parent exists in Core. Every XML field binds a public ScenPart field. Role stats exist. Spring `playerTravel` is set and the probe has none. Role planner edge cases. 20,000 gifted aptitudes are ordinary and graded D>C>B>A. Config errors are reported. `PreConfigure` resets progress. |
-| Native RimWorld | **Not run.** Codex is using the machine for native tests. |
+| Native RimWorld 1.7.5014 rev1195, headless, Core + Harmony, disposable read-only game copy (`scripts/verify-priority0-live.ps1 -Profile ClanStart,ClanSession`) | Passed. See below. Each stage fails on any red error in the engine log; every stage logged none. |
 
-### Native checks still required
+## Native acceptance
 
-1. Start the scenario. There should be no red errors, six colonists and the role markers. The elder should show a B-grade aperture after the first second of play. The letter should appear and the pit should be visible near the colonists.
-2. Without Development Mode, enter the pit. The cavern should generate, and a disciple should awaken at the spring with one Hope Gu consumed.
-3. Save and reload before the first tick and after founding. Founding should run exactly once, with no duplicate aperture and no second letter.
-4. Return to the main menu and start a second Southern Border game in the same session. Founding should run again.
-5. Assign underground hauling, check that stones reach a surface stockpile, and sell stones to a trader.
-6. Use a map where the start area is enclosed or mountainous. A warning message should appear if no pit can be placed, and the Development Mode tool should still work.
+The automated fixture is `tests/ProjectGu.LiveVerification/LiveClanStart.cs`, profiles `ClanStart` and `ClanSession`. Stock `-quicktest` hardcodes Crashlanded, so with `-guclanstart` the fixture runs the same `SetupForQuickTestPlay` sequence with the clan ScenarioDef's own Scenario instance. The fixture pauses at `StartedNewGame` and `LoadedGame` so it can observe the state before founding. All gameplay actions after founding use the actual float-menu options with Development Mode off. The player's selection screens are not exercised.
+
+Final evidence: `ClanStart` run `c4f1e9c0` and `ClanSession` run `d00f4fb6`, both on the final mod code. Earlier failing runs were fixture defects. The unpaused quick-test ticked through founding before checks, and a sale was signed as a positive count, which is wrong outside gift mode.
+
+| Check | Observed |
+|---|---|
+| 1. Start | Temperate forest, flat. Six colonists. The elder was the oldest (68). Disciples were the two youngest aged 13+ (28, 32). Three mortal workers. Founding was pending at tick 0 with the registry ready. The pit was 7.2 cells from the nearest colonist, unroofed, and registered as an independent spring route. 60 primeval stones. The elder awakened at B-grade (67), Rank 1, essence 33.5/67, with one letter. Disciples were unawakened with hidden ordinary aptitude. Workers were unawakened. |
+| 2. Ordinary travel | Development Mode was off. "Enter underground level" was offered and the disciple descended in 128 ticks. The first descent generated the cavern. The rope exit returned the disciple to the surface. |
+| 3. Awakening and conservation | "Attempt awakening at spirit spring" opened a C-grade aperture (52). Mature Hope Gu went 3 to 2, and juveniles 0 to 0. The awakened elder is not offered awakening. The disciple role was kept and the unawakened marker removed. |
+| 4. Save and reload | Fresh-process reload: founding stayed done, with one letter. The elder's aperture ID and record revision and the disciple's aperture ID were unchanged after 900 more ticks. A save written before the first tick loaded with founding pending at tick 0 and founded exactly once (one letter, one aperture, one pit). The elder's aptitude is rolled at founding, so it differs from the original game (74 versus 67). |
+| 5. Second game in one session | Stock `GenScene.GoToMainMenu`, then Entry-scene setup with the same ScenarioDef, then stock `PageUtility.InitGameStart`. Game 2 reused the same ScenPart instance (identity hash `03b2bd1d` in both games). Founding was reset to pending with zero letters, then ran again with one letter and one B-grade (71) elder aperture. The game 2 tile was mountainous desert, and the pit was placed 7.1 cells from the colonists. |
+| 6. Hauling and trading | A mortal worker was assigned through "Assign to underground hauling" with Development Mode off. The spring produced 1 stone after one in-game day, and it was delivered to a surface stockpile 24.3 in-game hours after assignment. The total was conserved (61). A trader caravan (`Caravan_Neolithic_WarMerchant`) bought 20 stones at 21.24 silver each for 425 silver. Total stones were conserved, and the colony lost exactly 20. |
+| 7. Obstructed and mountainous | With every open cell on the map roofed, placement found no cell. No pit was placed and no error was logged. The player gets a warning message, and the Development Mode placement tool remains. A natural mountainous start placed its pit normally in an earlier `ClanStart` run (temperate forest, mountainous: 7.1 cells) and in session game 2. |
+
+### Defect corrected during acceptance
+
+**Pit placed among the colonists.** The first native run placed the pit 2.0 cells from a colonist. Placement measured the minimum distance from only the first colonist. It now searches around the centre of the starting group and requires every colonist to be at least `entranceMinDistance` away. The fix was verified at 7.1–7.6 cells across five later starts.
+
+### Not covered by automation
+
+- The interactive scenario selection, storyteller and starting-pawn pages. The fixture reproduces their state changes.
+- Rendered appearance: the letter text, health-tab markers and pit sprite.
+- An owner playthrough beyond the first in-game day.
