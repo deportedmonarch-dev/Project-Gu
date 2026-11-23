@@ -18,7 +18,7 @@ public sealed partial class LiveLifecycleChecks
 
     /// <summary>A lost aperture claim and the unresolved cause V2 must report. V1 quarantined all of these.</summary>
     private record ApertureClaim(GuRecordSnapshot Record, GuUnresolvedCause Cause);
-    private record ApertureFixture(string CaveId, GuRecordSnapshot Stored, GuRecordSnapshot Packed, ApertureClaim[] Lost);
+    private record ApertureFixture(string CaveId, GuRecordSnapshot[] Stored, GuRecordSnapshot Packed, ApertureClaim[] Lost);
 
     private static void ExerciseSlice3B3B()
     {
@@ -38,16 +38,25 @@ public sealed partial class LiveLifecycleChecks
         var record = registry.Resolve(thing);
         var carried = Snapshot(record);
         Prefs.DevMode = false;
-        bool rejectedOutsideDevelopment = !registry.TryStoreDormant(thing, carried.Revision, host, aperture, out _);
+        bool storedOutsideDevelopment = registry.TryStoreDormant(thing, carried.Revision, host, aperture, out string ordinaryStoreReason);
+        var ordinaryStored = Snapshot(record);
+        Thing_GuDormantProjection ordinaryWithdrawal = null;
+        bool withdrawnOutsideDevelopment = storedOutsideDevelopment
+            && registry.TryWithdrawDormant(record.Id, ordinaryStored.Revision, host, aperture, out ordinaryWithdrawal, out _);
+        if (withdrawnOutsideDevelopment) thing = ordinaryWithdrawal;
+        carried = Snapshot(record);
         Prefs.DevMode = true;
-        Check(rejectedOutsideDevelopment && !registry.TryStoreDormant(thing, carried.Revision - 1, host, aperture, out _)
+        Check(storedOutsideDevelopment && withdrawnOutsideDevelopment && thing.GuId == record.Id
+            && record.Custody.Kind == GuCustodyKind.DormantInventory && carried.Revision == ordinaryStored.Revision + 1,
+            $"Ordinary player custody stores and withdraws the same Gu with Development Mode disabled. {ordinaryStoreReason}");
+        Check(!registry.TryStoreDormant(thing, carried.Revision - 1, host, aperture, out _)
             && !registry.TryStoreDormant(thing, carried.Revision, host, null, out _)
             && !registry.TryStoreDormant(thing, carried.Revision, host, otherAperture, out _)
             && !registry.TryStoreDormant(thing, carried.Revision, replacementHost, otherAperture, out _)
-            && Snapshot(registry.Resolve(thing)) == carried, "Storage rejects stale revisions, missing apertures, wrong hosts and disabled Development Mode");
+            && Snapshot(registry.Resolve(thing)) == carried, "Storage rejects stale revisions, missing apertures and wrong hosts");
 
         var fault = new Harmony("projectgu.verification.slice3b3b.aperture");
-        GuRecordSnapshot stored;
+        GuRecordSnapshot stored, storedSecond;
         ApertureClaim interrupted;
         try
         {
@@ -98,6 +107,17 @@ public sealed partial class LiveLifecycleChecks
                 && !registry.TryWithdrawDormant(record.Id, stored.Revision, replacementHost, aperture, out _, out _)
                 && Snapshot(registry.Resolve(record.Id)) == stored,
                 "Withdrawal rejects a stale revision, a different aperture and a different host");
+
+            var secondThing = PackTestGu(host);
+            var secondRecord = registry.Resolve(secondThing);
+            var secondCarried = Snapshot(secondRecord);
+            Check(registry.TryStoreDormant(secondThing, secondCarried.Revision, host, aperture, out string secondReason),
+                $"A second distinct Gu entered the same mortal aperture. {secondReason}");
+            storedSecond = Snapshot(secondRecord);
+            Check(secondThing.Destroyed && secondRecord.Id != record.Id && storedSecond.Id != stored.Id
+                && registry.ApertureClaimCount(aperture) == 2 && registry.ApertureOccupants(aperture).Count() == 2
+                && registry.ResolveApertureOccupant(aperture) == null,
+                "Two distinct authoritative identities share the aperture without an arbitrary single-occupant result");
             var maxStacks = AccessTools.Field(typeof(ThingOwner), "maxStacks");
             int normalLimit = (int)maxStacks.GetValue(inventory);
             maxStacks.SetValue(inventory, inventory.Count);
@@ -150,8 +170,9 @@ public sealed partial class LiveLifecycleChecks
         var packed = PackTestGu(host);
         var packedSnapshot = Snapshot(registry.Resolve(packed));
         Check(!registry.TryStoreDormant(packed, packed.GuRevision, host, aperture, out _)
-            && Snapshot(registry.Resolve(packed)) == packedSnapshot && Snapshot(registry.Resolve(record.Id)) == stored,
-            "A second Gu cannot take the occupied slot");
+            && Snapshot(registry.Resolve(packed)) == packedSnapshot && Snapshot(registry.Resolve(record.Id)) == stored
+            && Snapshot(registry.Resolve(storedSecond.Id)) == storedSecond && registry.ApertureClaimCount(aperture) == 2,
+            "A third Gu cannot exceed mortal aperture capacity two");
 
         var removed = AddProbeAperture(replacementHost);
         var replaced = StoreFixtureGu(replacementHost, removed);
@@ -198,19 +219,24 @@ public sealed partial class LiveLifecycleChecks
 
         Check(JobDriver_GuPocketProbeTravel.TryTravel(host, entrance, out string travelReason) && host.Map == cave
             && packed.holdingOwner == inventory && packed.MapHeld == cave && Snapshot(registry.Resolve(packed)) == packedSnapshot
-            && Snapshot(registry.ResolveApertureOccupant(aperture)) == stored,
-            $"The original host and exact aperture moved underground with one stored and one packed Gu. {travelReason}");
+            && registry.ApertureOccupants(aperture).Select(Snapshot).OrderBy(item => item.Id, StringComparer.Ordinal)
+                .SequenceEqual(new[] { stored, storedSecond }.OrderBy(item => item.Id, StringComparer.Ordinal)),
+            $"The original host and exact aperture moved underground with two stored and one packed Gu. {travelReason}");
         Check(ActuallyProjectedGu().Single() == packed, "All aperture Gu are records only");
-        var fixture = new ApertureFixture(cave.GetUniqueLoadID(), stored, packedSnapshot, new[] {
+        var fixture = new ApertureFixture(cave.GetUniqueLoadID(), new[] { stored, storedSecond }.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(), packedSnapshot, new[] {
             interrupted, new(Snapshot(replaced), GuUnresolvedCause.ApertureMissing), new(Snapshot(missing), GuUnresolvedCause.ApertureMissing),
             new(Snapshot(death), GuUnresolvedCause.None), new(Snapshot(destroyed), GuUnresolvedCause.HostUnavailable)
         });
         File.WriteAllText(ApertureFixturePath, JsonSerializer.Serialize(fixture));
         GameDataSaveLoader.SaveGame(SaveName);
         var saved = XDocument.Load(GenFilePaths.FilePathForSavedGame(SaveName));
-        Check(saved.Descendants("guIndividualRecordsV2").Single().Elements("li").Count() == fixture.Lost.Length + 2
+        Check(saved.Descendants("guIndividualRecordsV2").Single().Elements("li").Count() == fixture.Lost.Length + 3
             && saved.Descendants("guIndividualId").Single().Value == packed.GuId, "The native save contains one record per Gu and only the packed projection");
-        Report("Aperture storage by durable aperture ID, capacity, stale requests, native callbacks, cleanup, death, destruction and replacement passed without quarantine. The same host traveled with a stored Gu and a packed Gu.");
+        Prefs.DevMode = false;
+        Check(host.GetGizmos().OfType<Command_Action>().Any(command => command.defaultLabel == "Manage aperture Gu"),
+            "An awakened player-controlled colonist exposes aperture inspection and custody controls in ordinary play");
+        Prefs.DevMode = true;
+        Report("Aperture storage by durable aperture ID, two-Gu capacity, stale requests, native callbacks, cleanup, death, destruction and replacement passed without quarantine. The same host traveled with two stored Gu and one packed Gu.");
     }
 
     private static void VerifySlice3B3BReload()
@@ -219,15 +245,17 @@ public sealed partial class LiveLifecycleChecks
         var registry = IndividualRegistry;
         Map cave = Find.Maps.Single(map => map.GetUniqueLoadID() == fixture.CaveId);
         AssertNativeAddress(cave);
-        Pawn host = cave.mapPawns.FreeColonistsSpawned.Single(pawn => pawn.GetUniqueLoadID() == fixture.Stored.Custody.HolderPawnId);
+        Pawn host = cave.mapPawns.FreeColonistsSpawned.Single(pawn => pawn.GetUniqueLoadID() == fixture.Stored[0].Custody.HolderPawnId);
         var aperture = host.health.hediffSet.hediffs.OfType<Hediff_Aperture>()
-            .Single(hediff => hediff.ApertureId == fixture.Stored.Custody.NativeOwnerId);
-        var stored = registry.ResolveApertureOccupant(aperture);
+            .Single(hediff => hediff.ApertureId == fixture.Stored[0].Custody.NativeOwnerId);
+        var storedRecords = registry.ApertureOccupants(aperture).OrderBy(record => record.Id, StringComparer.Ordinal).ToArray();
+        var stored = storedRecords[0];
         var packed = ActuallyProjectedGu().Single();
         var inventory = host.inventory.GetDirectlyHeldThings();
-        Check(stored != null && Snapshot(stored) == fixture.Stored && registry.Resolve(stored.Id) == stored
+        Check(storedRecords.Length == 2 && storedRecords.Select(Snapshot).SequenceEqual(fixture.Stored)
+            && storedRecords.All(record => registry.Resolve(record.Id) == record) && registry.ResolveApertureOccupant(aperture) == null
             && packed.holdingOwner == inventory && Snapshot(registry.Resolve(packed)) == fixture.Packed
-            && registry.Individuals.Count == fixture.Lost.Length + 2, "Fresh reload rebuilt one exact aperture binding and one inventory binding");
+            && registry.Individuals.Count == fixture.Lost.Length + 3, "Fresh reload rebuilt two exact aperture bindings and one inventory binding");
         foreach (var expected in fixture.Lost)
         {
             var lost = registry.Individuals.Single(entry => entry.Id == expected.Record.Id);
@@ -243,21 +271,25 @@ public sealed partial class LiveLifecycleChecks
         }
         var exit = cave.listerThings.ThingsOfDef(GuPocketSiteDef.SpiritSpring.ExitDef).OfType<Building_GuPocketProbeEndpoint>().Single();
         Check(JobDriver_GuPocketProbeTravel.TryTravel(host, exit, out string reason) && host.Map.IsPlayerHome
-            && registry.ResolveApertureOccupant(aperture) == stored && packed.holdingOwner == inventory && packed.MapHeld == host.Map
-            && Snapshot(stored) == fixture.Stored && Snapshot(registry.Resolve(packed)) == fixture.Packed,
+            && registry.ApertureOccupants(aperture).Select(Snapshot).OrderBy(item => item.Id, StringComparer.Ordinal).SequenceEqual(fixture.Stored)
+            && packed.holdingOwner == inventory && packed.MapHeld == host.Map
+            && Snapshot(registry.Resolve(packed)) == fixture.Packed,
             $"Both custody forms returned through the original passage without changing revision. {reason}");
         Check(registry.TryWithdrawDormant(stored.Id, stored.Revision, host, aperture, out var withdrawn, out reason), $"Withdrawal after reload succeeded. {reason}");
-        Check(Snapshot(registry.Resolve(withdrawn)) == fixture.Stored with {
-                Revision = fixture.Stored.Revision + 1,
+        Check(Snapshot(registry.Resolve(withdrawn)) == fixture.Stored[0] with {
+                Revision = fixture.Stored[0].Revision + 1,
                 Custody = new(GuCustodyKind.DormantInventory, withdrawn.GetUniqueLoadID(), host.GetUniqueLoadID()) }
-            && withdrawn.GuId == fixture.Stored.Id && withdrawn.GuRevision == stored.Revision && withdrawn.stackCount == 1
-            && withdrawn.holdingOwner == inventory && registry.ResolveApertureOccupant(aperture) == null
-            && !registry.TryWithdrawDormant(stored.Id, fixture.Stored.Revision, host, aperture, out _, out _)
-            && ActuallyProjectedGu().Count() == 2, "Withdrawal creates exactly one native Thing with the same identity and rejects replay");
+            && withdrawn.GuId == fixture.Stored[0].Id && withdrawn.GuRevision == stored.Revision && withdrawn.stackCount == 1
+            && withdrawn.holdingOwner == inventory && registry.ApertureOccupants(aperture).Count() == 1
+            && registry.ResolveApertureOccupant(aperture) != null
+            && !registry.TryWithdrawDormant(stored.Id, fixture.Stored[0].Revision, host, aperture, out _, out _)
+            && ActuallyProjectedGu().Count() == 2, "Withdrawal creates exactly one native Thing with the same identity while preserving the other aperture Gu and rejecting replay");
         Check(registry.TryStoreDormant(withdrawn, withdrawn.GuRevision, host, aperture, out reason)
-            && stored.Revision == fixture.Stored.Revision + 2 && withdrawn.Destroyed && ActuallyProjectedGu().Single() == packed,
-            $"The same individual can occupy the slot again after a committed withdrawal. {reason}");
-        Report("Fresh-process reload preserved the exact two live bindings and kept five lost claims unresolved with their causes. The host returned by passage, withdrew the same individual into inventory, and stored it again.");
+            && stored.Revision == fixture.Stored[0].Revision + 2 && withdrawn.Destroyed && ActuallyProjectedGu().Single() == packed
+            && registry.ApertureOccupants(aperture).Select(record => record.Id).OrderBy(id => id, StringComparer.Ordinal)
+                .SequenceEqual(fixture.Stored.Select(item => item.Id).OrderBy(id => id, StringComparer.Ordinal)),
+            $"The same individual can return to the aperture after withdrawal while preserving both identities. {reason}");
+        Report("Fresh-process reload preserved two exact aperture bindings and one packed binding, kept five lost claims unresolved with their causes, and preserved both identities through withdrawal and re-storage.");
     }
 
     /// <summary>The stored claim is unchanged: custody and state revisions, container ID and anchor host.</summary>

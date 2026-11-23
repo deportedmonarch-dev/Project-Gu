@@ -122,13 +122,14 @@ namespace ProjectGu
         {
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
             var aperture = SingleDevelopmentAperture(host);
-            if (registry?.ResolveApertureOccupant(aperture) is not { } record)
+            if (registry == null || aperture == null)
             {
-                Messages.Message("Choose a colonist whose exact aperture has an authorized Gu.", MessageTypeDefOf.RejectInput, false);
+                Messages.Message("Choose a colonist with one valid aperture.", MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (!registry.TryWithdrawDormant(record.Id, record.CustodyRevision, host, aperture, out _, out string reason))
-                Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
+            ChooseRecord(registry.ApertureOccupants(aperture), record =>
+                Report(registry.TryWithdrawDormant(record.Id, record.CustodyRevision, host, aperture, out _, out string reason),
+                    reason, $"Withdrew Gu {record.Id} from the aperture."), "The aperture has no withdrawable Gu.");
         }
 
         [DebugAction("Project GU", "Release active Gu from selected colonist", actionType = DebugActionType.ToolMap,
@@ -137,15 +138,17 @@ namespace ProjectGu
         {
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
             if (Find.Selector.SingleSelectedThing is not Pawn host || host.Map != Find.CurrentMap
-                || SingleDevelopmentAperture(host) is not { } aperture
-                || registry?.ResolveApertureOccupant(aperture) is not { } record)
+                || SingleDevelopmentAperture(host) is not { } aperture || registry == null)
             {
-                Messages.Message("Select a colonist with an authorized aperture Gu, then click an adjacent open cell.",
+                Messages.Message("Select a colonist with one valid aperture, then click an adjacent open cell.",
                     MessageTypeDefOf.RejectInput, false);
                 return;
             }
-            if (!registry.TryReleaseActive(record.Id, record.CustodyRevision, host, aperture, Find.CurrentMap, UI.MouseCell(), out _, out string reason))
-                Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
+            IntVec3 cell = UI.MouseCell();
+            ChooseRecord(registry.ApertureOccupants(aperture), record =>
+                Report(registry.TryReleaseActive(record.Id, record.CustodyRevision, host, aperture, Find.CurrentMap, cell,
+                    out _, out string reason), reason, $"Released Gu {record.Id} from the aperture."),
+                "The aperture has no active Gu to release.");
         }
 
         [DebugAction("Project GU", "Inspect aperture Gu custody", actionType = DebugActionType.ToolMapForPawns,

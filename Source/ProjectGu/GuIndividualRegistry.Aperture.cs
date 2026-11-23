@@ -7,33 +7,33 @@ namespace ProjectGu
 {
     /// <summary>
     /// Record-only mortal aperture containment keyed by the transitional durable aperture ID (RFC-0004 §15.5).
-    /// The Development Mode fixture keeps one occupant per aperture. The container model supports many.
+    /// Mortal apertures hold a bounded collection of distinct Gu records; native aperture identity is shared by the occupants.
     /// </summary>
     public sealed partial class GuIndividualRegistry
     {
-        /// <summary>Provisional developer fixture capacity. Final capacity is a later balance decision.</summary>
-        internal const int DevelopmentApertureCapacity = 1;
+        /// <summary>Initial mortal aperture capacity. Refinement-based growth is a later increment.</summary>
+        internal const int MortalApertureCapacity = 2;
 
         /// <summary>Claims that occupy an aperture, including unresolved ones, which keep their place.</summary>
-        private int ApertureClaims(string apertureId) => apertureId == null ? 0 : records.Count(record => record != null
+        internal int ApertureClaimCount(Hediff_Aperture aperture) => aperture?.ApertureId == null ? 0 : records.Count(record => record != null
             && record.Existence == GuExistence.Living && !record.IsQuarantined && record.Placement == GuPlacementKind.Contained
-            && record.ContainerKind == GuContainerKind.MortalAperture && record.ContainerId == apertureId);
+            && record.ContainerKind == GuContainerKind.MortalAperture && record.ContainerId == aperture.ApertureId);
 
         internal bool TryStoreDormant(Thing_GuDormantProjection thing, int expectedRevision, Pawn host, Hediff_Aperture aperture,
             out string reason)
         {
             reason = "The Gu is not an authorized dormant manifestation, or the request is stale.";
-            if (!CanUseDevelopmentCustody || Resolve(thing) is not { } record || record.Condition != GuCondition.Dormant
+            if (!CanUseCustody || Resolve(thing) is not { } record || record.Condition != GuCondition.Dormant
                 || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue)
                 return false;
 
             reason = "Choose the living inventory holder's own aperture.";
-            if (aperture == null || aperture.pawn != host || !host.IsFreeColonist || InventoryOf(host) is not { } inventory
+            if (aperture == null || aperture.pawn != host || !host.IsColonistPlayerControlled || InventoryOf(host) is not { } inventory
                 || !IsMapOwned(host) || !IsInInventory(thing, inventory) || aperture.def != GuWorldComponent.ApertureDef
                 || !host.health.hediffSet.hediffs.Contains(aperture)) return false;
             string apertureId = aperture.EnsureApertureId();
             reason = "This aperture has no free capacity.";
-            if (ApertureClaims(apertureId) >= DevelopmentApertureCapacity) return false;
+            if (ApertureClaimCount(aperture) >= MortalApertureCapacity) return false;
 
             Map map = host.Map;
             IntVec3 position = host.Position;
@@ -82,13 +82,13 @@ namespace ProjectGu
         {
             withdrawn = null;
             reason = "The Gu's aperture containment or revision is unavailable.";
-            if (!CanUseDevelopmentCustody || Resolve(id) is not { } record || record.Placement != GuPlacementKind.Contained
+            if (!CanUseCustody || Resolve(id) is not { } record || record.Placement != GuPlacementKind.Contained
                 || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue
                 || !apertureOf.TryGetValue(record.Id, out var bound) || bound != aperture || aperture.pawn != host)
                 return false;
 
             reason = "The aperture host must be a free colonist with a native inventory on a loaded map.";
-            if (!host.IsFreeColonist || InventoryOf(host) is not { } inventory || !IsMapOwned(host)) return false;
+            if (!host.IsColonistPlayerControlled || InventoryOf(host) is not { } inventory || !IsMapOwned(host)) return false;
             var def = record.Species?.dormantProjectionDef;
             reason = "This species has no configured dormant inventory projection.";
             if (!Thing_GuDormantProjection.IsConfigured(def) || record.Condition != GuCondition.Dormant) return false;
