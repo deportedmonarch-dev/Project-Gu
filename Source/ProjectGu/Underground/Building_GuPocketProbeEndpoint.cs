@@ -31,7 +31,7 @@ namespace ProjectGu.Underground
                 yield return new FloatMenuOption("Assign to underground hauling",
                     () => GuPassageHauling.Assign(haulSite, selPawn));
             }
-            if (!Prefs.DevMode)
+            if (!Prefs.DevMode && !(independent && haulSite.Kind?.playerTravel == true))
                 yield break;
             if (!GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site) && !independent)
                 yield break;
@@ -114,27 +114,28 @@ namespace ProjectGu.Underground
 
         private static void PlaceEntrance(GuPocketSiteDef kind)
         {
-            Map map = Find.CurrentMap;
-            IntVec3 cell = UI.MouseCell();
-            bool independent = kind?.independentOwner == true;
-            if (!Prefs.DevMode || (independent && !GuUndergroundLifecycleGuards.Installed)
-                || !GuPocketProbeComponent.IsSurfaceSettlement(map)
-                || !cell.InBounds(map) || cell.Fogged(map)
-                || !cell.Standable(map) || cell.GetThingList(map).Count != 0 || kind?.IsConfigured != true
-                || !HasEntranceClearance(map, cell, kind.entranceClearance))
-            {
+            if (!Prefs.DevMode || TrySpawnEntrance(kind, Find.CurrentMap, UI.MouseCell()) == null)
                 Messages.Message("Place the entrance on clear, unfogged ground in your surface settlement.",
                     MessageTypeDefOf.RejectInput, false);
-                return;
-            }
+        }
 
+        /// <summary>True when a new entrance of this kind may occupy the cell on a surface settlement map.</summary>
+        internal static bool CanPlaceEntrance(GuPocketSiteDef kind, Map map, IntVec3 cell) =>
+            kind?.IsConfigured == true && (!kind.independentOwner || GuUndergroundLifecycleGuards.Installed)
+            && GuPocketProbeComponent.IsSurfaceSettlement(map)
+            && cell.InBounds(map) && !cell.Fogged(map) && cell.Standable(map) && cell.GetThingList(map).Count == 0
+            && HasEntranceClearance(map, cell, kind.entranceClearance);
+
+        /// <summary>Spawns and registers one entrance. Shared by the developer tool and scenario starts.</summary>
+        internal static Building_GuPocketProbeEndpoint TrySpawnEntrance(GuPocketSiteDef kind, Map map, IntVec3 cell)
+        {
+            if (!CanPlaceEntrance(kind, map, cell)) return null;
             var entrance = GenSpawn.Spawn(kind.endpoint, cell, map) as Building_GuPocketProbeEndpoint;
-            if (entrance?.Spawned == true && entrance.Map == map)
-            {
-                var registry = Current.Game.GetComponent<GuPocketProbeComponent>();
-                if (independent) registry.AddIndependentSite(kind, entrance);
-                else registry.AddSite(kind, entrance);
-            }
+            if (entrance?.Spawned != true || entrance.Map != map) return null;
+            var registry = Current.Game.GetComponent<GuPocketProbeComponent>();
+            if (kind.independentOwner) registry.AddIndependentSite(kind, entrance);
+            else registry.AddSite(kind, entrance);
+            return entrance;
         }
 
         private static bool HasEntranceClearance(Map map, IntVec3 center, int clearance)

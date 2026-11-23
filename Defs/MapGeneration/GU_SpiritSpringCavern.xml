@@ -9,6 +9,7 @@
     <entranceClearance>1</entranceClearance>
     <mapSize>39</mapSize>
     <independentOwner>true</independentOwner>
+    <playerTravel>true</playerTravel>
     <haulingCargo>
       <li>GU_PrimevalStone</li>
     </haulingCargo>
