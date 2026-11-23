@@ -1,187 +1,99 @@
 # Phase 3A proposal — durable cultivator identity
 
-**Status** — DRAFT architecture proposal. Owner decisions D3A.1–D3A.4 and benchmark seed control recorded 2026-11-22. Awaiting independent Codex review. Implementation is not authorized until after that review.
-**Depends on** — [RFC-0005 §3–4](RFC-0005-CULTIVATORS-REFINEMENT-APERTURES.md#3-cultivator-identity), accepted Phases 1–2, accepted [test infrastructure](TEST-INFRASTRUCTURE.md).
-**Goal** — The identity foundation for one fully playable cultivation clan. Clan membership, lineage, refinement bonds, apertures and inheritance will refer to a cultivator by a durable ID, never by a Pawn reference or load ID. Continent-scale simulation is out of scope.
+**Status — Revised for final owner approval. Implementation and native verification remain unauthorized.**
 
-## 1. Scope
+**Baseline —** `2705cfd9ae85782f6218a44193d205b388beff4c` on `feature/gu-framework-v2`. The independent review inspected the C# and the pinned RimWorld 1.7.5014 rev1195 assembly statically. [Acceptance plan](V2-PHASE3A-TEST-PLAN.md)
 
-| Slice | Contents | Authorization |
-|---|---|---|
-| **3A (this proposal)** | `CultivatorRecord` with a durable ID, one-time migration from `guPawnRecords`, the record's association with its native Pawn, aperture-to-cultivator links through the existing `guApertureId`, evidenced lifecycle outcomes, significance and safe removal, and benchmark seed control. | Approved in direction (D3A.4). Implementation after design review. |
-| 3B | `ApertureRecord`, the multi-occupant mortal aperture with a capacity policy, resurrection restoring occupants. | Separate. |
-| 3C | NPC cultivators (D2.5), capture, the 120-hosts-with-10-Gu budget. | Separate. |
+## 1. Scope and owner policy
 
-3A changes no gameplay. Awakening, aptitude generation, mortal status Hediffs and the development aperture fixture behave as today.
+Phase 3A provides durable identity for one playable cultivation clan. Project GU owns the cultivator ID, its native association, aperture ownership links and cultivation transactions. A future integration may refer to an opaque cultivator ID through a Project GU-owned contract. Phase 3A adds no integration API, Society Core reference or dependency.
 
-## 2. Owner decisions
+D3A.1–D3A.4 still apply. A completed `guCultivatorRecordsV1` store is authoritative. Preserve valid aptitude, physique, awakening and legacy migration values. The 600-tick discovery scan and existing aptitude and mortal-status rules continue for humanlike Pawns, including visitors and raiders. Keep the existing coordinator, custody guards, transaction discipline, underground architecture and Phase 2 custody and retention policies. Later approvals cover multi-occupant apertures, inheritance rules, NPC and faction simulation, politics and integration.
 
-| # | Decision (2026-11-22) |
-|---|---|
-| D3A.1 | **Approved.** `guCultivatorRecordsV1` is the sole authoritative store. `guPawnRecords` is read for one-time migration only. Never reroll existing aptitude, never create duplicate records, never keep two authoritative stores. |
-| D3A.2 | **Approved for 3A.** Keep today's aptitude generation and mortal-status behavior for every humanlike Pawn, visitors and raiders included. Do not narrow it in 3A. An ordinary record never forces native world-Pawn retention. |
-| D3A.3 | **Conditionally approved.** Significant identities survive native discard with their references. Death, disappearance and world-Pawn GC are distinct, evidenced outcomes. An insignificant record may be removed only with no outstanding references, transactions, conservation requirements or historical-integrity dependencies. |
-| D3A.4 | **Approved.** 3A is implemented on its own after final design review. 3B and 3C need separate authorization. |
-| Benchmark | **Approved.** Make the benchmark reproducible with a narrow runner change, keep empty and populated variants on matched worlds, and set a new controlled baseline. |
+Preserve identities with consequential Gu custody, assets, obligations, lineage or history, and identities explicitly marked important. This supports important colonists, recurring enemies, clan leaders, elders and immortals without adding role classifiers or gameplay systems in 3A. An incidental Pawn can use a small record while associated. Its record is eligible for removal after confirmed discard and a complete dependency check. Cultivator significance adds no native retention reason. Population targets and broader deletion or age-based compaction rules remain provisional.
 
-## 3. Current state
+## 2. Verified baseline
 
-- `GuWorldComponent` saves `List<GuPawnRecord>` under `guPawnRecords`: a Pawn reference, latent aptitude, extreme physique, awakening state and a 0.1.x migration flag. No durable ID.
-- On load, a record whose Pawn reference resolved to null is dropped silently.
-- Every 600 ticks, each spawned, living humanlike Pawn on every map gets a record (one dictionary lookup per Pawn once it exists).
-- `Hediff_Aperture` carries a durable `guApertureId` since Phase 1. Contained Gu name it as `containerId` and the host's load ID as `anchorHint`.
-- `GuRefinement.cultivatorId` exists on Gu records and is always empty.
+| Finding | Evidence and consequence |
+| --- | --- |
+| Legacy filtering precedes `LoadedGame` | `GuWorldComponent.ExposeData` calls `RebuildIndex` in `PostLoadInit`. It replaces the list, dropping null-Pawn and duplicate-Pawn rows. Pinned `Game.LoadGame` runs `ScribeLoader.FinalizeLoading`, including cross-reference resolution and `PostLoadInit`, before `GameComponentUtility.LoadedGame`. The latter invokes callbacks in component-list order and logs failures. [Legacy code](../Source/ProjectGu/GuWorldComponent.cs#L24) · [Gu registry callback](../Source/ProjectGu/GuIndividualRegistry.cs#L65) |
+| A failed Pawn association can retain XML evidence | Pinned `Scribe_References.Look` reads the XML token in `LoadingVars` and resolves it later. The legacy class lacks a separate Pawn ID and normalizes aptitude and awakening data on load. The default `saveDestroyedThings = false` can write a literal `null` for a killed Pawn that still has native custody. [Legacy DTO](../Source/ProjectGu/Domain/GuPawnRecord.cs#L16) |
+| Aperture IDs and awakening have live side effects | `EnsureApertureId` mutates the Hediff. `GetOrCreate` can sync mortal Hediffs. Awakening creates a provisional aperture before native insertion and its Hope Gu debit. The existing save guard protects Gu custody transitions. [Aperture ID](../Source/ProjectGu/Hediff_Aperture.cs#L25) · [Legacy creation](../Source/ProjectGu/GuWorldComponent.cs#L46) · [Awakening](../Source/ProjectGu/GuAwakeningService.cs#L58) · [Save guard](../Source/ProjectGu/GuCustodySaveGuard.cs#L29) |
+| Teardown paths overlap | Pinned `WorldPawns.RemoveAndDiscardPawnViaGC(Pawn)` removes the Pawn, then calls `DiscardPawn`, which can call both `Pawn.Destroy` and `Pawn.Discard`. `Corpse.PostCorpseDestroy(Pawn, bool discarded = false)` is shared by corpse destruction, a corpse-less kill branch and discard. `Pawn.Destroy` can pass a Pawn to the world without immediate discard. The current aperture notification lacks the native `discarded` argument. [Existing hooks](../Source/ProjectGu/GuLifecyclePatches.cs#L25) · [Aperture event](../Source/ProjectGu/Hediff_Aperture.cs#L86) · [Phase 2 application](../Source/ProjectGu/GuIndividualRegistry.Reconcile.cs#L159) |
+| Benchmark variants currently differ in native Hediff data | The fixture writes the empty save before assigning durable aperture IDs in the populated save. Quick-test chooses a random seed and starting tile through separate calls. [Save construction](../tests/ProjectGu.LiveVerification/LiveGuRegistryBenchmark.cs#L64) · [Existing baseline limits](TEST-INFRASTRUCTURE.md#benchmark-on-the-new-runner) |
 
-## 4. Existing lifecycle handling, reviewed
+These are static findings. The design below is proposed. The current review establishes neither runtime callback coverage nor migration, retention or performance acceptance.
 
-Read from the mod source and from the RimWorld 1.7.5014 assembly (decompiled locally, not committed).
+## 3. Record and evidence model
 
-| Native event | Native path | Existing Project GU handling |
-|---|---|---|
-| Death of an aperture host | `Hediff.Notify_PawnDied` | `Hediff_Aperture` enqueues `HostDead`. Reconciliation keeps the Gu as deceased-host custody. |
-| Aperture Hediff removed | `Hediff.PostRemoved` | `Hediff_Aperture` enqueues `ApertureMissing`. |
-| Corpse destroyed | `Corpse.Destroy` → `Corpse.PostCorpseDestroy(pawn, discarded: false)` → `health.Notify_PawnCorpseDestroyed` | Patches on `Corpse.Destroy` (prefix and finalizer) and `PostCorpseDestroy` (prefix, `BeforeHolderTeardown`). `Hediff_Aperture` enqueues `HostCorpseDestroyed`. |
-| Death of a world Pawn or a held Pawn, outside a caravan | `Pawn.Kill` makes no corpse and calls `Corpse.PostCorpseDestroy(this)` | The same `PostCorpseDestroy` prefix and Hediff notification. |
-| Discard, alive or dead | `Pawn.Discard` → `Corpse.PostCorpseDestroy(this, discarded: true)` | The same prefix with `discarded = true`. `Hediff_Aperture` enqueues `HostCorpseDestroyed` with "discarded" detail when the host is alive. |
-| Non-lethal destruction | `Pawn.Destroy(mode != KillFinalize)` | `Pawn.Destroy` prefix (`BeforeHolderVanish`) preserves held Gu. |
-| World-Pawn GC | `WorldPawnGC` → `WorldPawns.RemoveAndDiscardPawnViaGC` → `DiscardPawn(p, silentlyRemoveReferences: true)` → `Pawn.Destroy` / `Pawn.Discard` | `GetCriticalPawnReason` postfix (`ProjectGuCustody`) retains hosts and holders of `Individual`-policy Gu. No outcome is recorded for the GC itself. |
-| `PassToWorld(…, Discard)` | `WorldPawns.DiscardPawn(p)` with `silentlyRemoveReferences: false` | Same as discard. |
-| Resurrection | `ResurrectionUtility.TryResurrect` → `health.Notify_Resurrected` | No hook. The aperture Hediff survives (engine finding F5) and Phase 2 reconciliation derives the result from `pawn.Dead`. |
-| Map removal | `MapDeiniter.Deinit` | Prefix and finalizer bracket map teardown. |
+| Field | Contract |
+| --- | --- |
+| `cultivatorId` | Immutable save-scoped GUID, never reused. Durable relationships and owner links use this ID. |
+| `nativeAssociation` | `Bound` for a uniquely verified, engine-owned Pawn, `Unresolved` for missing or contradictory evidence, or `Detached` after confirmed discard. Keep the optional Scribe Pawn reference, the last validated Pawn load ID or raw token evidence where applicable, and an association revision. Unresolved or detached rows grant no native authority. |
+| `lastObservedLife` | `Alive`, `Dead` or `Unknown`, with observation tick when known. A read of current life uses `pawn.Dead` only for a valid bound Pawn. Save or lifecycle observations can refresh the persisted snapshot. |
+| `lastCorpseDestruction` and `lastProvenCorpselessDeath` | Optional typed facts with event identity, tick and source evidence. Keep the latest confirmed fact of each kind. A generic post-corpse notification is insufficient to establish either fact. |
+| `confirmedDiscard` | At most one fact per association revision, with event key, tick, cause and observed life. Distinguish GC, explicit or ordinary discard, and unknown cause where the final discard itself is proven. A living discard represents disappearance from native simulation. |
+| Cultivation and dependency data | Existing aptitude, physique, awakening and legacy flags. Confirmed aperture ID links, durable creation or migration key, state revision, optional cached name when identity retention needs it, and supported significance reasons. |
 
-**Consequence for the design.** 3A adds no death or resurrection patch. Living and dead are read from the Pawn while the reference exists. Every path that ends a Pawn's existence already passes through the `Corpse.PostCorpseDestroy` prefix, so 3A extends that handler instead of adding a parallel one. The only new patch is a prefix and finalizer on `WorldPawns.RemoveAndDiscardPawnViaGC` that marks the Pawn being collected, because no existing hook distinguishes GC from other discards. `Find.WorldPawns.IsBeingDiscarded` is true for both GC and `PassToWorld(Discard)`.
+A Pawn may remain bound after death or destruction of its corpse. An already recorded body fact survives later GC or resurrection. Ordinary resurrection of the same native Pawn preserves the cultivator ID and surviving explicit aperture links. Phase 3A provides a current-life read and bounded observations. Complete death and resurrection history, inheritance triggers and abstract NPC life transitions are later contracts. Missing references retain their last valid observation and record the association problem. They supply no evidence of death, body destruction or discard.
 
-## 5. Design
+Use a single authoritative store with derived lookups by Pawn, cultivator ID and confirmed aperture ID. An integrity section in the same store retains the original evidence for each unresolved legacy row or contradictory claim, including relevant unconsumed raw fields on a partially interpretable row. Its size follows outstanding source evidence. No repeating history entries accumulate on reload or periodic discovery. Rows with no supported identity remain evidence entries until explicitly resolved. They grant no ownership.
 
-### 5.1 Record
+## 4. Lossless migration
 
-```csharp
-public sealed class CultivatorRecord : IExposable      // GuWorldComponent, key guCultivatorRecordsV1
-{
-    string cultivatorId;          // GUID "N", durable, never reused
-    Pawn pawn;                    // Scribe reference while the native Pawn exists; cleared at discard
-    string pawnLoadId;            // last known load ID, for diagnostics and Gu anchorHint matching
-    string cachedName;            // captured at creation and refreshed on save while the Pawn exists
-    AwakeningState awakening;     // unchanged semantics: Unattempted, Failed, Awakened
-    int latentAptitude; string extremePhysiqueId; bool legacyMigrated;   // unchanged semantics
-    List<string> apertureIds;     // guApertureId values this cultivator owns
-    CultivatorOutcome outcome;    // None while the Pawn exists; otherwise the evidenced end (5.3)
-    int outcomeTick; string outcomeDetail;
-    string creationEventKey;      // "legacy:<pawnLoadId>" for migration, "scan:<pawnLoadId>" or "awaken:<pawnLoadId>"
-    int stateRevision;
-}
-```
+### 4.1 Capture and classification
 
-Living and dead are not stored. They are read from `pawn.Dead` while the reference exists, so resurrection needs no handling in the record. `Ascended` and environment fields wait for Phase 8.
+During `LoadingVars`, capture a detached copy of the complete `guPawnRecords` node and each row’s ordinal, raw Pawn token and raw cultivation fields before Scribe normalization or reference resolution. Preserve missing nodes, explicit nulls, duplicate rows, malformed fields and unreadable rows in that input snapshot. Stage normal Scribe reference resolution separately. Make legacy `PostLoadInit` indexing non-destructive. Uniquely resolved rows can be indexed for read-only inspection. Index filtering never modifies the source list or selects a winner for an ambiguous key.
 
-### 5.2 Pawn association
+| Evidence | Treatment |
+| --- | --- |
+| Unique resolved native Pawn, compatible exact saved token and valid fields | Preserve the cultivation fields and create one bound identity. Corroborate any owner link with the exact native aperture and its unique durable ID. |
+| Reference unresolved, but a unique raw token exactly matches a contained mortal-aperture Gu’s saved `anchorHint` in the same save | Retain the historical association, source row and Gu/aperture evidence. A uniquely supported identity can be kept as `Unresolved`. Historical evidence grants no current Pawn or aperture custody. Multiple Gu referring to the same consistent anchor are supporting references to the same candidate. |
+| Missing token, literal `null`, malformed data, inconsistent resolution, or contradictory claims | Preserve the raw row and any independent Gu anchor evidence. Hold affected bindings unresolved. A Gu anchor, a name, a shared aptitude value or a lone candidate cannot substitute for the missing token. |
+| Evidence already erased by an earlier load and resave | Report the limit. Preserve the surrounding Gu evidence still present. Recovery requires an older trustworthy source or a separately authorized evidence-based action. |
 
-- **Forward.** A Scribe reference to the Pawn, as today.
-- **Reverse.** `Dictionary<Pawn, CultivatorRecord>`, `Dictionary<string, CultivatorRecord>` by cultivator ID and by aperture ID, rebuilt once at load (§7).
-- **No new Pawn components.** A comp on the Human race needs an XML patch with compatibility risk. The aperture Hediff's `guApertureId` is a second, Pawn-side link for every awakened cultivator, enough to detect a broken or duplicated association.
-- **Aperture links.** `CreateAperture` and migration add the aperture ID to the owner's `apertureIds`. A load-time check reports an aperture ID claimed by two records or found on a Pawn other than its owner. It never merges or reassigns automatically.
-- **Faction-agnostic.** Colonists, prisoners, slaves, guests, enemies and world Pawns use the same record. Faction change, imprisonment, downing and map travel never change identity.
+Use exact, ordinal matching for same-save Pawn tokens. Validate GUIDs and use one canonical identity comparison for valid GUIDs. An existing nonempty malformed aperture ID remains evidence. Exact duplicate rows and conflicting rows all survive classification. Conflicting Pawn, cultivator or aperture claims block the shared key and every affected ownership lookup. Preserve source keys, all claimants and any already established Phase 2 Gu placement. Phase 3A makes no automatic merge, reassignment or repair of existing Gu custody.
 
-### 5.3 Evidenced lifecycle outcomes
+### 4.2 Readiness, ordering and commit
 
-The extended `PostCorpseDestroy` handler and the GC marker record the outcome when a Pawn's existence ends. Earlier observations are kept, so a dead Pawn later collected by GC shows both.
+The Phase 2 Gu registry must explicitly report that its own migration and binding rebuild completed successfully for the current game. Crossing `PostLoadInit` or entering `LoadedGame` is insufficient. Use a narrow handoff in the existing load sequence that covers either component callback order and runs once when both inputs are ready. A failed upstream load leaves the cultivator store unready. Keep discovery, awakening, identity edits and saving gated until the result is established. For a V1 Gu save the existing Phase 2 import may already assign legacy aperture IDs. Those assignments are part of the Phase 2 baseline. Phase 3A adopts them, and its rollback restores its own writes to their post-Phase-2 preimages. A failed 3A load cannot save intermediate Phase 2 data over the input.
 
-| Outcome | Evidence |
-|---|---|
-| `None` | The Pawn exists. Alive or dead is read from it. |
-| `BodyDestroyed` | `PostCorpseDestroy` with `discarded = false` on a dead Pawn: corpse destroyed, or death with no corpse. The Pawn object may still exist as a dead world Pawn. |
-| `DiscardedDead` | Discard of a dead Pawn outside GC. |
-| `Disappeared` | Discard of a living Pawn outside GC. Not a death. |
-| `CollectedByGc` | Discard inside `RemoveAndDiscardPawnViaGC`, with alive or dead noted in the detail. |
-| `ReferenceLost` | The Pawn reference loaded as null with no recorded outcome. A path this design does not observe. Reported, never treated as death. |
+1. **Prepare.** Read the untouched legacy snapshot and resolved references. Build proposed records, derived indexes, conflict evidence and an aperture-write list with both old and proposed values. Reuse the existing Gu registry’s loaded aperture and anchor evidence. Include the aperture-only 0.1.x path as a pure field copy from the exact Hediff. Projection and custody validation remain Phase 2 responsibilities. Use a one-time native-holder pass where needed for legacy Pawns. A small per-load intake of Scribed aperture IDs can expose duplicate Hediffs on otherwise unindexed owners. Scope that intake to the current game and clear it after validation. Ordinary loads require no additional world-wide Pawn scan.
+2. **Validate.** Account for every source row as a canonical identity or preserved evidence. Check exact native ownership, unique IDs and creation keys, all aperture claims, native references and unchanged Gu records and quantities. Existing `guApertureId` values are adopted. Mint a missing ID only for an exact, uniquely supported Hediff through a staged write. Preserve valid numerical values, including legitimate zero aptitude. Park malformed data visibly instead of substituting freshly rolled values. Scope migration keys to the save and source row or unique evidenced identity. Discovery and awakening share the same existing-association lookup even when their initiating actions differ.
+3. **Commit.** On the game thread under the extended save and mutation guard, apply the validated native writes and publish the prepared store, indexes and owner links together with a committed schema marker. Retain preimages until commit completes. For awakening, prepare any new identity and the aperture link privately before native insertion, revalidate exact insertion and the existing Hope Gu debit, then publish the awakening outcome and ownership together. The final publication step must be prevalidated, synchronous and free of native callbacks. If a failure remains possible after the debit, the existing transaction must provide a verified compensation or a closed recovery state before approval.
+4. **Recover.** On failure before completion, reverse applied Hediff writes and restore the prior store and indexes. Verify the preimages and Gu invariants. Keep the untouched migration input available for diagnosis or a clean retry. If rollback fails, preserve both the source and the partial-write evidence, report the failure, and keep the affected game closed to saves and mutations. Emit a completion marker only after the full commit. A saved committed store reopens without migration and preserves its IDs across both fresh-process reloads. An abandoned unsaved import may retry from the unchanged source. Its IDs and ownership stay private until commit and must never authorize a persisted external dependency before the first successful save.
 
-### 5.4 Significance, retention and removal
+## 5. Save authority and compatibility
 
-Two separate questions.
+The new store has an explicit supported schema version and a committed migration state. Apply those markers and the envelope checks at load independently of the row count.
 
-**Identity significance** decides whether a record must survive. A record is significant when any of these holds:
+| Input state | Authority and action |
+| --- | --- |
+| New key and marker absent | Candidate for legacy import. An audited old save with neither store has no legacy rows. Apply the aperture-only rule where evidence supports it. A fresh game initializes a committed empty store. |
+| Supported, committed store, including valid-empty | Use the new store. Rebuild derived indexes, validate bindings and retain explicitly quarantined evidence. Skip migration and aptitude generation for existing identities. |
+| Incomplete or inconsistent marker, unsupported schema, invalid envelope or contradictory dual authorities | Keep the input for diagnosis. Block normal mutation and saving until an explicit recovery succeeds. An invalid new key never triggers silent legacy import or replacement with an empty store. |
 
-1. A living or tombstoned Gu record names one of its aperture IDs as `containerId`, or its `pawnLoadId` as the `anchorHint` of a contained Gu.
-2. A Gu record's `refinement.cultivatorId` names it. None exist until bonds land.
-3. An active transaction or awakening involves its Pawn.
-4. A later slice marks it, for example clan membership, an obligation, provenance or inheritance. 3A provides the flag and the check, and no 3A code sets it.
+Extend the existing save guard to include migration, awakening publication and native teardown reconciliation while they are in flight. Retain a serialization-time check before writing either section. The smallest safe policy on migration failure is save blocking. A later legacy-writing fallback would need to write the original Pawn token and all relevant evidence losslessly. Re-serializing a resolved-null legacy object through normal Scribe is insufficient.
 
-A significant record keeps its ID, name, aptitude, apertures and outcome when its Pawn is discarded. It becomes an identity tombstone.
+A successful next save writes the new authoritative cultivator store and its evidence. Keep the existing Gu V2 data, Scribe keys, binding revisions, Phase 2 placement authority and aperture IDs. A pre-3A V2 build cannot safely read a 3A-written cultivator store and is outside the downgrade contract. Work on disposable copies and hash originals before and after any future verification.
 
-**Native Pawn retention** decides whether the engine keeps the Pawn object. 3A does not extend it. The existing `ProjectGuCustody` rule already keeps hosts and holders of `Individual`-policy Gu. Ordinary records, and significant records whose Gu do not need the Pawn, never keep a Pawn alive (D3A.2). Bonds, provenance and inheritance refer to the cultivator ID and do not need the Pawn.
+## 6. Exactly-once native observation
 
-**Removal of an insignificant record** happens only after its Pawn is discarded, when none of conditions 1–4 hold, no Gu history entry or tombstone needs it for integrity, and no conservation count depends on it. Today's insignificant records carry no such dependencies. The check runs at discard and again at load, and a refused removal is reported.
+Extend the existing lifecycle hooks narrowly. Capture the exact known association, native flags, cause context and observations needed before teardown. A Game-scoped marker on `RemoveAndDiscardPawnViaGC` provides cause context for the exact Pawn. Use per-invocation state and exception-safe cleanup that preserves the native exception. A nested or failed invocation cannot leak its context to a different Pawn. Scope observation to registered identities and existing holders. The marker neither forces Pawn retention nor replaces Phase 2 custody handling.
 
-### 5.5 Existing-save migration
+- A real corpse destruction uses `Corpse.Destroy` context with its captured inner Pawn and a confirmed body removal. Normal resurrection clears the inner Pawn before destroying the corpse shell. That shell cleanup grants no body-loss fact for the revived Pawn.
+- The generic post-corpse callback can contribute evidence. Record corpse-less death only when the known native kill path or equivalent positive evidence proves it and there was no corpse. If the specific path cannot be distinguished safely through the existing hook, leave the body fact unspecified. Establish a minimal additional observation seam only if verification demonstrates it is needed.
+- Coalesce `Pawn.Destroy`, post-corpse notification and GC observations by exact cultivator association. Confirm a transition to native `Discarded` before committing the one discard fact for that revision. Retain a still-owned Pawn after nonlethal destruction. Repeated and nested callbacks reuse the same fact. Classify a confirmed discard outside the GC scope as non-GC. Record an explicit caller detail only when positively observed. A partial teardown that cannot establish the result remains unresolved.
+- Apply confirmed observations from the existing reconciliation boundary. Before any save, finish active scopes and drain Phase 2 custody events and the corresponding cultivator observations in an explicit order before either store serializes. Preserve a completed observation in the save taken before the next normal tick. Block a save inside teardown or during partial publication. Release transient Pawn references at reconciliation.
 
-Runs once, after both `GuWorldComponent` and `GuIndividualRegistry` have loaded, when `guCultivatorRecordsV1` is absent. A second load finds the new key and does nothing.
+For removals, derive dependency checks from Gu aperture claims and anchors, refinement IDs, active transactions, significant markers, and retained history, provenance or terminal actor evidence. Count tombstoned Gu where they retain references. Unresolved conflicts and incomplete dependency coverage prevent deletion. Ordinary confirmed discards with no dependencies can be removed once the dependency and retention tests pass. Use indexed lookups and batched maintenance. Keep no event history for removed incidental records. Significant records keep the identity and bounded facts independently of native custody. Current Phase 2 retention decisions stay authoritative. Its existing handling of dead-Pawn discard needs a regression comparison even when it reaches the corpse-release branch.
 
-1. Each valid `GuPawnRecord` becomes a `CultivatorRecord` with a new ID, the same Pawn reference and identical aptitude, physique, awakening state and migration flag.
-2. Duplicate records for one Pawn keep the first, as today, and report the rest. No duplicate cultivator record is ever created.
-3. A record whose Pawn resolved to null is checked against contained Gu `anchorHint` values. With no match it is dropped, as today, and reported. With a match it becomes a `ReferenceLost` tombstone, since its aptitude cannot be tied to a Pawn but its identity is needed.
-4. Every `Hediff_Aperture` on a recorded Pawn gets `guApertureId` if missing, and the ID is added to `apertureIds`.
-5. A Pawn with an aperture but no record (0.1.x saves) uses today's `GetOrCreate` legacy path, which reads aptitude and physique from the Hediff. This needs one pass over `PawnsFinder.All_AliveOrDead` during migration only.
-6. Migration never rerolls aptitude and never adds or removes Hediffs.
+## 7. Benchmark and implementation gate
 
-The migrated data reaches disk on the next save. Original saves are never modified. Every migration source is copied to a disposable root with hashes checked before and after.
+**C0 uses clones of a common hashed source save.** Preassign identical durable aperture IDs and record the pin, map, world, settings and complete fixture fingerprint. Prepare equivalent fixtures twice in independent fresh processes from immutable clones. Two independently generated random worlds are unnecessary. If seeded regeneration is proposed as a source substitute, show fingerprint equality across two independent generations before use. Counts and file sizes are diagnostic only. [C0 fixture, fingerprint and cost requirements](V2-PHASE3A-TEST-PLAN.md#c0--equivalent-benchmark-inputs)
 
-## 6. Risks
+Budget work for record loading, derived indexing, incremental discovery and affected lifecycle events separately. Use existing scheduled discovery and reconciliation boundaries. No per-tick global work, extra Pawn retention or unbounded per-identity history. The existing Gu rebuild and aperture event paths have separate costs that the benchmark must not attribute to the new indexes without instrumentation. Record storage, allocation and timing measurements before proposing targets or changing deletion policy.
 
-### 6.1 Native Pawn retention
+**Remaining risks and owner decisions.** Native tests must establish coverage for relevant holders and damaged inputs, corpse-less path evidence, nested hooks, the dead-Pawn discard baseline, and save ordering. Performance estimates and population targets remain hypotheses. The owner can separately decide which story roles receive automatic significance, when broader deletion is safe, and future inheritance, abstract NPC and integration rules. Existing Phase 2 behavior remains the regression baseline.
 
-- **Retaining too much.** Each retained world Pawn costs memory and save size and is never collected. 3A adds no retention reason, so the retained set stays exactly as today. A test checks that an insignificant world Pawn with a record is still collected.
-- **Retaining too little.** A significant identity whose Pawn is collected keeps only the tombstone. That is intended for bonds, provenance and inheritance. Gu custody that needs the Pawn keeps the existing retention.
-- **GC timing.** GC runs in passes. The unreproduced N=6 V2EngineProbe case may involve GC finishing near a save. The new GC marker records outcomes inside `RemoveAndDiscardPawnViaGC` only, so a save between passes sees either the live Pawn or the recorded outcome.
-- **Unobserved removal.** A mod or engine path that drops a Pawn without `Pawn.Discard` leaves a null reference on load. The record becomes `ReferenceLost` instead of vanishing, and the report names it.
-- **Discard of our own projections.** Project GU discards wild Gu projection Pawns itself. They are not humanlike and never have cultivator records. The handler ignores Pawns without a record at the cost of one dictionary lookup.
-
-### 6.2 Save migration
-
-- **Failure during migration.** If migration throws, the sole new store could be empty and the next save would drop `guPawnRecords`, losing every aptitude. Mitigation: migration builds the new list off to the side and swaps it in only on success. On failure the legacy list stays the in-memory store and keeps saving under `guPawnRecords`, and the failure is reported. Only one store is authoritative at any time.
-- **Downgrade to a pre-3A V2 build.** That build ignores `guCultivatorRecordsV1`, finds no `guPawnRecords`, and its scan would reroll aptitude for every Pawn. V2 saves are already documented as not loading in V1. 3A release notes must also state that 3A saves are not supported by earlier V2 builds.
-- **Component load order.** Linking apertures needs the Gu registry loaded. Migration and linking run from `LoadedGame`, after every component's `PostLoadInit`, not from `GuWorldComponent.ExposeData`.
-- **Unsaved migration.** IDs are random. If the game exits before saving, the next load migrates again with new IDs. Nothing persisted refers to the unsaved IDs, so this is harmless.
-- **Conflicting aperture IDs.** A mod copying Hediffs could put one `guApertureId` on two Pawns. Migration reports it and links the first.
-- **Missing or removed races.** A Pawn of a removed race loads as null and follows step 3.
-
-## 7. Per-load indexing cost
-
-3A adds load work. The expected cost, to be confirmed at C4:
-
-| Work | Complexity | Expected cost |
-|---|---|---|
-| Scribe load of cultivator records | One record per humanlike Pawn ever registered, replacing the current `GuPawnRecord` list | Each record grows by about 100–150 B of XML for the ID, name, apertures and keys. Load time scales with that size, roughly as `guPawnRecords` does now. |
-| Reverse indexes | O(C + A) dictionary inserts for C records and A aperture IDs | Low hundreds of microseconds per thousand records. The Phase 2 registry rebuild of 120 Gu records measured 584–708 µs. |
-| Association checks | One Hediff lookup per awakened cultivator | Proportional to awakened cultivators, not to all Pawns. |
-| Significance index | One pass over Gu records to collect referenced aperture IDs, anchors and bonds | O(G) for G Gu records, done with the Gu registry's existing load pass where possible. |
-| Migration only | One pass over all Pawns alive or dead, plus the above | Once per save, at its first 3A load. |
-
-No world scan runs on ordinary loads. The 600-tick scan is unchanged. No per-tick work is added. The benchmark's unresolved load-time difference stays a separate investigation, and 3A must not add a scan that scales with records times world size.
-
-## 8. Benchmark seed control
-
-Approved as a narrow runner and fixture change, done first as checkpoint C0.
-
-- The runner passes a fixed seed to the benchmark's `new` stage only, for example `-guperfseed=<seed>`. The fixture applies it to world generation and the starting tile.
-- Empty and populated variants are already written from that one generated world in the same process, so they stay matched. C0 checks it by comparing the non-Gu parts of both saves.
-- Whether quicktest world generation and tile selection are fully determined by the seed string must be verified first. Two runs with the same seed must produce the same thing count and save size before the change is accepted.
-- A new controlled baseline is recorded on the Phase 2 code and the seeded world. Earlier random-world results are not compared directly.
-- Other profiles keep random worlds.
-
-## 9. Checkpoint-based verification
-
-Each checkpoint is committed separately with an evidence folder and stops on failure. Native campaigns use `-Parallel 4`, the benchmark runs alone. Independent Codex review is requested at C2 and C4.
-
-| Checkpoint | Evidence | Labels |
-|---|---|---|
-| **C0 Seeded benchmark** | Two seeded runs on the Phase 2 code produce identical worlds. Controlled baseline recorded. | Native benchmark |
-| **C1 Schema and migration logic** | Managed tests: round trip of every field; migration of `GuPawnRecord` fragments with null Pawn (with and without a Gu anchor), duplicate Pawn, out-of-range aptitude, missing physique, the 0.1.x aperture-only case; migration failure keeps the legacy store; idempotent second load; significance and removal rules. `scripts/verify.ps1`. | Stub-based tests, actual-assembly compilation |
-| **C2 Native identity fixture** | New `CultivatorIdentity` profile in fresh processes. Awakening keeps one ID across two fresh-process reloads. Imprisonment, faction change, downing and world travel keep it. Death reads as dead, and resurrection reads as alive with the same aperture link and no hook. Corpse destruction, discard of a living Pawn, `PassToWorld(Discard)` and world-Pawn GC each record their own outcome. An insignificant world Pawn is collected and its record removed. A significant identity survives as a tombstone across reload. The retained Pawn set matches the Phase 2 rule exactly. | Native fixture |
-| **C3 Existing-save migration** | The seven V1 saves, the Phase 2 fixture saves, both historical copies, and the owner's acceptance colony if provided. Records match the legacy fields one to one, with no rerolled aptitude. Gu migration counts (17/12/12) unchanged. A second load is a no-op. Every source hash unchanged. | Native fixture, migration |
-| **C4 Regression and cost** | The 12 Gu fixtures plus the regression set at N=4. Seeded benchmark with cultivator records against the C0 baseline, including load time and the per-load index cost of §7. | Native fixtures, benchmark |
-
-## 10. Items to verify before or during implementation
-
-- The exact 1.7 signatures of `WorldPawns.RemoveAndDiscardPawnViaGC` and `Corpse.PostCorpseDestroy`, and whether any other engine path discards Pawns without `Pawn.Discard`.
-- That `GameComponent.LoadedGame` runs after every component's `PostLoadInit` in Waylith.
-- That the quicktest world and starting tile are reproducible from a seed (C0).
+**Recommendation.** Approve this narrow revision for staged implementation when the owner accepts the contract and test gates. Stop on failed checkpoints. Return the evidence at C2 and C4 for focused acceptance. Phase 3B and later work require separate authorization.
