@@ -17,7 +17,7 @@ internal static class RefinementManagedChecks
         ordinary.Initialize(40);
         Check(GuRefinementRules.TryQuote(species, 1, null, Guid.NewGuid().ToString("N"), ordinary, out var baseline)
             && baseline.WorkTicks == 9000 && Math.Abs(baseline.EssenceCost - 12f) < 0.001f,
-            "Rank-one baseline will-enforcement quote is six in-game hours and twelve essence.");
+            "Rank-one baseline will-enforcement quote is 3.6 in-game hours and twelve essence.");
 
         var capable = new Hediff_Aperture();
         capable.Initialize(80);
