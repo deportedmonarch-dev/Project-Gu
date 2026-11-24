@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Moonlight Gu physical forms. Identity, custody and refinement belong to the generic Gu registry. -->
+  <ThingDef ParentName="BaseHare">
+    <defName>GU_WildMoonlightGu</defName>
+    <label>wild Moonlight Gu</label>
+    <description>A wild Moonlight Gu, a pale crescent-backed insect that glows faintly with moon-path essence. It recognizes no cultivator until it is captured and refined.</description>
+    <thingClass>ProjectGu.Pawn_GuWildProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps>
+      <li Class="ProjectGu.CompProperties_GuManifestation" />
+    </comps>
+    <race>
+      <hasGenders>false</hasGenders>
+      <canBePredatorPrey>false</canBePredatorPrey>
+      <lifeStageAges Inherit="False">
+        <li><def>AnimalAdult</def><minAge>0</minAge></li>
+      </lifeStageAges>
+    </race>
+    <tradeTags Inherit="False" />
+  </ThingDef>
+  <PawnKindDef ParentName="AnimalKindBase">
+    <defName>GU_WildMoonlightGu</defName>
+    <label>wild Moonlight Gu</label>
+    <race>GU_WildMoonlightGu</race>
+    <combatPower>1</combatPower>
+    <ecoSystemWeight>0</ecoSystemWeight>
+    <isFighter>false</isFighter>
+    <canArriveManhunter>false</canArriveManhunter>
+    <lifeStages>
+      <li>
+        <bodyGraphicData>
+          <texPath>ProjectGU/Gu/MoonlightGu/Wild</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.85</drawSize>
+        </bodyGraphicData>
+        <dessicatedBodyGraphicData>
+          <texPath>ProjectGU/Gu/MoonlightGu/Wild</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.85</drawSize>
+        </dessicatedBodyGraphicData>
+      </li>
+    </lifeStages>
+  </PawnKindDef>
+
+  <ThingDef ParentName="ResourceBase">
+    <defName>GU_DormantMoonlightGu</defName>
+    <label>dormant Moonlight Gu</label>
+    <description>A Moonlight Gu curled into a dormant crescent. Carrying it does not make it recognize its holder as its cultivator.</description>
+    <thingClass>ProjectGu.Thing_GuDormantProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps>
+      <li Class="ProjectGu.CompProperties_GuManifestation" />
+    </comps>
+    <stackLimit>1</stackLimit>
+    <tickerType>Never</tickerType>
+    <alwaysHaulable>true</alwaysHaulable>
+    <thingCategories><li>GU_DormantGu</li></thingCategories>
+    <tradeability>None</tradeability>
+    <graphicData>
+      <texPath>ProjectGU/Gu/MoonlightGu/Dormant</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+    </graphicData>
+    <statBases><Mass>0.1</Mass></statBases>
+  </ThingDef>
+
+  <!-- The single authoritative projectile of one Moonblade cast. Native Bullet code moves it and applies damage. -->
+  <ThingDef ParentName="BaseBullet">
+    <defName>GU_Projectile_Moonblade</defName>
+    <label>moonblade</label>
+    <thingClass>ProjectGu.Combat.Projectile_GuAbility</thingClass>
+    <graphicData>
+      <texPath>ProjectGU/Effects/Moonblade/Projectile</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <shaderType>MoteGlow</shaderType>
+      <drawSize>(1.5,1.5)</drawSize>
+    </graphicData>
+    <projectile>
+      <damageDef>Cut</damageDef>
+      <damageAmountBase>11</damageAmountBase>
+      <armorPenetrationBase>0.25</armorPenetrationBase>
+      <stoppingPower>0.5</stoppingPower>
+      <speed>45</speed>
+    </projectile>
+  </ThingDef>
+</Defs>

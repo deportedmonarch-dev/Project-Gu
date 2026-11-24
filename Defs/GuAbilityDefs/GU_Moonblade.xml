@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Rank 1 Moonlight Gu ability. Gameplay values are provisional tuning, pending owner balance review. -->
+  <ProjectGu.Combat.GuAbilityDef>
+    <defName>GU_Moonblade</defName>
+    <label>moonblade</label>
+    <description>Condense primeval essence through the Moonlight Gu into a crescent blade of moonlight and loose it at a pawn or location. The essence is paid when the blade leaves the Gu Master's hand; stopping before then costs nothing.</description>
+    <workerClass>ProjectGu.Combat.GuAbilityWorker_Projectile</workerClass>
+    <essenceCost>3</essenceCost>
+    <cooldownTicks>150</cooldownTicks>
+    <warmupTicks>35</warmupTicks>
+    <range>22</range>
+    <minRange>1.5</minRange>
+    <targetPawns>true</targetPawns>
+    <targetLocations>true</targetLocations>
+    <requireLineOfSight>true</requireLineOfSight>
+    <projectileDef>GU_Projectile_Moonblade</projectileDef>
+    <launchSound>Shot_ChargeBlaster</launchSound>
+    <iconPath>ProjectGU/UI/Abilities/Moonblade</iconPath>
+    <launchFx>GU_Fx_MoonbladeLaunch</launchFx>
+    <travelFx>GU_Fx_MoonbladeTrail</travelFx>
+    <impactFx>GU_Fx_MoonbladeImpact</impactFx>
+  </ProjectGu.Combat.GuAbilityDef>
+
+  <!-- Cosmetic layers. Replace the textures with hand-drawn atlases of the same grid to update the art. -->
+  <ProjectGu.Presentation.GuFxProfileDef>
+    <defName>GU_Fx_MoonbladeLaunch</defName>
+    <texPath>ProjectGU/Effects/Moonblade/Launch</texPath>
+    <columns>4</columns>
+    <rows>1</rows>
+    <frameCount>4</frameCount>
+    <ticksPerFrame>3</ticksPerFrame>
+    <lifetimeTicks>12</lifetimeTicks>
+    <drawSize>(1.8,1.8)</drawSize>
+    <startScale>0.7</startScale>
+    <endScale>1.2</endScale>
+    <fadeOutTicks>4</fadeOutTicks>
+    <forwardOffset>0.6</forwardOffset>
+    <altitudeLayer>MoteOverhead</altitudeLayer>
+  </ProjectGu.Presentation.GuFxProfileDef>
+  <ProjectGu.Presentation.GuFxProfileDef>
+    <defName>GU_Fx_MoonbladeTrail</defName>
+    <texPath>ProjectGU/Effects/Moonblade/Trail</texPath>
+    <columns>4</columns>
+    <rows>1</rows>
+    <frameCount>4</frameCount>
+    <ticksPerFrame>3</ticksPerFrame>
+    <lifetimeTicks>600</lifetimeTicks>
+    <loop>true</loop>
+    <drawSize>(1.1,2.2)</drawSize>
+    <fadeInTicks>3</fadeInTicks>
+    <forwardOffset>-1.0</forwardOffset>
+    <altitudeLayer>MoteLow</altitudeLayer>
+  </ProjectGu.Presentation.GuFxProfileDef>
+  <ProjectGu.Presentation.GuFxProfileDef>
+    <defName>GU_Fx_MoonbladeImpact</defName>
+    <texPath>ProjectGU/Effects/Moonblade/Impact</texPath>
+    <columns>4</columns>
+    <rows>2</rows>
+    <frameCount>8</frameCount>
+    <ticksPerFrame>3</ticksPerFrame>
+    <lifetimeTicks>24</lifetimeTicks>
+    <drawSize>(2.6,2.6)</drawSize>
+    <startScale>0.8</startScale>
+    <endScale>1.15</endScale>
+    <fadeOutTicks>6</fadeOutTicks>
+    <altitudeLayer>MoteOverhead</altitudeLayer>
+  </ProjectGu.Presentation.GuFxProfileDef>
+</Defs>

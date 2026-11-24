@@ -20,11 +20,18 @@
   <ProjectGu.Domain.GuSpeciesDef>
     <defName>GU_MoonlightGu</defName>
     <label>Moonlight Gu</label>
-    <description>Rank one Moon Path Gu with a future primeval-essence-powered combat ability. Not currently spawned.</description>
+    <description>Rank one Moon Path Gu that nests beside moon orchids in spirit spring caverns. Once refined and stored in its Gu Master's aperture, it condenses primeval essence into a crescent moonblade.</description>
     <minRank>1</minRank>
     <maxRank>1</maxRank>
-    <wildPopulationEnabled>false</wildPopulationEnabled>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <wildProjectionKind>GU_WildMoonlightGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DormantMoonlightGu</dormantProjectionDef>
+    <refinementBaseWorkTicks>6000</refinementBaseWorkTicks>
+    <refinementEssenceCost>10</refinementEssenceCost>
+    <refinementResistance>1</refinementResistance>
+    <abilities><li>GU_Moonblade</li></abilities>
     <pathTags><li>moon</li></pathTags>
+    <habitatTags><li>spirit_spring</li><li>moon_orchid</li></habitatTags>
     <capabilityTags><li>active_essence_ability</li></capabilityTags>
   </ProjectGu.Domain.GuSpeciesDef>
   <!-- Development fixture for cohort and individual persistence. -->

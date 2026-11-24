@@ -30,6 +30,9 @@ namespace ProjectGu.Domain
         public float refinementEssenceCost = 12f;
         public float refinementResistance = 1f;
 
+        // Active abilities this species grants to the cultivator it recognizes while stored in that cultivator's aperture.
+        public List<ProjectGu.Combat.GuAbilityDef> abilities = new List<ProjectGu.Combat.GuAbilityDef>();
+
         // Lifecycle policy (owner decisions §1, §4). Values are provisional until the owner approves species defaults.
         /// <summary>What happens to an ordinary individual whose native map or holder is removed without it dying.</summary>
         public GuPreservationPolicy abandonmentPolicy = GuPreservationPolicy.Individual;
@@ -71,6 +74,9 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race with CompGuManifestation and notifyMapRemoved";
             if (dormantProjectionDef != null && !Thing_GuDormantProjection.IsConfigured(dormantProjectionDef))
                 yield return $"{defName}: dormantProjectionDef requires an inert, unstackable, untradeable Gu Thing with CompGuManifestation and notifyMapRemoved";
+            if (abilities != null)
+                foreach (var ability in abilities)
+                    if (ability == null) yield return $"{defName}: abilities contains an unresolved GuAbilityDef";
             if (terminalEffectWorker != null && !typeof(GuTerminalEffectWorker).IsAssignableFrom(terminalEffectWorker))
                 yield return $"{defName}: terminalEffectWorker must derive from ProjectGu.Domain.GuTerminalEffectWorker";
             foreach (string error in ValidateTags(pathTags, "pathTags")) yield return error;

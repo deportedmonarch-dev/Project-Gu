@@ -42,7 +42,11 @@ namespace ProjectGu
                 defaultDesc = "Refine dormant Gu, resume will-enforcement, and inspect, store or withdraw this cultivator's bonded Gu.",
                 action = () => OpenManagementMenu(__instance, aperture, registry)
             };
-            __result = (__result ?? Enumerable.Empty<Gizmo>()).Concat(new Gizmo[] { command });
+            var gizmos = new List<Gizmo> { command };
+            var grants = Combat.GuAbilityService.GrantsFor(__instance).ToList();
+            foreach (var grant in grants)
+                gizmos.Add(new Combat.Command_GuAbility(grant, grants.Count(other => other.Ability == grant.Ability) > 1));
+            __result = (__result ?? Enumerable.Empty<Gizmo>()).Concat(gizmos);
         }
 
         internal static List<FloatMenuOption> BuildOptions(Pawn host)
@@ -143,7 +147,7 @@ namespace ProjectGu
         {
             if (!IsCurrentAperture(aperture?.pawn, aperture) || Current.Game?.GetComponent<GuIndividualRegistry>() != registry) return;
             string details = occupants.Count == 0 ? "No bound Gu." : string.Join("\n\n", occupants.Select(record =>
-                $"{Describe(record)}\n{RefinementStatus(record)}\nCondition: {record.Condition}; custody revision: {record.CustodyRevision}; "
+                $"{Describe(record)}\n{RefinementStatus(record)}{AbilityStatus(record)}\nCondition: {record.Condition}; custody revision: {record.CustodyRevision}; "
                 + $"identity: {record.Id}; aperture: {aperture.ApertureId}"));
             Find.WindowStack.Add(new Dialog_MessageBox(
                 $"{aperture.pawn.LabelShort}'s mortal aperture ({registry.ApertureClaimCount(aperture)}/{GuIndividualRegistry.MortalApertureCapacity})\n\n{details}"));
@@ -151,6 +155,12 @@ namespace ProjectGu
 
         private static string Describe(GuRecord record) =>
             $"{record.Species?.label ?? record.SpeciesDefName} [{record.Id}]";
+
+        private static string AbilityStatus(GuRecord record) => record.Species?.abilities is { Count: > 0 } abilities
+            ? "\nAbilities: " + string.Join(", ", abilities.Where(ability => ability != null).Select(ability =>
+                $"{ability.LabelCap} ({ability.essenceCost:0.#} essence, {ability.range:0} cells)"))
+                + (record.Refinement?.CultivatorId == null ? " - granted only after refinement" : "")
+            : "";
 
         private static string RefinementStatus(GuRecord record)
         {

@@ -53,6 +53,16 @@ namespace ProjectGu
             return true;
         }
 
+        /// <summary>
+        /// Returns essence debited by a transaction that failed before it took effect, in the same tick. Never a general
+        /// income source: callers restore exactly what they just spent.
+        /// </summary>
+        internal void RestoreUncommittedEssence(float amount)
+        {
+            if (!float.IsFinite(amount) || amount <= 0f) return;
+            Essence = Math.Min(MaxEssence, Essence + amount);
+        }
+
         // Percentage points of a hypothetical full sea restored per 2,500 ticks.
         // A=8 and C=4 reflect the novel's early examples. B/D are tuning assumptions.
         // Extreme physique recovery is deferred to its dedicated mechanic; fallback

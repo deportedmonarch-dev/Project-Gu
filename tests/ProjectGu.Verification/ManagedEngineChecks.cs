@@ -30,6 +30,7 @@ internal static class ManagedEngineChecks
             UndergroundAddressChecks.Run(game, directory.FullName);
             CultivatorFoundationChecks.Run(game, directory.FullName);
             RefinementManagedChecks.Run(directory.FullName);
+            CombatManagedChecks.Run(directory.FullName);
         }
         finally
         {

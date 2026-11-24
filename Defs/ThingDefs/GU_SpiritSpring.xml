@@ -75,6 +75,9 @@
           <li><flora>GU_MoonOrchid</flora><targetPatches>5</targetPatches></li>
           <li><flora>GU_SpiritGrass</flora><targetPatches>110</targetPatches></li>
         </botanicalCavernFlora>
+        <initialCohorts>
+          <li><species>GU_MoonlightGu</species><mature>2</mature><juvenile>0</juvenile></li>
+        </initialCohorts>
       </li>
     </comps>
   </ThingDef>

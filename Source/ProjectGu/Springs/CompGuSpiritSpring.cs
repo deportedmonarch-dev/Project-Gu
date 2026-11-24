@@ -64,7 +64,9 @@ namespace ProjectGu.Springs
         public override void PostSpawnSetup(bool respawningAfterLoad)
         {
             base.PostSpawnSetup(respawningAfterLoad);
+            bool freshSpring = !respawningAfterLoad && populations == null && populationSchema == 0;
             EnsureInitialized();
+            if (freshSpring) SeedInitialCohorts();
             parent.Map?.GetComponent<GuEcologyMapComponent>()?.Register(this);
             habitatDirty = true;
         }
@@ -152,6 +154,19 @@ namespace ProjectGu.Springs
                 if (DefDatabase<GuSpeciesDef>.GetNamedSilentFail(record.SpeciesDefName) == null)
                     Log.Warning("[Project GU] Dormant spring cohort " + record.SpeciesDefName +
                         " has no species definition: " + habitatId);
+            }
+            SyncLegacyShadows();
+        }
+
+        // Only a spring created in this session reaches here; saved springs already own their cohort list.
+        private void SeedInitialCohorts()
+        {
+            if (!populationsReady || Props.initialCohorts == null) return;
+            foreach (var entry in Props.initialCohorts)
+            {
+                if (entry?.species == null || entry.mature < 0 || entry.juvenile < 0 || entry.mature + entry.juvenile == 0
+                    || GuPopulationLedger.Find(populations, entry.species.defName) != null) continue;
+                GuPopulationLedger.TryAddCohort(populations, new GuPopulationRecord(entry.species.defName, entry.mature, entry.juvenile, -1));
             }
             SyncLegacyShadows();
         }

@@ -32,5 +32,18 @@ if ($null -eq $hope -or $null -eq $moon) { throw 'Missing test species.' }
 if ([string]$hope.wildPopulationEnabled -ne 'true' -or @($hope.habitatTags.li) -notcontains 'spirit_spring') {
     throw 'Hope Gu must have a spirit-spring habitat affinity.'
 }
-if ([string]$moon.wildPopulationEnabled -ne 'false') { throw 'Moonlight Gu must exercise non-wild species representation.' }
+# Alpha 2: Moonlight Gu is an ordinary wild spring species with physical projections and one active ability.
+if ([string]$moon.wildPopulationEnabled -ne 'true' -or [string]$moon.wildProjectionKind -ne 'GU_WildMoonlightGu' -or
+    [string]$moon.dormantProjectionDef -ne 'GU_DormantMoonlightGu' -or @($moon.abilities.li) -notcontains 'GU_Moonblade') {
+    throw 'Moonlight Gu must be acquirable from a spring with its own projections and grant GU_Moonblade.'
+}
+[xml]$abilityXml = Get-Content -LiteralPath (Join-Path $root 'Defs\GuAbilityDefs\GU_Moonblade.xml') -Raw
+$moonblade = $abilityXml.Defs.SelectSingleNode('ProjectGu.Combat.GuAbilityDef[defName="GU_Moonblade"]')
+if ($null -eq $moonblade -or [float]$moonblade.essenceCost -le 0 -or [string]$moonblade.projectileDef -ne 'GU_Projectile_Moonblade') {
+    throw 'GU_Moonblade needs a positive essence cost and its native projectile.'
+}
+foreach ($texture in @('Effects\Moonblade\Projectile', 'Effects\Moonblade\Trail', 'Effects\Moonblade\Launch', 'Effects\Moonblade\Impact',
+        'UI\Abilities\Moonblade', 'Gu\MoonlightGu\Wild_north', 'Gu\MoonlightGu\Wild_east', 'Gu\MoonlightGu\Wild_south', 'Gu\MoonlightGu\Dormant')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $root "Textures\ProjectGU\$texture.png"))) { throw "Missing Moonlight Gu texture: $texture" }
+}
 Write-Host 'PASS: two species, distinct habitats/lifecycles, rank ranges, and declaration structure.' -ForegroundColor Green

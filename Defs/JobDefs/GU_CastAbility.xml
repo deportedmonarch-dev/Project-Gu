@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>GU_CastGuAbility</defName>
+    <driverClass>ProjectGu.Combat.JobDriver_GuCastAbility</driverClass>
+    <reportString>using a Gu ability.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+    <suspendable>false</suspendable>
+  </JobDef>
+</Defs>

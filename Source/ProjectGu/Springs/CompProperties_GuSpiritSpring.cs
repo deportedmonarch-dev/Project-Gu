@@ -21,7 +21,16 @@ namespace ProjectGu.Springs
         public List<GuCavernFloraTarget> cavernFlora = new();
         public int botanicalHabitatRadius = 16;
         public List<GuCavernFloraTarget> botanicalCavernFlora = new();
+        // Extra species cohorts placed in a newly generated spring, once. Hope Gu keep their legacy initialization.
+        public List<GuInitialCohort> initialCohorts = new();
         public CompProperties_GuSpiritSpring() { compClass = typeof(CompGuSpiritSpring); }
+    }
+
+    public sealed class GuInitialCohort
+    {
+        public ProjectGu.Domain.GuSpeciesDef species;
+        public int mature;
+        public int juvenile;
     }
 
     public sealed class GuCavernFloraTarget

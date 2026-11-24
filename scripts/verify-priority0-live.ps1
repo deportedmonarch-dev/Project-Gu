@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'ClanSession', 'Alpha1', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -512,6 +512,24 @@ Measure-Phase 'planning' {
             Add-Launch $unit 'new' $true $Rendered.IsPresent '-guclanstart -gualpha1'
             Add-Launch $unit 'reload' $false $Rendered.IsPresent '-guclanstart -gualpha1'
             Add-Launch $unit 'stored' $false $Rendered.IsPresent '-guclanstart -gualpha1 -gualpha1stored'
+            continue
+        }
+        if ($name -eq 'Alpha2') {
+            # Alpha 2: Moonlight Gu acquisition, refinement and combat; save with a moonblade in flight; withdrawal reload.
+            $unit = New-Unit $name $saveData "PASS $name Moonlight Gu combat, in-flight reload and withdrawal reload. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $Rendered.IsPresent '-guclanstart -gualpha2'
+            Add-Launch $unit 'reload' $false $Rendered.IsPresent '-guclanstart -gualpha2'
+            Add-Launch $unit 'final' $false $Rendered.IsPresent '-guclanstart -gualpha2 -gualpha2final'
+            continue
+        }
+        if ($name -eq 'Alpha2Visual') {
+            # Alpha 2 rendered inspection: the headless Alpha 2 stages, then one windowed stage that writes screenshots.
+            # Opens a game window; run with -Parallel 1 and no other RimWorld instance.
+            $unit = New-Unit $name $saveData "PASS $name rendered Moonblade inspection. Screenshots in $saveData\alpha2-screenshots"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha2'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha2'
+            Add-Launch $unit 'final' $false $false '-guclanstart -gualpha2 -gualpha2final'
+            Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha2 -gualpha2visual'
             continue
         }
         if ($name -eq 'ClanStart') {
