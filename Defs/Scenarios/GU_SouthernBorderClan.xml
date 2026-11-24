@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ScenPartDef>
+    <defName>GU_ClanStart</defName>
+    <label>cultivation clan founding</label>
+    <category>Misc</category>
+    <scenPartClass>ProjectGu.Clan.ScenPart_GuClanStart</scenPartClass>
+    <maxUses>1</maxUses>
+    <summaryPriority>460</summaryPriority>
+  </ScenPartDef>
+
+  <!-- M1: first playable cultivation clan start. Uses Core Defs only. -->
+  <ScenarioDef ParentName="ScenarioBase">
+    <defName>GU_SouthernBorderClan</defName>
+    <label>Southern Border Clan</label>
+    <description>Deep in the mountains of the Southern Border, a small branch of a cultivation clan has claimed a spirit spring. One elder has walked the path of the Gu Master. Two promising disciples wait to be awakened, and a handful of mortal retainers will keep everyone fed.\n\nPrimeval stones from the spring are the clan's wealth. Awaken your disciples with the spring's Hope Gu, haul stones to the surface, and trade the surplus to survive.</description>
+    <scenario>
+      <summary>An awakened elder, two prospective disciples and three mortal workers found a cultivation clan beside a spirit spring.</summary>
+      <parts>
+        <li Class="ScenPart_ConfigPage_ConfigureStartingPawns">
+          <def>ConfigPage_ConfigureStartingPawns</def>
+          <pawnCount>6</pawnCount>
+          <pawnChoiceCount>10</pawnChoiceCount>
+        </li>
+        <li Class="ScenPart_PlayerPawnsArriveMethod">
+          <def>PlayerPawnsArriveMethod</def>
+          <method>Standing</method>
+        </li>
+
+        <!-- Clan founding: roles, spring pit, elder awakening. -->
+        <li Class="ProjectGu.Clan.ScenPart_GuClanStart">
+          <def>GU_ClanStart</def>
+          <elderAptitude>60~74</elderAptitude>
+          <discipleCount>2</discipleCount>
+          <disciplesHaveAptitude>true</disciplesHaveAptitude>
+          <discipleMinAge>13</discipleMinAge>
+          <placeSpringEntrance>true</placeSpringEntrance>
+          <entranceMinDistance>7</entranceMinDistance>
+          <entranceMaxDistance>28</entranceMaxDistance>
+        </li>
+
+        <!-- Clan treasury and stores. -->
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>GU_PrimevalStone</thingDef>
+          <count>60</count>
+        </li>
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>Silver</thingDef>
+          <count>300</count>
+        </li>
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>Pemmican</thingDef>
+          <count>300</count>
+        </li>
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>RawRice</thingDef>
+          <count>200</count>
+        </li>
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>MedicineHerbal</thingDef>
+          <count>25</count>
+        </li>
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>Cloth</thingDef>
+          <count>150</count>
+        </li>
+
+        <!-- Arms for a small clan guard. -->
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>MeleeWeapon_Gladius</thingDef>
+          <stuff>Steel</stuff>
+        </li>
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>MeleeWeapon_Spear</thingDef>
+          <stuff>Steel</stuff>
+          <count>2</count>
+        </li>
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>Bow_Short</thingDef>
+          <count>2</count>
+        </li>
+
+        <li Class="ScenPart_StartingAnimal">
+          <def>StartingAnimal</def>
+          <count>2</count>
+          <bondToRandomPlayerPawnChance>0.5</bondToRandomPlayerPawnChance>
+        </li>
+
+        <!-- Building materials near the start. -->
+        <li Class="ScenPart_ScatterThingsNearPlayerStart">
+          <def>ScatterThingsNearPlayerStart</def>
+          <thingDef>WoodLog</thingDef>
+          <count>450</count>
+        </li>
+        <li Class="ScenPart_ScatterThingsNearPlayerStart">
+          <def>ScatterThingsNearPlayerStart</def>
+          <thingDef>Steel</thingDef>
+          <count>200</count>
+        </li>
+      </parts>
+    </scenario>
+  </ScenarioDef>
+</Defs>

@@ -34,7 +34,11 @@ namespace ProjectGu.Underground
         }
 
         internal static bool CanTravel(Pawn pawn, Building_GuPocketProbeEndpoint endpoint, out string reason) =>
-            CanUsePassage(pawn, endpoint, out reason, requireDevMode: true);
+            CanUsePassage(pawn, endpoint, out reason, requireDevMode: !AllowsPlayerTravel(endpoint));
+
+        /// <summary>Independent routes whose site Def opts in are part of ordinary play.</summary>
+        internal static bool AllowsPlayerTravel(Building_GuPocketProbeEndpoint endpoint) =>
+            GuPocketProbeComponent.TryGetIndependentEndpoint(endpoint, out var site, out _) && site.Kind?.playerTravel == true;
 
         internal static bool CanUsePassage(Pawn pawn, Building_GuPocketProbeEndpoint endpoint, out string reason,
             bool requireDevMode = false)

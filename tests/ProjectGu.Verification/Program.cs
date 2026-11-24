@@ -79,6 +79,7 @@ var targets = ReadTargets("cavernFlora");
 var botanicalTargets = ReadTargets("botanicalCavernFlora");
 int botanicalRadius = (int)springSettings.Element("botanicalHabitatRadius")!;
 ManagedEngineChecks.Run(springDef, args[1], targets);
+ClanStartChecks.Run(root, args[1]);
 
 void VerifyFlora(GuSpringCavernLayout layout, Dictionary<IntVec3, int> shore, int seed)
 {

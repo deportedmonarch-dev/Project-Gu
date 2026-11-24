@@ -12,6 +12,8 @@ namespace ProjectGu.Underground
         public int entranceClearance;
         public int mapSize = 31;
         public bool independentOwner;
+        // Ordinary players may travel this independent route without Development Mode.
+        public bool playerTravel;
         public List<ThingDef> haulingCargo = new();
 
         internal ThingDef ExitDef => returnEndpoint ?? endpoint;

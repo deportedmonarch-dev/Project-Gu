@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'ClanSession', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -504,6 +504,22 @@ Measure-Phase 'planning' {
                 Add-Launch $unit 'reload' $false $false "-guv1migration -guv1source=$sourceName"
                 Add-Launch $unit 'resave' $false $false "-guv1migration -guv1resave -guv1source=$sourceName"
             }
+            continue
+        }
+        New-ProfileConfig $saveData $name
+        if ($name -eq 'ClanStart') {
+            # M1: generated clan start, fresh-process reload, then a reload of the save written before the first tick.
+            $unit = New-Unit $name $saveData "PASS $name clan start, reload and pre-founding reload. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart'
+            Add-Launch $unit 'reload' $false $false '-guclanstart'
+            Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/clan-prefounding.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+            Add-Launch $unit 'prefounding' $false $false '-guclanstart -guclanprefounding'
+            continue
+        }
+        if ($name -eq 'ClanSession') {
+            # M1: two Southern Border games in one process; the second uses a mountainous tile.
+            $unit = New-Unit $name $saveData "PASS $name two clan games in one session. Evidence in $saveData"
+            Add-Launch $unit 'session' $true $false '-guclanstart -guclansession'
             continue
         }
         New-ProfileConfig $saveData $name

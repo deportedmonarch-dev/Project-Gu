@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Clan roles are social positions, separate from cultivation state. The stat offsets are
+       provisional M1 tuning so each role has a visible purpose in a small starting clan. -->
+  <HediffDef Name="GU_ClanRoleBase" Abstract="True">
+    <hediffClass>Verse.Hediff</hediffClass>
+    <isBad>false</isBad>
+    <everCurableByItem>false</everCurableByItem>
+    <defaultLabelColor>(0.62, 0.82, 0.78)</defaultLabelColor>
+  </HediffDef>
+  <HediffDef ParentName="GU_ClanRoleBase">
+    <defName>GU_ClanElder</defName>
+    <label>clan elder</label>
+    <description>The founding elder of a Southern Border cultivation clan. The elder's word carries weight, and long years of cultivation have steadied the elder's mind.</description>
+    <stages>
+      <li>
+        <label>elder</label>
+        <statOffsets>
+          <SocialImpact>0.15</SocialImpact>
+          <MentalBreakThreshold>-0.04</MentalBreakThreshold>
+        </statOffsets>
+      </li>
+    </stages>
+  </HediffDef>
+  <HediffDef ParentName="GU_ClanRoleBase">
+    <defName>GU_ClanDisciple</defName>
+    <label>clan disciple</label>
+    <description>A young member chosen by the clan for cultivation. Disciples study eagerly and are expected to undergo awakening at the clan's spirit spring.</description>
+    <stages>
+      <li>
+        <label>disciple</label>
+        <statOffsets>
+          <GlobalLearningFactor>0.15</GlobalLearningFactor>
+        </statOffsets>
+      </li>
+    </stages>
+  </HediffDef>
+  <HediffDef ParentName="GU_ClanRoleBase">
+    <defName>GU_ClanMortalWorker</defName>
+    <label>clan mortal worker</label>
+    <description>A mortal retainer of the clan. Mortal workers keep the fields, kitchens and storehouses running so that the clan's cultivators can train.</description>
+    <stages>
+      <li>
+        <label>mortal worker</label>
+        <statOffsets>
+          <WorkSpeedGlobal>0.05</WorkSpeedGlobal>
+        </statOffsets>
+      </li>
+    </stages>
+  </HediffDef>
+</Defs>
