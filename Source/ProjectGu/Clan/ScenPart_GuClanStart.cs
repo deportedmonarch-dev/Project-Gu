@@ -165,20 +165,31 @@ namespace ProjectGu.Clan
             }
             plannedAptitudes.Clear();
 
+            letter.AppendLine("Select a founder and open Health to see their clan role. Hover over an awakened founder's aperture to see aptitude, rank and primeval essence.");
+            letter.AppendLine();
             if (disciples.Count > 0)
                 letter.AppendLine("Disciples: " + string.Join(", ", disciples.Select(p => p.LabelShort))
-                    + ". Each was born with aptitude, but its grade stays hidden until awakening. "
-                    + "Take them down the spirit spring pit and order them to attempt awakening at the spring. "
-                    + "Every attempt consumes one mature Hope Gu.");
+                    + (disciplesHaveAptitude ? ". Each was born with aptitude. The grade is revealed at awakening. " : ". ")
+                    + "Select a disciple, right-click the spirit spring pit and choose Enter underground level. "
+                    + "In the cavern, right-click the spring and choose Attempt awakening at spirit spring. "
+                    + "Keep one mature Hope Gu for each disciple you want to awaken.");
             if (workers.Count > 0)
                 letter.AppendLine("Mortal workers: " + string.Join(", ", workers.Select(p => p.LabelShort))
                     + ". They farm, build and haul. A mortal may still try awakening, but most have no aptitude.");
             letter.AppendLine();
+            letter.AppendLine("Select the spring and choose Search for Hope Gu. Right-click the wild Gu with a colonist to capture it, then pick up the dormant Gu. "
+                + "With the Gu in an awakened cultivator's inventory, select that cultivator and open Manage aperture Gu to enforce their will. "
+                + "Resume there after an interruption. Once the Gu recognizes its refiner, use the same menu to store it in the aperture.");
+            letter.AppendLine();
             letter.Append("The spring produces primeval stones each day. Assign a hauler to the pit to bring them up, "
                 + "and trade surplus stones with passing merchants.");
 
+            Thing pit = GuPocketSiteDef.SpiritSpring?.endpoint is { } endpoint
+                ? Find.AnyPlayerHomeMap?.listerThings.ThingsOfDef(endpoint).FirstOrDefault()
+                : null;
+            Thing letterTarget = pit ?? elder;
             Find.LetterStack.ReceiveLetter("Clan founded", letter.ToString().TrimEnd(), LetterDefOf.PositiveEvent,
-                elder != null ? new LookTargets(elder) : LookTargets.Invalid);
+                letterTarget != null ? new LookTargets(letterTarget) : LookTargets.Invalid);
         }
 
         /// <summary>

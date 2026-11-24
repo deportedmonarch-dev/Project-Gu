@@ -39,7 +39,7 @@ namespace ProjectGu
             var command = new Command_Action
             {
                 defaultLabel = "Manage aperture Gu",
-                defaultDesc = "Inspect Gu identities. Only Gu refined by this cultivator can be stored in or withdrawn from the mortal aperture.",
+                defaultDesc = "Refine dormant Gu, resume will-enforcement, and inspect, store or withdraw this cultivator's bonded Gu.",
                 action = () => OpenManagementMenu(__instance, aperture, registry)
             };
             __result = (__result ?? Enumerable.Empty<Gizmo>()).Concat(new Gizmo[] { command });
@@ -102,13 +102,13 @@ namespace ProjectGu
             foreach (var thing in candidates)
             {
                 if (registry.Resolve(thing) is not { } record) continue;
-                string label = $"{record.Species?.label ?? record.SpeciesDefName} [{record.Id}]";
-                if (registry.CanOrderRefinement(thing, host))
+                string label = Describe(record);
+                if (registry.CanOrderRefinement(thing, host, out var quote))
                 {
-                    bool resuming = record.RefinementProcess != null;
-                    string actionLabel = resuming
-                        ? $"Resume will-enforcement: {label} ({record.RefinementProcess.CompletedWorkTicks * 100 / record.RefinementProcess.TotalWorkTicks}%)"
-                        : $"Enforce will over {label}";
+                    var process = record.RefinementProcess;
+                    string actionLabel = process != null
+                        ? $"Resume will-enforcement: {label} ({100f * process.CompletedWorkTicks / process.TotalWorkTicks:0}% complete, {process.RemainingEssence:0.0} essence left)"
+                        : $"Enforce will over {label} ({quote.WorkTicks / 2500f:0.0} h, {quote.EssenceCost:0.0} essence)";
                     options.Add(new FloatMenuOption(actionLabel, () =>
                     {
                         if (!registry.CanOrderRefinement(thing, host)
@@ -150,7 +150,7 @@ namespace ProjectGu
         }
 
         private static string Describe(GuRecord record) =>
-            $"{record.SpeciesDefName} [{record.Id}]";
+            $"{record.Species?.label ?? record.SpeciesDefName} [{record.Id}]";
 
         private static string RefinementStatus(GuRecord record)
         {

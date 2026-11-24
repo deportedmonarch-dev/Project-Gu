@@ -235,11 +235,13 @@ namespace ProjectGu.Springs
                 && candidate.GetThingList(map).Count == 0, IntVec3.Invalid);
             string eventKey = $"player-encounter:{HabitatId}:{species.defName}:{cohort.Revision}";
             string reason = "No safe nearby place is available for a wild Gu.";
+            GuRecord individual = null;
             bool success = cell.IsValid
                 && GuIndividualRegistry.TryPrepareMaterializationRequest(this, species.defName, eventKey, out var request)
-                && registry.TryEncounterWildCohort(this, request, map, cell, out _, out reason);
+                && registry.TryEncounterWildCohort(this, request, map, cell, out individual, out reason);
             if (success)
-                Messages.Message($"A wild {species.label} emerged from the spring. It has no refined owner.", MessageTypeDefOf.PositiveEvent, false);
+                Messages.Message($"A wild {species.label} emerged from the spring. Select a colonist and right-click the Gu to capture it.",
+                    new LookTargets(registry.ProjectionOf(individual)), MessageTypeDefOf.PositiveEvent, false);
             else
                 Messages.Message(cell.IsValid ? reason ?? "The spring could not safely release a Gu." : "No safe nearby place is available for a wild Gu.",
                     MessageTypeDefOf.RejectInput, false);

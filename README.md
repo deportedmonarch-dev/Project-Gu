@@ -36,7 +36,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 `verify.ps1` runs PowerShell structural checks, compiles against the local game and runs isolated tests against the installed assemblies. `install.ps1` performs a fresh build in a private output directory before copying the mod. A failed build stops installation before it touches the deployed mod. Both scripts accept `-RimWorldPath` and `-HarmonyPath` for custom Steam library locations. Build outputs in `1.7/Assemblies/` are **intentionally excluded from Git**. Do not commit game binaries, SDK files, compiled DLLs, game logs, saves, or private data.
 
-For focused gameplay testing, enable **Core + Project GU** and follow `docs/RELEASE-0.2.4.md`, plus earlier release test plans.
+For the Playable Alpha 1 loop, enable **Core, Harmony and Project GU**, then choose **Southern Border Clan**. See the [player flow and verification](docs/ALPHA-1-SOUTHERN-BORDER.md).
 
 ## Development workflow
 

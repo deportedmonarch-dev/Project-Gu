@@ -151,8 +151,11 @@ public sealed partial class LiveLifecycleChecks
         Report($"Start: elder {Describe(elder)}; disciples {string.Join(", ", disciples.Select(Describe))}; workers {string.Join(", ", workers.Select(Describe))}; pit {distance:0.0} cells from the nearest colonist at {pit.Position}; biome {home.Biome.defName}, hilliness {home.TileInfo.hilliness}.");
 
         var plan = AssertPlanned(colonists);
-        File.WriteAllLines(ClanPlanPath, plan.Select(p => $"{p.Key}={p.Value}"));
-        GameDataSaveLoader.SaveGame(PrefoundingSave);
+        if (!Alpha1)
+        {
+            File.WriteAllLines(ClanPlanPath, plan.Select(p => $"{p.Key}={p.Value}"));
+            GameDataSaveLoader.SaveGame(PrefoundingSave);
+        }
         TickUntil(() => FoundingDone, 600, "Founding completed within ten seconds of play");
         var elderRecord = AssertFounded(elder, disciples, workers);
         AssertPlanApplied(plan, elder, disciples, workers);
@@ -187,6 +190,11 @@ public sealed partial class LiveLifecycleChecks
         Report($"Ordinary travel and awakening: {disciple.LabelShort} descended in {ticks} ticks and opened a {discipleAperture.AptitudeGrade}-grade aperture ({discipleAperture.Aptitude}). Hope Gu {mature}+{juvenile} -> {spring.HopeGuAvailable}+{spring.HopeGuJuvenile}.");
 
         var exit = site.Endpoints.Single(end => !end.IsSurface).Anchor;
+        if (Alpha1)
+        {
+            ExerciseAlpha1(disciple, discipleRecord, discipleAperture, springThing, spring, exit);
+            return;
+        }
         Order(disciple, exit, "Use underground passage");
         TickUntil(() => disciple.Map == home, 3000, "The disciple climbed back to the surface");
 

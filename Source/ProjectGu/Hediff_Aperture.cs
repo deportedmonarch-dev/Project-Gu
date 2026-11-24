@@ -110,8 +110,7 @@ namespace ProjectGu
                 : "-grade (" + Aptitude + "/100)") + "\n" +
             "Cultivation: Rank " + Rank + "\n" +
             "Primeval essence: " + Essence.ToString("0.0") + "/" + MaxEssence.ToString("0.0") + "\n" +
-            "Natural regeneration: " + RegenerationPerHour.ToString("0.0") + " essence/hour\n" +
-            "Prototype: Gu activation, awakening and extreme physique mechanics pending.";
+            "Natural regeneration: " + RegenerationPerHour.ToString("0.0") + " essence/hour";
 
         public override void ExposeData()
         {

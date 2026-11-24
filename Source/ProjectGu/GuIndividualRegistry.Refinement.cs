@@ -26,15 +26,19 @@ namespace ProjectGu
             return true;
         }
 
-        internal bool CanOrderRefinement(Thing_GuDormantProjection thing, Pawn pawn)
+        internal bool CanOrderRefinement(Thing_GuDormantProjection thing, Pawn pawn) =>
+            CanOrderRefinement(thing, pawn, out _);
+
+        internal bool CanOrderRefinement(Thing_GuDormantProjection thing, Pawn pawn, out GuRefinementQuote quote)
         {
+            quote = default;
             if (!TryGetRefiner(pawn, out var cultivator, out var aperture)
                 || Resolve(thing) is not { IsActionable: true, Condition: GuCondition.Dormant,
                     Placement: GuPlacementKind.Manifested, Manifestation: GuManifestationKind.Thing } record
                 || record.Rank > 5 || record.RefinementProcess is { IsValid: false }
                 || string.Equals(record.Refinement?.CultivatorId, cultivator.CultivatorId, StringComparison.OrdinalIgnoreCase)
                 || !GuRefinementRules.TryQuote(record.Species, record.Rank, record.Refinement?.CultivatorId,
-                    cultivator.CultivatorId, aperture, out _)) return false;
+                    cultivator.CultivatorId, aperture, out quote)) return false;
 
             if (record.RefinementProcess is { } process
                 && (!string.Equals(process.CultivatorId, cultivator.CultivatorId, StringComparison.OrdinalIgnoreCase)
@@ -51,19 +55,13 @@ namespace ProjectGu
             processId = null;
             process = null;
             reason = "The Gu or awakened cultivator is unavailable for will-enforcement.";
-            if (!CanOrderRefinement(thing, pawn) || Resolve(thing) is not { } record
+            if (!CanOrderRefinement(thing, pawn, out var quote) || Resolve(thing) is not { } record
                 || record.CustodyRevision != expectedRevision) return false;
-            if (!TryGetRefiner(pawn, out var cultivator, out var aperture)) return false;
+            if (!TryGetRefiner(pawn, out var cultivator, out _)) return false;
 
             process = record.RefinementProcess;
             if (process == null)
             {
-                if (!GuRefinementRules.TryQuote(record.Species, record.Rank, record.Refinement?.CultivatorId,
-                    cultivator.CultivatorId, aperture, out var quote))
-                {
-                    reason = "This Gu's allegiance or mortal rank cannot enter the current refinement prototype.";
-                    return false;
-                }
                 process = new GuRefinementProcess(Guid.NewGuid().ToString("N"), cultivator.CultivatorId,
                     record.Refinement?.CultivatorId, quote.WorkTicks, quote.EssenceCost, Find.TickManager.TicksGame);
                 if (!record.BeginRefinement(process))

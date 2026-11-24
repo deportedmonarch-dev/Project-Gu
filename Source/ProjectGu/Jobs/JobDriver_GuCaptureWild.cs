@@ -34,10 +34,10 @@ namespace ProjectGu.Jobs
                     string reason = "The wild Gu is unavailable.";
                     if (job.targetA.Thing is Pawn_GuWildProjection wild
                         && Current.Game?.GetComponent<GuIndividualRegistry>()?.TryCaptureWild(wild, expectedRevision, pawn,
-                            wild.Position, out _, out reason) == true)
+                            wild.Position, out var dormant, out reason) == true)
                     {
                         Messages.Message("Captured Gu in dormant form. It remains unrefined on the ground; pick it up to carry it.",
-                            MessageTypeDefOf.NeutralEvent, false);
+                            new LookTargets(dormant), MessageTypeDefOf.NeutralEvent, false);
                         return;
                     }
                     Messages.Message(reason, MessageTypeDefOf.RejectInput, false);

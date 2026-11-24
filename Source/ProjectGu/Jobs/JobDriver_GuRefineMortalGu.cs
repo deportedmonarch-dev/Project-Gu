@@ -72,7 +72,8 @@ namespace ProjectGu.Jobs
                         return;
                     }
                     if (!completed) return;
-                    Messages.Message($"{thing.Label} now recognizes its refiner.", MessageTypeDefOf.PositiveEvent, false);
+                    Messages.Message($"{thing.Label} now recognizes {pawn.LabelShort}. Use Manage aperture Gu to store it.",
+                        new LookTargets(pawn), MessageTypeDefOf.PositiveEvent, false);
                     EndJobWith(JobCondition.Succeeded);
                 }
             };
