@@ -82,7 +82,51 @@ namespace ProjectGu
                         withdrawn ? MessageTypeDefOf.NeutralEvent : MessageTypeDefOf.RejectInput, false);
                 }));
             }
+
+            AddRefinementOptions(host, registry, options);
             return options;
+        }
+
+        private static void AddRefinementOptions(Pawn host, GuIndividualRegistry registry, List<FloatMenuOption> options)
+        {
+            var candidates = new HashSet<Thing_GuDormantProjection>();
+            if (host.inventory?.GetDirectlyHeldThings() is { } inventory)
+                foreach (var thing in inventory.OfType<Thing_GuDormantProjection>()) candidates.Add(thing);
+            if (host.Map != null && !host.Map.Disposed)
+                foreach (IntVec3 cell in GenRadial.RadialCellsAround(host.Position, 8f, true))
+                {
+                    if (!cell.InBounds(host.Map)) continue;
+                    foreach (var thing in cell.GetThingList(host.Map).OfType<Thing_GuDormantProjection>()) candidates.Add(thing);
+                }
+
+            foreach (var thing in candidates)
+            {
+                if (registry.Resolve(thing) is not { } record) continue;
+                string label = $"{record.Species?.label ?? record.SpeciesDefName} [{record.Id}]";
+                if (registry.CanOrderRefinement(thing, host))
+                {
+                    bool resuming = record.RefinementProcess != null;
+                    string actionLabel = resuming
+                        ? $"Resume will-enforcement: {label} ({record.RefinementProcess.CompletedWorkTicks * 100 / record.RefinementProcess.TotalWorkTicks}%)"
+                        : $"Enforce will over {label}";
+                    options.Add(new FloatMenuOption(actionLabel, () =>
+                    {
+                        if (!registry.CanOrderRefinement(thing, host)
+                            || DefDatabase<JobDef>.GetNamedSilentFail("GU_RefineMortalGu") is not { } jobDef)
+                        {
+                            Messages.Message("This Gu can no longer be refined by this cultivator.", MessageTypeDefOf.RejectInput, false);
+                            return;
+                        }
+                        host.jobs.TryTakeOrderedJob(JobMaker.MakeJob(jobDef, thing));
+                    }));
+                }
+                if (registry.CanAbandonRefinement(thing, host))
+                    options.Add(new FloatMenuOption($"Abandon will-enforcement: {label} (essence spent is lost)", () =>
+                    {
+                        bool abandoned = registry.TryAbandonRefinement(thing, host, out string reason);
+                        Messages.Message(reason, abandoned ? MessageTypeDefOf.NeutralEvent : MessageTypeDefOf.RejectInput, false);
+                    }));
+            }
         }
 
         private static void OpenManagementMenu(Pawn host, Hediff_Aperture aperture, GuIndividualRegistry registry)

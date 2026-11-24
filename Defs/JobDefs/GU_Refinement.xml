@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>GU_RefineMortalGu</defName>
+    <driverClass>ProjectGu.Jobs.JobDriver_GuRefineMortalGu</driverClass>
+    <reportString>enforcing their will over TargetA.</reportString>
+    <casualInterruptible>true</casualInterruptible>
+  </JobDef>
+</Defs>

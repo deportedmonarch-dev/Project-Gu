@@ -46,6 +46,13 @@ namespace ProjectGu
         // For this first prototype, 1 percentage point = 1 essence unit.
         public float MaxEssence => HasExtremePhysique ? 100f : Aptitude;
 
+        internal bool TrySpendEssence(float amount)
+        {
+            if (!float.IsFinite(amount) || amount < 0f || Essence + 0.0001f < amount) return false;
+            Essence = Math.Max(0f, Essence - amount);
+            return true;
+        }
+
         // Percentage points of a hypothetical full sea restored per 2,500 ticks.
         // A=8 and C=4 reflect the novel's early examples. B/D are tuning assumptions.
         // Extreme physique recovery is deferred to its dedicated mechanic; fallback

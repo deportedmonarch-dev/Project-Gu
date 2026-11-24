@@ -25,6 +25,11 @@ namespace ProjectGu.Domain
         public PawnKindDef wildProjectionKind;
         public ThingDef dormantProjectionDef;
 
+        // Tunable mortal will-enforcement prototype inputs; rank and cultivator capability scale these values.
+        public int refinementBaseWorkTicks = 9000;
+        public float refinementEssenceCost = 12f;
+        public float refinementResistance = 1f;
+
         // Lifecycle policy (owner decisions §1, §4). Values are provisional until the owner approves species defaults.
         /// <summary>What happens to an ordinary individual whose native map or holder is removed without it dying.</summary>
         public GuPreservationPolicy abandonmentPolicy = GuPreservationPolicy.Individual;
@@ -53,6 +58,12 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: minRank must be between 1 and 9";
             if (maxRank < minRank || maxRank > 9)
                 yield return $"{defName}: maxRank must be between minRank and 9";
+            if (refinementBaseWorkTicks is < 1 or > 600_000)
+                yield return $"{defName}: refinementBaseWorkTicks must be between 1 and 600000";
+            if (!float.IsFinite(refinementEssenceCost) || refinementEssenceCost <= 0f)
+                yield return $"{defName}: refinementEssenceCost must be finite and positive";
+            if (!float.IsFinite(refinementResistance) || refinementResistance < 0.1f || refinementResistance > 10f)
+                yield return $"{defName}: refinementResistance must be between 0.1 and 10";
             // Phase 1 staging still relies on the legacy Pawn class for tick suppression (RFC-0004 §5.1).
             if (wildProjectionKind != null && (wildProjectionKind.race?.thingClass is not { } pawnClass
                 || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)

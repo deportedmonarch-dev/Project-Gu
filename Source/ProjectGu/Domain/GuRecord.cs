@@ -45,7 +45,7 @@ namespace ProjectGu.Domain
         public abstract void ExposeData();
     }
 
-    /// <summary>Refinement allegiance, independent of custody and biology. Phase 1 stores no bonds.</summary>
+    /// <summary>Refinement allegiance, independent of custody and biology. Assigned only after a process succeeds.</summary>
     public sealed class GuRefinement : IExposable
     {
         internal string cultivatorId;
@@ -95,6 +95,7 @@ namespace ProjectGu.Domain
         private string anchorHint;
         private string legacyApertureLoadId;
         private GuRefinement refinement;
+        private GuRefinementProcess refinementProcess;
         private List<GuStateComponent> state = new();
 
         // Unresolved overlay. The placement facet keeps the last authorized placement for recovery.
@@ -143,6 +144,7 @@ namespace ProjectGu.Domain
         public string AnchorHint => placement == GuPlacementKind.Contained ? anchorHint : null;
         public string LegacyApertureLoadId => legacyApertureLoadId;
         public GuRefinement Refinement => refinement;
+        public GuRefinementProcess RefinementProcess => refinementProcess;
         public IReadOnlyList<GuStateComponent> State => state;
         public GuUnresolvedCause Unresolved => unresolved;
         public bool IsUnresolved => unresolved != GuUnresolvedCause.None;
@@ -315,7 +317,39 @@ namespace ProjectGu.Domain
         internal void UpdateAnchorHint(string anchor) => anchorHint = anchor;
 
         /// <summary>Ends any refinement bond. The Gu becomes masterless and can be refined by someone else.</summary>
-        internal void ReleaseRefinement() => refinement = null;
+        internal void ReleaseRefinement()
+        {
+            refinement = null;
+            refinementProcess = null;
+        }
+
+        internal bool BeginRefinement(GuRefinementProcess process)
+        {
+            if (process == null || !process.IsValid || refinementProcess != null) return false;
+            refinementProcess = process;
+            stateRevision++;
+            return true;
+        }
+
+        internal bool AbandonRefinement(string expectedProcessId)
+        {
+            if (refinementProcess?.ProcessId != expectedProcessId) return false;
+            refinementProcess = null;
+            stateRevision++;
+            return true;
+        }
+
+        internal bool CompleteRefinement(string expectedProcessId, string expectedPreviousOwner, string cultivatorId, int tick)
+        {
+            if (refinementProcess?.ProcessId != expectedProcessId || !refinementProcess.IsValid
+                || !string.Equals(refinement?.CultivatorId, expectedPreviousOwner, StringComparison.OrdinalIgnoreCase)
+                || refinementProcess.CompletedWorkTicks != refinementProcess.TotalWorkTicks
+                || refinementProcess.CultivatorId != cultivatorId) return false;
+            refinement = new GuRefinement { cultivatorId = cultivatorId, sinceTick = tick };
+            refinementProcess = null;
+            stateRevision++;
+            return true;
+        }
 
         internal const int MaxHistory = 8;
 
@@ -460,6 +494,7 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref anchorHint, "anchorHint");
             Scribe_Values.Look(ref legacyApertureLoadId, "legacyApertureLoadId");
             Scribe_Deep.Look(ref refinement, "refinement");
+            Scribe_Deep.Look(ref refinementProcess, "refinementProcess");
             Scribe_Collections.Look(ref state, "state", LookMode.Deep);
             Scribe_Values.Look(ref unresolved, "unresolved", GuUnresolvedCause.None);
             Scribe_Values.Look(ref terminalEvidence, "terminalEvidence", GuTerminalEvidence.None);
@@ -478,6 +513,11 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref stateRevision, "stateRevision");
             state ??= new();
             history ??= new();
+            if (Scribe.mode == LoadSaveMode.PostLoadInit && refinementProcess != null && !refinementProcess.IsValid)
+            {
+                Log.Warning($"[Project GU] Dropped malformed in-progress refinement state for Gu {id}; allegiance and custody are unchanged.");
+                refinementProcess = null;
+            }
         }
     }
 

@@ -229,6 +229,9 @@ namespace ProjectGu
                 binding = $"Species: {record.Species?.label ?? record.SpeciesDefName}\nIndividual identity: {record.Id}"
                     + $"\nPhysical custody: {observed.Form}" + (observed.HolderId == null ? "" : $" ({observed.HolderId})")
                     + $"\nRefinement allegiance: {ownerStatus}";
+                if (record.RefinementProcess is { IsValid: true } process)
+                    binding += $"\nWill-enforcement: {process.CompletedWorkTicks * 100 / process.TotalWorkTicks}% complete; "
+                        + $"{process.EssenceSpent:0.0}/{process.TotalEssenceCost:0.0} essence spent";
                 if (Prefs.DevMode) binding += "\n" + record.DebugDescription;
             }
             else

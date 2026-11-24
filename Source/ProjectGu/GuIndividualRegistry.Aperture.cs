@@ -32,7 +32,7 @@ namespace ProjectGu
         {
             reason = "The Gu is not an authorized dormant manifestation, or the request is stale.";
             if (!CanUseCustody || Resolve(thing) is not { } record || record.Condition != GuCondition.Dormant
-                || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue)
+                || record.RefinementProcess != null || record.CustodyRevision != expectedRevision || expectedRevision == int.MaxValue)
                 return false;
 
             reason = "Choose the living inventory holder's own aperture.";

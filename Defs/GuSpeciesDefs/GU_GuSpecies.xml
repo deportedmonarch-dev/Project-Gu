@@ -10,6 +10,9 @@
     <wildPopulationEnabled>true</wildPopulationEnabled>
     <wildProjectionKind>GU_WildGu</wildProjectionKind>
     <dormantProjectionDef>GU_DormantGu</dormantProjectionDef>
+    <refinementBaseWorkTicks>9000</refinementBaseWorkTicks>
+    <refinementEssenceCost>12</refinementEssenceCost>
+    <refinementResistance>1</refinementResistance>
     <pathTags><li>human</li></pathTags>
     <habitatTags><li>spirit_spring</li></habitatTags>
     <capabilityTags><li>awakening_consumable</li></capabilityTags>

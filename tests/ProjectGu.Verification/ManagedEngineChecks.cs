@@ -29,6 +29,7 @@ internal static class ManagedEngineChecks
             VerifyOverlappingHabitat(game, restoredFlora);
             UndergroundAddressChecks.Run(game, directory.FullName);
             CultivatorFoundationChecks.Run(game, directory.FullName);
+            RefinementManagedChecks.Run(directory.FullName);
         }
         finally
         {

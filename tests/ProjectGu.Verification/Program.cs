@@ -29,6 +29,16 @@ Check(new GuRefinement().CultivatorId == null
     && File.ReadAllText(Path.Combine(root, "Source/ProjectGu/GuIndividualRegistry.Aperture.cs"))
         .Contains("IsRecognizedByCultivator", StringComparison.Ordinal),
     "Physical Gu possession begins without refinement allegiance and mortal aperture access checks the existing bond");
+var refinementJob = XDocument.Load(Path.Combine(root, "Defs/JobDefs/GU_Refinement.xml"))
+    .Descendants("JobDef").Single(node => (string)node.Element("defName")! == "GU_RefineMortalGu");
+Check((string)refinementJob.Element("driverClass")! == "ProjectGu.Jobs.JobDriver_GuRefineMortalGu"
+    && (int)hopeSpecies.Element("refinementBaseWorkTicks")! == 9000
+    && (float)hopeSpecies.Element("refinementEssenceCost")! == 12f
+    && File.ReadAllText(Path.Combine(root, "Source/ProjectGu/Domain/GuRecord.cs"))
+        .Contains("Scribe_Deep.Look(ref refinementProcess", StringComparison.Ordinal)
+    && File.ReadAllText(Path.Combine(root, "Source/ProjectGu/GuIndividualRegistry.Refinement.cs"))
+        .Contains("CompleteRefinement", StringComparison.Ordinal),
+    "Will-enforcement uses a tunable job and saves process state on the canonical Gu record");
 int unitsPerPoint = (int)springSettings.Element("cavernSupportUnitsPerPoint")!;
 int supportCap = (int)springSettings.Element("cavernMaxFloraSupport")!;
 int maximumHope = (int)springSettings.Element("maxHopeGu")!;
