@@ -109,6 +109,7 @@ public sealed partial class LiveLifecycleChecks
         Current.Game.CurrentMap = home;
         Find.Selector.ClearSelection();
         Find.Selector.Select(disciple, false, false);
+        disciple.drafter.Drafted = true; // A drafted Gu Master holds position between casts.
         Find.CameraDriver.SetRootPosAndSize(disciple.DrawPos, 16f);
         yield return Frames(20);
         Note($"Surface: disciple at {disciple.Position}, map {home.Size}, hour {GenLocalDate.HourOfDay(home)}, aperture essence {aperture.Essence:0.0}/{aperture.MaxEssence:0.0}");
@@ -147,12 +148,12 @@ public sealed partial class LiveLifecycleChecks
         }
 
         // Camera: close zoom, far zoom, and off-screen (gameplay must resolve; effects must not draw).
-        foreach (var (label, size) in new[] { ("zoom-close", 9f), ("zoom-far", 45f) })
+        foreach (var (label, size) in new[] { ("zoom-close", 11f), ("zoom-far", 45f) })
         {
             Find.CameraDriver.SetRootPosAndSize(disciple.DrawPos, size);
             yield return Frames(10);
             var cell = NearestOpenCell(home, disciple.Position, disciple.Position + new IntVec3(-7, 0, 4));
-            foreach (var wait in DirectedCast(disciple, aperture, record, home, fx, cell, $"30-{label}", false)) yield return wait;
+            foreach (var wait in DirectedCast(disciple, aperture, record, home, fx, cell, $"30-{label}", label == "zoom-close")) yield return wait;
         }
         foreach (var wait in OffscreenCast(disciple, aperture, record, home, fx)) yield return wait;
 
@@ -174,6 +175,8 @@ public sealed partial class LiveLifecycleChecks
         foreach (var wait in StepUntil(() => Ledger.CooldownRemaining(record.Id, Find.TickManager.TicksGame) == 0
             && disciple.CurJobDef?.defName != GuAbilityService.CastJobDefName, 400, "Ready to cast")) yield return wait;
         if (aperture.Essence < Moonblade.essenceCost + 1f) SetEssence(aperture, aperture.MaxEssence);
+        Find.CameraDriver.JumpToCurrentMapLoc(disciple.DrawPos);
+        yield return Frames(3);
     }
 
     /// <summary>One cast stepped tick by tick with screenshots at aim, launch, flight, impact and cleanup.</summary>

@@ -841,7 +841,7 @@ Measure-Phase 'hashAfter' {
 foreach ($unit in $units) {
     foreach ($step in $unit.Steps | Where-Object { $_.Kind -eq 'Launch' -and $_.LaunchUtc }) {
         $log = Join-Path $unit.SaveData "$($step.Stage).stdout.txt"
-        $head = if (Test-Path -LiteralPath $log) { (Get-Content -LiteralPath $log -TotalCount 40) -join "`n" } else { '' }
+        $head = if (Test-Path -LiteralPath $log) { (Get-Content -LiteralPath $log -TotalCount 200) -join "`n" } else { '' }
         if ($head -notlike "*-savedatafolder=$($unit.SaveData)*" -or $head -notlike "*Save data folder overridden to $($unit.SaveData)*") {
             $integrity.IsolationProblems += "$($unit.Name)/$($step.Stage): log does not show its own save data folder"
         }

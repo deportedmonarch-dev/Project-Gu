@@ -31,7 +31,7 @@
     <frameCount>4</frameCount>
     <ticksPerFrame>3</ticksPerFrame>
     <lifetimeTicks>12</lifetimeTicks>
-    <drawSize>(1.8,1.8)</drawSize>
+    <drawSize>(2.2,2.2)</drawSize>
     <startScale>0.7</startScale>
     <endScale>1.2</endScale>
     <fadeOutTicks>4</fadeOutTicks>
@@ -60,7 +60,7 @@
     <frameCount>8</frameCount>
     <ticksPerFrame>3</ticksPerFrame>
     <lifetimeTicks>24</lifetimeTicks>
-    <drawSize>(2.6,2.6)</drawSize>
+    <drawSize>(3.2,3.2)</drawSize>
     <startScale>0.8</startScale>
     <endScale>1.15</endScale>
     <fadeOutTicks>6</fadeOutTicks>

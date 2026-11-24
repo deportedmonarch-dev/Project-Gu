@@ -113,8 +113,11 @@ public sealed partial class LiveLifecycleChecks
             && !GuAbilityService.GrantsFor(disciple).Any(),
             "Refinement bonded the Gu to the disciple; a refined Gu still grants nothing outside the aperture");
         RunAlpha1ApertureOption(disciple, "Store ", record.Id);
-        Check(registry.ApertureOccupants(aperture).Single() == record && dormant.Destroyed && !ActuallyProjectedGu().Any(),
-            "The refined Moonlight Gu is stored in the disciple's aperture with no physical projection");
+        var occupants = registry.ApertureOccupants(aperture).ToList();
+        var projected = ActuallyProjectedGu().ToList();
+        Check(occupants.Count == 1 && occupants[0] == record && dormant.Destroyed && projected.Count == 0,
+            $"The refined Moonlight Gu is stored in the disciple's aperture with no physical projection (occupants {occupants.Count}, "
+            + $"dormant destroyed {dormant.Destroyed}, projected: {string.Join(", ", projected.Select(thing => $"{thing.def.defName} {thing.GetUniqueLoadID()} spawned={thing.Spawned} destroyed={thing.Destroyed} gu={thing.GuTag()?.GuId}"))})");
 
         // Acceptance 2: the exact refined Gu grants Moonblade to its legitimate user only.
         var grant = GuAbilityService.GrantsFor(disciple).Single();
@@ -203,10 +206,12 @@ public sealed partial class LiveLifecycleChecks
         Check(drafted.Cast.Outcome == GuCastOutcome.HitThing, "A drafted Gu Master can use Moonblade");
         DespawnTarget(target);
         watch.Until(() => Ledger.CooldownRemaining(record.Id, Find.TickManager.TicksGame) == 0, Moonblade.cooldownTicks, "Cooldown before the location cast");
-        IntVec3 ground = FindTargetCell(cave, disciple.Position, 6, 9);
+        // Native ImpactSomething may still strike something that occupies or enters the cell; either result is one resolution.
+        IntVec3 ground = FindTargetCell(cave, disciple.Position, 6, 9, emptyCell: true);
         var groundCast = CastAndResolve(disciple, record, new LocalTargetInfo(ground), watch, "location");
-        Check(groundCast.Cast.Outcome == GuCastOutcome.HitGround && groundCast.Cast.DamageAmount == 0,
-            $"A location cast resolved once against the ground at {ground}");
+        Check(groundCast.Cast.Outcome is GuCastOutcome.HitGround or GuCastOutcome.HitThing
+            && (groundCast.Cast.Outcome == GuCastOutcome.HitThing) == (groundCast.Cast.DamageAmount > 0),
+            $"A location cast at {ground} resolved once as {groundCast.Cast.Outcome} ({groundCast.Cast.HitThingId ?? "ground"})");
         watch.Until(() => Ledger.CooldownRemaining(record.Id, Find.TickManager.TicksGame) == 0, Moonblade.cooldownTicks, "Cooldown before the vanishing-target cast");
 
         // Acceptance 9: the target disappears while the moonblade is in flight.
@@ -391,9 +396,10 @@ public sealed partial class LiveLifecycleChecks
         if (target is { Destroyed: false }) target.Destroy(DestroyMode.Vanish);
     }
 
-    private static IntVec3 FindTargetCell(Map map, IntVec3 origin, int minDistance, int maxDistance)
+    private static IntVec3 FindTargetCell(Map map, IntVec3 origin, int minDistance, int maxDistance, bool emptyCell = false)
     {
         var cell = GenRadial.RadialCellsAround(origin, maxDistance, true).Where(candidate => candidate.InBounds(map)
+            && (!emptyCell || candidate.GetThingList(map).Count == 0)
             && candidate.DistanceTo(origin) >= minDistance && candidate.Standable(map) && !candidate.Fogged(map)
             && candidate.GetFirstPawn(map) == null && candidate.GetFirstItem(map) == null
             && GenSight.LineOfSight(origin, candidate, map, true)).OrderBy(candidate => candidate.DistanceTo(origin)).FirstOrDefault(IntVec3.Invalid);

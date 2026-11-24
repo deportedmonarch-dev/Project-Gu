@@ -12,6 +12,8 @@ namespace ProjectGu
     [StaticConstructorOnStartup]
     internal static class GuApertureGizmos
     {
+        private static readonly UnityEngine.Texture2D ManageIcon = ContentFinder<UnityEngine.Texture2D>.Get("ProjectGU/UI/ManageAperture", false);
+
         internal static bool Installed { get; }
 
         static GuApertureGizmos()
@@ -39,6 +41,7 @@ namespace ProjectGu
             var command = new Command_Action
             {
                 defaultLabel = "Manage aperture Gu",
+                icon = ManageIcon,
                 defaultDesc = "Refine dormant Gu, resume will-enforcement, and inspect, store or withdraw this cultivator's bonded Gu.",
                 action = () => OpenManagementMenu(__instance, aperture, registry)
             };

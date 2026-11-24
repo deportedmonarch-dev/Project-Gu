@@ -101,10 +101,18 @@ for ($f = 0; $f -lt 8; $f++) {
     $state = $g.Save()
     $g.TranslateTransform($ox + 64, $oy + 64)
     $g.RotateTransform(-35)
-    Draw-Crescent $g 0 (6 - 8 * $t) (22 + 18 * $t) (10 - 4 * $t) ([Math]::Max(0.05, $fade))
+    # Opening frames: a bright core flash so the hit reads at normal zoom against any target.
+    if ($f -le 2) {
+        $core = 30 - 6 * $f
+        for ($k = 4; $k -ge 0; $k--) {
+            $rr = $core + $k * 5
+            $g.FillEllipse((New-Object System.Drawing.SolidBrush((Color ([int]((70 - $k * 12) * (1 - $f / 3.0) + 20)) 205 225 255))), -$rr, -$rr, 2 * $rr, 2 * $rr)
+        }
+    }
+    Draw-Crescent $g 0 (8 - 10 * $t) (30 + 20 * $t) (16 - 6 * $t) ([Math]::Max(0.05, $fade))
     $g.Restore($state)
-    $pen = New-Object System.Drawing.Pen((Color ([int](200 * $fade)) 170 205 255), (4 * $fade + 0.5))
-    $r = 10 + 48 * $t
+    $pen = New-Object System.Drawing.Pen((Color ([int](200 * $fade)) 170 205 255), (6 * $fade + 1))
+    $r = 12 + 46 * $t
     $g.DrawEllipse($pen, $ox + 64 - $r, $oy + 64 - $r, 2 * $r, 2 * $r)
     for ($s = 0; $s -lt 8; $s++) {
         $angle = $s * [Math]::PI / 4 + 0.3
@@ -157,3 +165,14 @@ $c.G.FillEllipse((New-Object System.Drawing.SolidBrush((Color 255 110 124 166)))
 $c.G.FillEllipse((New-Object System.Drawing.SolidBrush((Color 255 190 202 230))), 16, 22, 32, 22)
 Draw-Crescent $c.G 32 36 12 5 0.9
 Save-Canvas $c 'Textures\ProjectGU\Gu\MoonlightGu\Dormant.png'
+
+# Aperture management command icon: 64x64, a ringed aperture with a faint inner sea.
+$c = New-Canvas 64 64
+$c.G.FillEllipse((New-Object System.Drawing.SolidBrush((Color 255 18 24 48))), 2, 2, 60, 60)
+for ($k = 0; $k -lt 5; $k++) {
+    $r = 22 - $k * 4
+    $c.G.FillEllipse((New-Object System.Drawing.SolidBrush((Color (40 + $k * 30) 110 170 230))), 32 - $r, 32 - $r, 2 * $r, 2 * $r)
+}
+$c.G.DrawEllipse((New-Object System.Drawing.Pen((Color 255 200 215 240), 3)), 10, 10, 44, 44)
+$c.G.DrawEllipse((New-Object System.Drawing.Pen((Color 255 90 120 200), 2)), 2, 2, 60, 60)
+Save-Canvas $c 'Textures\ProjectGU\UI\ManageAperture.png'
