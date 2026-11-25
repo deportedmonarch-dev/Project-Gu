@@ -67,7 +67,8 @@ namespace ProjectGu
             Scribe_Values.Look(ref lastLayer, "guLastLayer", -1);
             Scribe_Values.Look(ref lastCell, "guLastCell", IntVec3.Invalid);
             Scribe_Values.Look(ref lastMapId, "guLastMapId");
-            if (Scribe.mode == LoadSaveMode.PostLoadInit && !string.IsNullOrEmpty(guId)) LoadBuffer.Add(this);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit
+                && (!string.IsNullOrEmpty(guId) || parent is Pawn_GuWildProjection)) LoadBuffer.Add(this);
         }
 
         public override void PostDeSpawn(Map map, DestroyMode mode = DestroyMode.Vanish)

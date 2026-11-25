@@ -70,6 +70,7 @@ namespace ProjectGu.Domain
         internal const int CurrentVersion = 2;
         internal const string CohortOrigin = "cohort";
         internal const string MigrationOrigin = "migration";
+        internal const string DevelopmentOrigin = "development";
 
         // Identity and provenance
         private int version;

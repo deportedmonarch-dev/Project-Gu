@@ -1,31 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
-  <ThingDef ParentName="BaseHare">
+  <ThingDef ParentName="GU_WildProjectionRace">
     <defName>GU_WildGu</defName>
     <label>wild Gu</label>
     <description>A living wild Gu. Its species, individual identity and refinement allegiance are tracked independently.</description>
-    <thingClass>ProjectGu.Pawn_GuWildProjection</thingClass>
-    <notifyMapRemoved>true</notifyMapRemoved>
-    <comps>
-      <li Class="ProjectGu.CompProperties_GuManifestation" />
-    </comps>
-    <race>
-      <hasGenders>false</hasGenders>
-      <canBePredatorPrey>false</canBePredatorPrey>
-      <lifeStageAges Inherit="False">
-        <li><def>AnimalAdult</def><minAge>0</minAge></li>
-      </lifeStageAges>
-    </race>
-    <tradeTags Inherit="False" />
   </ThingDef>
-  <PawnKindDef ParentName="AnimalKindBase">
+  <PawnKindDef ParentName="GU_WildProjectionKind">
     <defName>GU_WildGu</defName>
     <label>wild Gu</label>
     <race>GU_WildGu</race>
     <combatPower>1</combatPower>
-    <ecoSystemWeight>0</ecoSystemWeight>
-    <isFighter>false</isFighter>
-    <canArriveManhunter>false</canArriveManhunter>
     <lifeStages>
       <li>
         <bodyGraphicData>

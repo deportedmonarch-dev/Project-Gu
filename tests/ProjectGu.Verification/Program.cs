@@ -15,11 +15,9 @@ var hopeSpecies = speciesDefs.Descendants("ProjectGu.Domain.GuSpeciesDef")
     .Single(node => (string)node.Element("defName")! == "GU_HopeGu");
 var captureJob = XDocument.Load(Path.Combine(root, "Defs/JobDefs/GU_CaptureWild.xml"))
     .Descendants("JobDef").Single(node => (string)node.Element("defName")! == "GU_CaptureWildGu");
-var wildGuDef = XDocument.Load(Path.Combine(root, "Defs/ThingDefs/GU_WildGu.xml"));
 var dormantGuDef = XDocument.Load(Path.Combine(root, "Defs/ThingDefs/GU_DormantGu.xml"));
 Check((string)hopeSpecies.Element("wildProjectionKind")! == "GU_WildGu"
     && (string)hopeSpecies.Element("dormantProjectionDef")! == "GU_DormantGu"
-    && wildGuDef.Descendants("ThingDef").Any(node => (string)node.Element("thingClass")! == "ProjectGu.Pawn_GuWildProjection")
     && dormantGuDef.Descendants("ThingDef").Any(node => (string)node.Element("thingClass")! == "ProjectGu.Thing_GuDormantProjection")
     && (string)captureJob.Element("driverClass")! == "ProjectGu.Jobs.JobDriver_GuCaptureWild",
     "Ordinary Hope Gu acquisition uses configured species projections and a dedicated capture job");
@@ -80,6 +78,7 @@ var botanicalTargets = ReadTargets("botanicalCavernFlora");
 int botanicalRadius = (int)springSettings.Element("botanicalHabitatRadius")!;
 ManagedEngineChecks.Run(springDef, args[1], targets);
 ClanStartChecks.Run(root, args[1]);
+GuGenerationChecks.Run(root);
 
 void VerifyFlora(GuSpringCavernLayout layout, Dictionary<IntVec3, int> shore, int seed)
 {

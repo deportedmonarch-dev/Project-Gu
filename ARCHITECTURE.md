@@ -34,3 +34,5 @@ Slice 3 uses record-backed identity with development Pawn and dormant Thing proj
 [Active release](Source/ProjectGu/GuIndividualRegistry.Release.cs) stages a suppressed wild Pawn and validates placement before committing the exact native binding. [Map custody protection](Source/ProjectGu/GuIndividualMapCustody.cs) derives its result from live registry bindings and plugs into the independent underground route guards.
 
 [Cohort materialization](Source/ProjectGu/GuIndividualRegistry.Materialization.cs) reuses the staged wild Pawn and commits one adult debit on the habitat's existing cohort. The individual record owns the event key, origin and debit evidence. The live event index rebuilds from those records.
+
+The shared wild projection Defs exclude Gu kinds from native animal selection. The Gu Pawn's creation hook requires a registry permit for fresh bodies, and save loading reconciles existing projections against their canonical records. [Generation integrity policy and audit](docs/GU-GENERATION-INTEGRITY.md).

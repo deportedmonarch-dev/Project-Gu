@@ -44,6 +44,7 @@ public sealed partial class LiveLifecycleChecks
         Check(registry.TryTakeDormant(dormant, dormant.GuRevision, host, out reason), $"Inventory pickup committed. {reason}");
         VerifyReleaseStep(record, birth, GuBiologicalState.Dormant,
             new(GuCustodyKind.DormantInventory, dormant.GetUniqueLoadID(), host.GetUniqueLoadID()), 1, 1, dormant);
+        BindFixtureRefinement(record, host);
         Check(registry.TryStoreDormant(dormant, dormant.GuRevision, host, aperture, out reason) && dormant.Destroyed, $"Aperture storage committed. {reason}");
         VerifyReleaseStep(record, birth, GuBiologicalState.Dormant,
             new(GuCustodyKind.Aperture, aperture.ApertureId, host.GetUniqueLoadID()), 2, 1);

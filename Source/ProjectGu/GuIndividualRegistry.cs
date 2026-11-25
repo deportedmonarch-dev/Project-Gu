@@ -229,6 +229,8 @@ namespace ProjectGu
                 binding = $"Species: {record.Species?.label ?? record.SpeciesDefName}\nIndividual identity: {record.Id}"
                     + $"\nPhysical custody: {observed.Form}" + (observed.HolderId == null ? "" : $" ({observed.HolderId})")
                     + $"\nRefinement allegiance: {ownerStatus}";
+                if (record.Origin == GuRecord.DevelopmentOrigin || record.Species?.capabilityTags?.Contains("development_test") == true)
+                    binding += "\nDevelopment test Gu";
                 if (record.RefinementProcess is { IsValid: true } process)
                     binding += $"\nWill-enforcement: {process.CompletedWorkTicks * 100 / process.TotalWorkTicks}% complete; "
                         + $"{process.EssenceSpent:0.0}/{process.TotalEssenceCost:0.0} essence spent";
@@ -236,7 +238,8 @@ namespace ProjectGu
             }
             else
             {
-                if (!Prefs.DevMode) return native;
+                if (!Prefs.DevMode)
+                    return thing is Pawn_GuWildProjection ? native + "\nUnbound Gu projection. Gu capture and refinement are unavailable." : native;
                 string state = registry == null ? "registry unavailable"
                     : registry.CustodyTransitionInProgress ? "transition in progress"
                     : tag.Rogue ? "rogue projection, not authorized"
@@ -280,7 +283,7 @@ namespace ProjectGu
         {
             if (tag == null || !rogues.Add(tag)) return;
             tag.Rogue = true;
-            Log.Warning($"[Project GU] Rogue Gu projection {tag.parent?.GetUniqueLoadID()} claims Gu {tag.GuId} at revision {tag.GuRevision}. {reason} It is not authorized.");
+            Log.Warning($"[Project GU] Rogue Gu projection {tag.parent?.GetUniqueLoadID()}, Gu {tag.GuId ?? "(missing ID)"}, revision {tag.GuRevision}. {reason}");
         }
 
         private static Dictionary<string, Pawn> PawnsByLoadId() => PawnsFinder.All_AliveOrDead.Where(pawn => pawn != null).Distinct()
@@ -290,9 +293,8 @@ namespace ProjectGu
         internal bool TrySpawnDevelopmentGu(GuSpeciesDef species, Map map, IntVec3 cell, out Pawn_GuWildProjection pawn)
         {
             pawn = null;
-            if (!Prefs.DevMode || !ready || CustodyTransitionInProgress || LongEventHandler.AnyEventNowOrWaiting
-                || species?.wildProjectionKind is not { race.thingClass: { } pawnClass } kind
-                || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)
+            if (!CanUseDevelopmentCustody || species?.capabilityTags?.Contains("development_test") != true
+                || FirstAdultProjectionStage(species.wildProjectionKind) is not { } adult
                 || map?.Disposed != false || !Find.Maps.Contains(map) || !cell.InBounds(map)
                 || cell.Fogged(map) || !cell.Standable(map) || cell.GetFirstPawn(map) != null)
                 return false;
@@ -300,39 +302,49 @@ namespace ProjectGu
             string id = Guid.NewGuid().ToString("N");
             if (byId.ContainsKey(id)) return false;
 
+            var kind = species.wildProjectionKind;
+            Pawn_GuWildProjection projection = null;
             GuRecord record = null;
+            bool committed = false;
+            CustodyTransitionInProgress = true;
             try
             {
-                var projection = (Pawn_GuWildProjection)PawnGenerator.GeneratePawn(new PawnGenerationRequest(kind, tile: map.Tile,
-                    forceGenerateNewPawn: true, canGeneratePawnRelations: false, forceNoIdeo: true,
-                    developmentalStages: DevelopmentalStage.Adult));
-                record = GuRecord.CreateManifested(id, species, "development", map.GetUniqueLoadID(), Find.TickManager.TicksGame,
+                projection = PrepareWildPawn(kind, adult, map);
+                record = GuRecord.CreateManifested(id, species, GuRecord.DevelopmentOrigin, map.GetUniqueLoadID(), Find.TickManager.TicksGame,
                     GuCondition.Active, GuManifestationKind.Pawn, projection.GetUniqueLoadID());
                 projection.InitializeBinding(record);
+                if (!CanRestoreDetached(projection) || !TryPlaceStagedWildPawn(projection, record, kind, map, cell)) return false;
                 records.Add(record);
                 byId[record.Id] = record;
-                GenSpawn.Spawn(projection, cell, map);
+                committed = true;
                 BindProjection(record, projection);
-                if (!MatchesManifestation(record, projection) || !projection.Spawned)
-                {
-                    record.MarkUnresolved(GuUnresolvedCause.ProjectionMissing, GuTerminalEvidence.None,
-                        "Development placement did not establish the expected wild Pawn.", Find.TickManager.TicksGame);
-                    UnbindAll(record);
-                    return false;
-                }
+                projection.SetReleaseSuppressed(false);
+                if (!MatchesManifestation(record, projection) || !IsOnCell(projection, map, cell)) return false;
                 pawn = projection;
                 return true;
             }
             catch (Exception exception)
             {
-                if (record != null)
-                {
-                    record.MarkUnresolved(GuUnresolvedCause.ProjectionMissing, GuTerminalEvidence.None,
-                        "A native callback interrupted development placement.", Find.TickManager.TicksGame);
-                    UnbindAll(record);
-                }
                 Log.Error($"[Project GU] Failed to place a development Gu. {exception}");
                 return false;
+            }
+            finally
+            {
+                try
+                {
+                    if (pawn == null)
+                    {
+                        if (!DiscardProvisionalWildPawn(projection))
+                            MarkRogue(projection?.GuTag(), "A failed test placement could not discard its provisional Pawn.");
+                        if (committed)
+                        {
+                            UnbindAll(record);
+                            record.MarkUnresolved(GuUnresolvedCause.ProjectionMissing, GuTerminalEvidence.None,
+                                "Development placement did not establish the expected wild Pawn.", Find.TickManager.TicksGame);
+                        }
+                    }
+                }
+                finally { CustodyTransitionInProgress = false; }
             }
         }
     }

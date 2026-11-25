@@ -1,32 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <!-- Liquor Worm physical forms. Identity, custody and refinement belong to the generic Gu registry. -->
-  <ThingDef ParentName="BaseHare">
+  <ThingDef ParentName="GU_WildProjectionRace">
     <defName>GU_WildLiquorWorm</defName>
     <label>wild Liquor Worm</label>
     <description>A wild Liquor Worm, a plump amber worm drawn by the scent of alcohol. It recognizes no cultivator until it is captured and refined.</description>
-    <thingClass>ProjectGu.Pawn_GuWildProjection</thingClass>
-    <notifyMapRemoved>true</notifyMapRemoved>
-    <comps>
-      <li Class="ProjectGu.CompProperties_GuManifestation" />
-    </comps>
-    <race>
-      <hasGenders>false</hasGenders>
-      <canBePredatorPrey>false</canBePredatorPrey>
-      <lifeStageAges Inherit="False">
-        <li><def>AnimalAdult</def><minAge>0</minAge></li>
-      </lifeStageAges>
-    </race>
-    <tradeTags Inherit="False" />
   </ThingDef>
-  <PawnKindDef ParentName="AnimalKindBase">
+  <PawnKindDef ParentName="GU_WildProjectionKind">
     <defName>GU_WildLiquorWorm</defName>
     <label>wild Liquor Worm</label>
     <race>GU_WildLiquorWorm</race>
     <combatPower>1</combatPower>
-    <ecoSystemWeight>0</ecoSystemWeight>
-    <isFighter>false</isFighter>
-    <canArriveManhunter>false</canArriveManhunter>
     <lifeStages>
       <li>
         <bodyGraphicData>

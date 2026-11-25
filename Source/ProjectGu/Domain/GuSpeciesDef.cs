@@ -78,6 +78,8 @@ namespace ProjectGu.Domain
                 || !typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass)
                 || !wildProjectionKind.race.HasComp(typeof(CompGuManifestation)) || !wildProjectionKind.race.notifyMapRemoved))
                 yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race with CompGuManifestation and notifyMapRemoved";
+            else if (wildProjectionKind != null && !Pawn_GuWildProjection.HasNativeGenerationExclusions(wildProjectionKind))
+                yield return $"{defName}: wildProjectionKind must exclude native pet, biome, commerce, quest and incident generation";
             if (dormantProjectionDef != null && !Thing_GuDormantProjection.IsConfigured(dormantProjectionDef))
                 yield return $"{defName}: dormantProjectionDef requires an inert, unstackable, untradeable Gu Thing with CompGuManifestation and notifyMapRemoved";
             if (encounterLureTicks is < 1 or > 60_000)

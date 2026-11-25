@@ -41,6 +41,8 @@ On RimWorld 1.7.5014 rev1195, native campaign `4cd1edc8a5dc4be1884beb81059acbfd`
 
 Alpha 3 passed its new-game and both fresh-process reload stages on retry in campaign `13c4892d067a4fa29414ebc3ab148c12`. The first attempt found an unbound Moonlight Gu pawn before the fixture issued a Moonlight search. On the accepted build, Moonlight Gu inherits positive petness from Core's hare Def, making it eligible for the stock random starting-pet selector.
 
+The generation integrity follow-up excludes all wild Gu kinds from that pool and guards direct Pawn creation. [Native generation audit](GU-GENERATION-INTEGRITY.md).
+
 ## Primeval stones
 
 The global stack limit is 200. The revised spring tries two actual Core shallow-water tiles at the lower edge of the main basin, then the two adjacent dry shoreline cells. Older maps use their established eastern and southern outlets. An output requires a standable, reachable, unfogged cell with capacity for the batch. Full or incompatible stacks send the spring to the next candidate. The native placement callback debits reserve and updates lifetime output by the actual acknowledged quantity. The normal schedule can retry after a blocked attempt.

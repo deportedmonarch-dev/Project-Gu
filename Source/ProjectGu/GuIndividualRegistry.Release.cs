@@ -105,7 +105,7 @@ namespace ProjectGu
 
         private static Pawn_GuWildProjection PrepareWildPawn(PawnKindDef kind, LifeStageAge adult, Map map)
         {
-            var pawn = (Pawn_GuWildProjection)PawnGenerator.GeneratePawn(new PawnGenerationRequest(kind, tile: map.Tile,
+            var pawn = Pawn_GuWildProjection.GenerateForRegistry(new PawnGenerationRequest(kind, tile: map.Tile,
                 forceGenerateNewPawn: true, canGeneratePawnRelations: false, forceNoIdeo: true, forceNoGear: true,
                 fixedBiologicalAge: adult.minAge, developmentalStages: DevelopmentalStage.Adult));
             pawn.SetReleaseSuppressed(true);

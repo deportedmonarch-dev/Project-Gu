@@ -8,12 +8,12 @@ using Verse.AI;
 namespace ProjectGu
 {
     /// <summary>
-    /// Legacy-compatible Pawn class for the developer wild Gu. Saved V1 Pawns bind to this class name, so it stays
-    /// loadable. Identity lives in <see cref="CompGuManifestation"/>. The class only suppresses ticks and commands while
-    /// a release or materialization is being staged.
+    /// Native body for a wild Gu. New bodies require the registry's creation path. Scribe restores existing bodies
+    /// separately, and the registry validates their saved identity and custody before authorizing them.
     /// </summary>
     public class Pawn_GuWildProjection : Pawn, IGuProjection
     {
+        [ThreadStatic] private static ThingDef permittedRace;
         private bool releaseSuppressed;
 
         public string GuId => this.GuTag()?.GuId;
@@ -23,6 +23,35 @@ namespace ProjectGu
         internal void SetReleaseSuppressed(bool suppressed) => releaseSuppressed = suppressed;
 
         internal void InitializeBinding(GuRecord record) => this.GuTag()?.Bind(record);
+
+        internal static bool IsGuKind(PawnKindDef kind) =>
+            kind?.race?.thingClass is { } pawnClass && typeof(Pawn_GuWildProjection).IsAssignableFrom(pawnClass);
+
+        internal static bool HasNativeGenerationExclusions(PawnKindDef kind) =>
+            kind is { canArriveManhunter: false, ecoSystemWeight: 0, isFighter: false }
+            && kind.race is { tradeability: Tradeability.None } race && race.tradeTags.NullOrEmpty()
+            && race.race is { petness: 0, neverIncludeInQuests: true, herdMigrationAllowed: false, packAnimal: false, hasGenders: false } properties
+            && properties.wildBiomes.NullOrEmpty();
+
+        internal static Pawn_GuWildProjection GenerateForRegistry(PawnGenerationRequest request)
+        {
+            if (permittedRace != null || !request.ForceGenerateNewPawn || request.Faction != null
+                || !IsGuKind(request.KindDef) || !HasNativeGenerationExclusions(request.KindDef))
+                throw new InvalidOperationException("Wild Gu generation requires a protected projection Def and a new, factionless Pawn.");
+
+            permittedRace = request.KindDef.race;
+            try { return (Pawn_GuWildProjection)PawnGenerator.GeneratePawn(request); }
+            finally { permittedRace = null; }
+        }
+
+        public sealed override void PostMake()
+        {
+            // Both ThingMaker and fresh PawnGenerator requests use PostMake. Scribe does not.
+            if (def == null || def != permittedRace)
+                throw new InvalidOperationException("Wild Gu Pawns require Project GU registry generation.");
+            permittedRace = null;
+            base.PostMake();
+        }
 
         public override void ExposeData()
         {

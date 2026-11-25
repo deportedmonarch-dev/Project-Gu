@@ -195,7 +195,8 @@ namespace ProjectGu
             }
 
             foreach (var tag in loaded.Where(tag => !claimed.Contains(tag) && tag.parent != null && !tag.parent.Destroyed))
-                MarkRogue(tag, "No canonical record has this identity.");
+                MarkRogue(tag, string.IsNullOrWhiteSpace(tag.GuId) ? "The saved projection has no Gu identity."
+                    : "No canonical record has this identity.");
             ready = true;
         }
 

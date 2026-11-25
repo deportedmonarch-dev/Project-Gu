@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Wild Gu use native animal AI and only Project GU can create their Pawns. -->
+  <ThingDef Abstract="True" Name="GU_WildProjectionRace" ParentName="BaseHare">
+    <thingClass>ProjectGu.Pawn_GuWildProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <tradeability>None</tradeability>
+    <tradeTags Inherit="False" />
+    <comps>
+      <li Class="ProjectGu.CompProperties_GuManifestation" />
+    </comps>
+    <race>
+      <petness>0</petness>
+      <wildBiomes Inherit="False" />
+      <neverIncludeInQuests>true</neverIncludeInQuests>
+      <herdMigrationAllowed>false</herdMigrationAllowed>
+      <packAnimal>false</packAnimal>
+      <hasGenders>false</hasGenders>
+      <canBePredatorPrey>false</canBePredatorPrey>
+      <lifeStageAges Inherit="False">
+        <li><def>AnimalAdult</def><minAge>0</minAge></li>
+      </lifeStageAges>
+    </race>
+  </ThingDef>
+  <PawnKindDef Abstract="True" Name="GU_WildProjectionKind" ParentName="AnimalKindBase">
+    <ecoSystemWeight>0</ecoSystemWeight>
+    <isFighter>false</isFighter>
+    <canArriveManhunter>false</canArriveManhunter>
+  </PawnKindDef>
+</Defs>
