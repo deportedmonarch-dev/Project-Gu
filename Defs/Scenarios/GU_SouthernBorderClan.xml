@@ -60,6 +60,12 @@
           <thingDef>RawRice</thingDef>
           <count>200</count>
         </li>
+        <!-- A few jars of beer: Liquor Worm can be lured with alcohol before the clan can brew its own. -->
+        <li Class="ScenPart_StartingThing_Defined">
+          <def>StartingThing_Defined</def>
+          <thingDef>Beer</thingDef>
+          <count>4</count>
+        </li>
         <li Class="ScenPart_StartingThing_Defined">
           <def>StartingThing_Defined</def>
           <thingDef>MedicineHerbal</thingDef>

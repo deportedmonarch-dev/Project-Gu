@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Liquor Worm physical forms. Identity, custody and refinement belong to the generic Gu registry. -->
+  <ThingDef ParentName="BaseHare">
+    <defName>GU_WildLiquorWorm</defName>
+    <label>wild Liquor Worm</label>
+    <description>A wild Liquor Worm, a plump amber worm drawn by the scent of alcohol. It recognizes no cultivator until it is captured and refined.</description>
+    <thingClass>ProjectGu.Pawn_GuWildProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps>
+      <li Class="ProjectGu.CompProperties_GuManifestation" />
+    </comps>
+    <race>
+      <hasGenders>false</hasGenders>
+      <canBePredatorPrey>false</canBePredatorPrey>
+      <lifeStageAges Inherit="False">
+        <li><def>AnimalAdult</def><minAge>0</minAge></li>
+      </lifeStageAges>
+    </race>
+    <tradeTags Inherit="False" />
+  </ThingDef>
+  <PawnKindDef ParentName="AnimalKindBase">
+    <defName>GU_WildLiquorWorm</defName>
+    <label>wild Liquor Worm</label>
+    <race>GU_WildLiquorWorm</race>
+    <combatPower>1</combatPower>
+    <ecoSystemWeight>0</ecoSystemWeight>
+    <isFighter>false</isFighter>
+    <canArriveManhunter>false</canArriveManhunter>
+    <lifeStages>
+      <li>
+        <bodyGraphicData>
+          <texPath>ProjectGU/Gu/LiquorWorm/Wild</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.8</drawSize>
+        </bodyGraphicData>
+        <dessicatedBodyGraphicData>
+          <texPath>ProjectGU/Gu/LiquorWorm/Wild</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.8</drawSize>
+        </dessicatedBodyGraphicData>
+      </li>
+    </lifeStages>
+  </PawnKindDef>
+
+  <ThingDef ParentName="ResourceBase">
+    <defName>GU_DormantLiquorWorm</defName>
+    <label>dormant Liquor Worm</label>
+    <description>A Liquor Worm curled tight and still. Carrying it does not make it recognize its holder as its cultivator.</description>
+    <thingClass>ProjectGu.Thing_GuDormantProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps>
+      <li Class="ProjectGu.CompProperties_GuManifestation" />
+    </comps>
+    <stackLimit>1</stackLimit>
+    <tickerType>Never</tickerType>
+    <alwaysHaulable>true</alwaysHaulable>
+    <thingCategories><li>GU_DormantGu</li></thingCategories>
+    <tradeability>None</tradeability>
+    <graphicData>
+      <texPath>ProjectGU/Gu/LiquorWorm/Dormant</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+    </graphicData>
+    <statBases><Mass>0.1</Mass></statBases>
+  </ThingDef>
+</Defs>

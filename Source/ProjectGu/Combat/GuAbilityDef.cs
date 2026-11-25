@@ -37,6 +37,10 @@ namespace ProjectGu.Combat
         public GuFxProfileDef travelFx;
         public GuFxProfileDef impactFx;
 
+        /// <summary>When set, the ability is a self-use timed channel instead of a targeted launch.</summary>
+        public GuChannelProperties channel;
+        public bool IsChannel => channel != null;
+
         [Unsaved] private GuAbilityWorker worker;
         [Unsaved] private Texture2D icon;
 
@@ -69,8 +73,10 @@ namespace ProjectGu.Combat
             if (warmupTicks is < 0 or > 6000) yield return $"{defName}: warmupTicks must be between 0 and 6000";
             if (!float.IsFinite(range) || range < 1f || range > 60f) yield return $"{defName}: range must be between 1 and 60";
             if (!float.IsFinite(minRange) || minRange < 0f || minRange >= range) yield return $"{defName}: minRange must be at least 0 and below range";
-            if (!targetPawns && !targetLocations) yield return $"{defName}: the ability must target pawns, locations or both";
-            if (workerClass == typeof(GuAbilityWorker_Projectile)
+            if (channel != null)
+                foreach (string error in channel.ConfigErrors(defName)) yield return error;
+            if (channel == null && !targetPawns && !targetLocations) yield return $"{defName}: the ability must target pawns, locations or both";
+            if (channel == null && workerClass == typeof(GuAbilityWorker_Projectile)
                 && (projectileDef?.projectile == null || !typeof(Projectile_GuAbility).IsAssignableFrom(projectileDef.thingClass)))
                 yield return $"{defName}: the projectile worker requires a projectileDef whose thingClass derives from ProjectGu.Combat.Projectile_GuAbility";
         }

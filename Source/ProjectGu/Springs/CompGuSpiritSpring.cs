@@ -216,6 +216,8 @@ namespace ProjectGu.Springs
                 if (cohort?.MatureCount <= 0 || DefDatabase<GuSpeciesDef>.GetNamedSilentFail(cohort.SpeciesDefName) is not { } species
                     || !species.wildPopulationEnabled || species.capabilityTags?.Contains("development_test") == true
                     || species.wildProjectionKind == null || !Thing_GuDormantProjection.IsConfigured(species.dormantProjectionDef)) continue;
+                // Lure species are encountered through a colonist's lure job, never a plain search.
+                if (species.UsesLureEncounter) continue;
 
                 string speciesName = species.label;
                 yield return new Command_Action
@@ -236,12 +238,19 @@ namespace ProjectGu.Springs
                 return;
             }
 
+            if (TryEncounterWildGu(species, registry, out var individual, out string reason))
+                Messages.Message($"A wild {species.label} emerged from the spring. Select a colonist and right-click the Gu to capture it.",
+                    new LookTargets(registry.ProjectionOf(individual)), MessageTypeDefOf.PositiveEvent, false);
+            else Messages.Message(reason ?? "The spring could not safely release a Gu.", MessageTypeDefOf.RejectInput, false);
+        }
+
+        /// <summary>Draws one mature adult of the species from this spring's cohort through the registry's materialization.</summary>
+        internal bool TryEncounterWildGu(GuSpeciesDef species, GuIndividualRegistry registry, out GuRecord individual, out string reason)
+        {
+            individual = null;
             var cohort = GuPopulationLedger.Find(populations, species.defName);
-            if (cohort == null || cohort.MatureCount <= 0)
-            {
-                Messages.Message($"No mature {species.label} remain in this spring cohort.", MessageTypeDefOf.RejectInput, false);
-                return;
-            }
+            reason = $"No mature {species.label} remain in this spring cohort.";
+            if (!populationsReady || cohort == null || cohort.MatureCount <= 0) return false;
 
             Map map = parent.Map;
             IntVec3 cell = GenRadial.RadialCellsAround(parent.Position, 6f, true).FirstOrDefault(candidate =>
@@ -249,17 +258,10 @@ namespace ProjectGu.Springs
                 && !map.reservationManager.IsReserved(candidate)
                 && candidate.GetThingList(map).Count == 0, IntVec3.Invalid);
             string eventKey = $"player-encounter:{HabitatId}:{species.defName}:{cohort.Revision}";
-            string reason = "No safe nearby place is available for a wild Gu.";
-            GuRecord individual = null;
-            bool success = cell.IsValid
-                && GuIndividualRegistry.TryPrepareMaterializationRequest(this, species.defName, eventKey, out var request)
+            reason = "No safe nearby place is available for a wild Gu.";
+            if (!cell.IsValid) return false;
+            return GuIndividualRegistry.TryPrepareMaterializationRequest(this, species.defName, eventKey, out var request)
                 && registry.TryEncounterWildCohort(this, request, map, cell, out individual, out reason);
-            if (success)
-                Messages.Message($"A wild {species.label} emerged from the spring. Select a colonist and right-click the Gu to capture it.",
-                    new LookTargets(registry.ProjectionOf(individual)), MessageTypeDefOf.PositiveEvent, false);
-            else
-                Messages.Message(cell.IsValid ? reason ?? "The spring could not safely release a Gu." : "No safe nearby place is available for a wild Gu.",
-                    MessageTypeDefOf.RejectInput, false);
         }
 
         private static bool PlayerCanAccessEncounterMap(Map map) => map is { Disposed: false }
@@ -338,6 +340,7 @@ namespace ProjectGu.Springs
         }
         public override IEnumerable<FloatMenuOption> CompFloatMenuOptions(Pawn selPawn)
         {
+            foreach (var lure in LureFloatMenuOptions(selPawn)) yield return lure;
             if (selPawn == null || !selPawn.IsColonistPlayerControlled || !parent.Spawned) yield break;
             GuWorldComponent world = Current.Game?.GetComponent<GuWorldComponent>();
             var record = world?.GetOrCreate(selPawn);

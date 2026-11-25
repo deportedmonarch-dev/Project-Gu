@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Rank 1 Liquor Worm. Values are provisional tuning, pending owner balance review (docs/ALPHA-3-LIQUOR-WORM.md). -->
+  <ProjectGu.Combat.GuAbilityDef>
+    <defName>GU_LiquorWormRefinement</defName>
+    <label>Liquor Worm refinement</label>
+    <description>The Gu Master sits with the Liquor Worm circling their core while it refines their primeval essence: each pulse turns essence of their current minor stage into the same volume of the next higher quality. Stopping keeps everything already refined, and the same session can be resumed without paying again.</description>
+    <essenceCost>2</essenceCost>
+    <cooldownTicks>30000</cooldownTicks>
+    <warmupTicks>0</warmupTicks>
+    <targetPawns>false</targetPawns>
+    <targetLocations>false</targetLocations>
+    <requireLineOfSight>false</requireLineOfSight>
+    <iconPath>ProjectGU/UI/Abilities/LiquorWormRefinement</iconPath>
+    <channel>
+      <workerClass>ProjectGu.Combat.GuChannelWorker_EssenceRefinement</workerClass>
+      <pulseIntervalTicks>250</pulseIntervalTicks>
+      <pulseCount>10</pulseCount>
+      <amountPerPulse>1</amountPerPulse>
+      <manifestationFx>GU_Fx_LiquorWormOrbit</manifestationFx>
+    </channel>
+  </ProjectGu.Combat.GuAbilityDef>
+
+  <!-- The small manifested Liquor Worm circling the Gu Master's waist while a session is active. Cosmetic only. -->
+  <ProjectGu.Presentation.GuFxProfileDef>
+    <defName>GU_Fx_LiquorWormOrbit</defName>
+    <texPath>ProjectGU/Effects/LiquorWorm/Manifest</texPath>
+    <columns>4</columns>
+    <rows>1</rows>
+    <frameCount>4</frameCount>
+    <ticksPerFrame>6</ticksPerFrame>
+    <lifetimeTicks>24</lifetimeTicks>
+    <loop>true</loop>
+    <drawSize>(0.42,0.42)</drawSize>
+    <fadeInTicks>10</fadeInTicks>
+    <shaderType>Transparent</shaderType>
+    <orientToHeading>true</orientToHeading>
+    <orbit>true</orbit>
+    <orbitRadius>(0.40,0.15)</orbitRadius>
+    <orbitCenterOffset>(0,-0.18)</orbitCenterOffset>
+    <orbitPeriodTicks>90</orbitPeriodTicks>
+    <orbitFrontLayer>100.6</orbitFrontLayer>
+    <orbitBackLayer>-12.5</orbitBackLayer>
+    <orbitBackScale>0.85</orbitBackScale>
+  </ProjectGu.Presentation.GuFxProfileDef>
+</Defs>

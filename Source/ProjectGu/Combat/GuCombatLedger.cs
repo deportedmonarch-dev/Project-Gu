@@ -34,6 +34,9 @@ namespace ProjectGu.Combat
         private List<int> intentKeys;
         private List<GuCastIntent> intentValues;
         private List<GuCastRecord> inFlightValues;
+        // Channel sessions, at most one per Gu individual.
+        private Dictionary<string, GuChannelSession> channels = new(StringComparer.OrdinalIgnoreCase);
+        private List<GuChannelSession> channelValues;
 
         public GuCombatLedger(Game game) { }
 
@@ -108,17 +111,47 @@ namespace ProjectGu.Combat
         internal GuCastRecord FindInFlight(string castId) =>
             castId != null && inFlight.TryGetValue(castId, out var cast) ? cast : null;
 
+        // ---- Channel sessions ----------------------------------------------------------------------------------
+
+        internal IReadOnlyCollection<GuChannelSession> Channels => channels.Values;
+
+        internal GuChannelSession ChannelFor(string guId) => guId != null && channels.TryGetValue(guId, out var session) ? session : null;
+
+        internal GuChannelSession ChannelById(string sessionId) =>
+            sessionId == null ? null : channels.Values.FirstOrDefault(session => session.SessionId == sessionId);
+
+        /// <summary>Records a newly committed session, replacing any stale one for the same Gu, and starts its cooldown.</summary>
+        internal void BeginChannel(GuChannelSession session, int cooldownTicks)
+        {
+            if (session == null || string.IsNullOrEmpty(session.GuId) || string.IsNullOrEmpty(session.SessionId))
+                throw new InvalidOperationException("A channel session needs a Gu and a session ID.");
+            channels[session.GuId] = session;
+            if (cooldownTicks > 0) cooldownUntil[session.GuId] = session.StartedTick + cooldownTicks;
+            committedTotal++;
+        }
+
+        internal void EndChannel(GuChannelSession session)
+        {
+            if (session != null && channels.TryGetValue(session.GuId, out var current) && current == session) channels.Remove(session.GuId);
+        }
+
+        private static bool IsDriven(GuChannelSession session) => Find.Maps.Any(map => map.mapPawns.AllPawnsSpawned.Any(pawn =>
+            pawn.jobs?.curDriver is JobDriver_GuChannelAbility driver && driver.SessionId == session.SessionId));
+
         // ---- Maintenance -----------------------------------------------------------------------------------------
 
         public override void GameComponentTick()
         {
             int now = Find.TickManager.TicksGame;
-            if (now % MaintenanceInterval != 0 || cooldownUntil.Count + intents.Count + inFlight.Count == 0) return;
+            if (now % MaintenanceInterval != 0 || cooldownUntil.Count + intents.Count + inFlight.Count + channels.Count == 0) return;
             Maintain(now);
         }
 
         private void Maintain(int now)
         {
+            // A session marked active must have a live job driving it; otherwise it is suspended and resumable.
+            foreach (var session in channels.Values.Where(session => session.Active && !IsDriven(session)).ToArray())
+                session.Active = false;
             foreach (string key in cooldownUntil.Where(pair => pair.Value <= now).Select(pair => pair.Key).ToArray())
                 cooldownUntil.Remove(key);
             foreach (var pair in intents.Where(pair => now - pair.Value.CreatedTick > IntentGraceTicks).ToArray())
@@ -144,6 +177,8 @@ namespace ProjectGu.Combat
             Scribe_Collections.Look(ref resolved, "guAbilityCastsResolved", LookMode.Deep);
             Scribe_Values.Look(ref committedTotal, "guAbilityCommittedTotal");
             Scribe_Values.Look(ref resolvedTotal, "guAbilityResolvedTotal");
+            if (Scribe.mode == LoadSaveMode.Saving) channelValues = channels.Values.ToList();
+            Scribe_Collections.Look(ref channelValues, "guAbilityChannels", LookMode.Deep);
             // Values, Defs and deep records are complete after LoadingVars; nothing here needs cross-references.
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
@@ -154,8 +189,12 @@ namespace ProjectGu.Combat
                     if (!string.IsNullOrEmpty(cast?.CastId)) inFlight[cast.CastId] = cast;
                 resolved ??= new();
                 resolved.RemoveAll(record => record == null);
+                channels = new(StringComparer.OrdinalIgnoreCase);
+                foreach (var session in channelValues ?? new())
+                    if (!string.IsNullOrEmpty(session?.GuId) && session.Ability?.channel != null) channels[session.GuId] = session;
             }
             inFlightValues = null;
+            channelValues = null;
         }
     }
 

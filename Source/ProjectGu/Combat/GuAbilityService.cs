@@ -62,6 +62,8 @@ namespace ProjectGu.Combat
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
             var ledger = GuCombatLedger.Instance;
             if (registry == null || ledger == null || ability == null) return false;
+            reason = $"{ability.LabelCap} is a self-use ability.";
+            if (ability.IsChannel) return false;
             reason = "Only an awakened Gu Master who is conscious and on a map can use aperture Gu.";
             if (!registry.TryGetAbilityCaster(caster, out _, out _)) return false;
             reason = "This Gu is not refined, stored in this Gu Master's aperture, or able to act.";

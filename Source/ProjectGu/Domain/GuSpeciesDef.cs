@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Verse;
 
 namespace ProjectGu.Domain
@@ -32,6 +33,11 @@ namespace ProjectGu.Domain
 
         // Active abilities this species grants to the cultivator it recognizes while stored in that cultivator's aperture.
         public List<ProjectGu.Combat.GuAbilityDef> abilities = new List<ProjectGu.Combat.GuAbilityDef>();
+
+        // Optional lure encounter: instead of a plain search, a colonist sets out one of these items at the habitat and waits.
+        public List<ThingDef> encounterLures = new List<ThingDef>();
+        public int encounterLureTicks = 600;
+        public bool UsesLureEncounter => encounterLures is { Count: > 0 };
 
         // Lifecycle policy (owner decisions §1, §4). Values are provisional until the owner approves species defaults.
         /// <summary>What happens to an ordinary individual whose native map or holder is removed without it dying.</summary>
@@ -74,6 +80,10 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: wildProjectionKind requires a Gu wild Pawn race with CompGuManifestation and notifyMapRemoved";
             if (dormantProjectionDef != null && !Thing_GuDormantProjection.IsConfigured(dormantProjectionDef))
                 yield return $"{defName}: dormantProjectionDef requires an inert, unstackable, untradeable Gu Thing with CompGuManifestation and notifyMapRemoved";
+            if (encounterLureTicks is < 1 or > 60_000)
+                yield return $"{defName}: encounterLureTicks must be between 1 and 60000";
+            if (encounterLures != null && encounterLures.Any(lure => lure == null || lure.category != ThingCategory.Item))
+                yield return $"{defName}: encounterLures must list item ThingDefs";
             if (abilities != null)
                 foreach (var ability in abilities)
                     if (ability == null) yield return $"{defName}: abilities contains an unresolved GuAbilityDef";

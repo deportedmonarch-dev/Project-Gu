@@ -46,4 +46,21 @@ foreach ($texture in @('Effects\Moonblade\Projectile', 'Effects\Moonblade\Trail'
         'UI\Abilities\Moonblade', 'Gu\MoonlightGu\Wild_north', 'Gu\MoonlightGu\Wild_east', 'Gu\MoonlightGu\Wild_south', 'Gu\MoonlightGu\Dormant')) {
     if (-not (Test-Path -LiteralPath (Join-Path $root "Textures\ProjectGU\$texture.png"))) { throw "Missing Moonlight Gu texture: $texture" }
 }
+# Alpha 3: Liquor Worm is lured with alcohol and grants a self-use essence-refinement channel with an orbit manifestation.
+$liquor = $defs | Where-Object { $_.defName -eq 'GU_LiquorWorm' } | Select-Object -First 1
+if ($null -eq $liquor -or [string]$liquor.wildProjectionKind -ne 'GU_WildLiquorWorm' -or [string]$liquor.dormantProjectionDef -ne 'GU_DormantLiquorWorm' -or
+    @($liquor.encounterLures.li) -notcontains 'Beer' -or @($liquor.abilities.li) -notcontains 'GU_LiquorWormRefinement') {
+    throw 'Liquor Worm must be lured with beer, use its own projections and grant GU_LiquorWormRefinement.'
+}
+[xml]$liquorXml = Get-Content -LiteralPath (Join-Path $root 'Defs\GuAbilityDefs\GU_LiquorWormRefinement.xml') -Raw
+$refinement = $liquorXml.Defs.SelectSingleNode('ProjectGu.Combat.GuAbilityDef[defName="GU_LiquorWormRefinement"]')
+$orbit = $liquorXml.Defs.SelectSingleNode('ProjectGu.Presentation.GuFxProfileDef[defName="GU_Fx_LiquorWormOrbit"]')
+if ($null -eq $refinement.channel -or [string]$refinement.channel.workerClass -ne 'ProjectGu.Combat.GuChannelWorker_EssenceRefinement' -or
+    [string]$refinement.channel.manifestationFx -ne 'GU_Fx_LiquorWormOrbit' -or [string]$orbit.orbit -ne 'true') {
+    throw 'GU_LiquorWormRefinement must be an essence-refinement channel with the orbiting manifestation.'
+}
+foreach ($texture in @('Gu\LiquorWorm\Wild_north', 'Gu\LiquorWorm\Wild_east', 'Gu\LiquorWorm\Wild_south', 'Gu\LiquorWorm\Dormant',
+        'Effects\LiquorWorm\Manifest', 'UI\Abilities\LiquorWormRefinement')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $root "Textures\ProjectGU\$texture.png"))) { throw "Missing Liquor Worm texture: $texture" }
+}
 Write-Host 'PASS: two species, distinct habitats/lifecycles, rank ranges, and declaration structure.' -ForegroundColor Green

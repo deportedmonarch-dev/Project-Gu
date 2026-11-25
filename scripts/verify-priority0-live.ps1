@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -537,6 +537,16 @@ Measure-Phase 'planning' {
             Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha2'
             Add-Launch $unit 'final' $false $false '-guclanstart -gualpha2 -gualpha2final'
             Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha2 -gualpha2visual'
+            continue
+        }
+        if ($name -eq 'Alpha3' -or $name -eq 'Alpha3Visual') {
+            # Alpha 3: Liquor Worm lure, refinement, shared aperture and essence-refinement channel; save while channeling.
+            $unit = New-Unit $name $saveData "PASS $name Liquor Worm acquisition, channel reload and final reload. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'final' $false $false '-guclanstart -gualpha3 -gualpha3final'
+            # Rendered inspection opens a game window; run with -Parallel 1 and no other RimWorld instance.
+            if ($name -eq 'Alpha3Visual') { Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha3visual' }
             continue
         }
         if ($name -eq 'ClanStart') {

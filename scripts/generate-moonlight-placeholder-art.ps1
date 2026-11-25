@@ -176,3 +176,67 @@ for ($k = 0; $k -lt 5; $k++) {
 $c.G.DrawEllipse((New-Object System.Drawing.Pen((Color 255 200 215 240), 3)), 10, 10, 44, 44)
 $c.G.DrawEllipse((New-Object System.Drawing.Pen((Color 255 90 120 200), 2)), 2, 2, 60, 60)
 Save-Canvas $c 'Textures\ProjectGU\UI\ManageAperture.png'
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Liquor Worm (Alpha 3). A plump, segmented amber worm. Replace with hand-drawn art of the same size and grid.
+# Specifications: docs/ALPHA-3-LIQUOR-WORM.md#art-handoff
+function Draw-Worm($g, [float]$cx, [float]$cy, [float]$length, [float]$width, [float]$angleDeg, [float]$phase, [int]$segments) {
+    # Body runs along the local +y axis toward the head at the top (image -y), wriggling sideways by phase.
+    $state = $g.Save()
+    $g.TranslateTransform($cx, $cy)
+    $g.RotateTransform($angleDeg)
+    $outline = New-Object System.Drawing.SolidBrush((Color 255 120 70 20))
+    $fill = New-Object System.Drawing.SolidBrush((Color 255 236 168 66))
+    $belly = New-Object System.Drawing.SolidBrush((Color 210 255 214 130))
+    for ($s = $segments - 1; $s -ge 0; $s--) {
+        $t = $s / [Math]::Max(1, $segments - 1)
+        $y = ($t - 0.5) * $length
+        $x = [Math]::Sin($t * 5.0 + $phase) * $width * 0.28
+        $w = $width * (0.62 + 0.38 * [Math]::Sin([Math]::PI * (0.15 + 0.8 * (1 - $t))))
+        $g.FillEllipse($outline, $x - $w / 2 - 1, $y - $w / 2 - 1, $w + 2, $w + 2)
+        $g.FillEllipse($fill, $x - $w / 2, $y - $w / 2, $w, $w)
+        $g.FillEllipse($belly, $x - $w / 4, $y - $w / 3, $w / 2, $w / 3)
+    }
+    $headY = -0.5 * $length
+    $headX = [Math]::Sin($phase) * $width * 0.28
+    $eye = New-Object System.Drawing.SolidBrush((Color 255 60 30 10))
+    $g.FillEllipse($eye, $headX - $width * 0.22, $headY - $width * 0.12, $width * 0.14, $width * 0.14)
+    $g.FillEllipse($eye, $headX + $width * 0.08, $headY - $width * 0.12, $width * 0.14, $width * 0.14)
+    $g.Restore($state)
+}
+
+# Wild Liquor Worm: 64x64 north, east and south views.
+foreach ($view in @('north', 'south', 'east')) {
+    $c = New-Canvas 64 64
+    switch ($view) {
+        'north' { Draw-Worm $c.G 32 34 40 15 180 0.6 7 }
+        'south' { Draw-Worm $c.G 32 32 40 15 0 0.6 7 }
+        'east' { Draw-Worm $c.G 32 34 44 14 90 0.9 8 }
+    }
+    Save-Canvas $c "Textures\ProjectGU\Gu\LiquorWorm\Wild_$view.png"
+}
+
+# Dormant Liquor Worm: 64x64, curled into a ring.
+$c = New-Canvas 64 64
+for ($s = 0; $s -lt 10; $s++) {
+    $a = $s / 10.0 * 2 * [Math]::PI * 0.85
+    Draw-Worm $c.G (32 + [Math]::Cos($a) * 12) (34 + [Math]::Sin($a) * 9) 4 11 0 0 1
+}
+Save-Canvas $c 'Textures\ProjectGU\Gu\LiquorWorm\Dormant.png'
+
+# Manifested Liquor Worm: 4 wriggle frames of 64x64 in a 4x1 atlas, head pointing up (direction of travel).
+$c = New-Canvas 256 64
+for ($f = 0; $f -lt 4; $f++) {
+    $glow = New-Object System.Drawing.SolidBrush((Color 46 255 210 120))
+    $c.G.FillEllipse($glow, $f * 64 + 14, 6, 36, 52)
+    Draw-Worm $c.G ($f * 64 + 32) 32 44 15 0 ($f * [Math]::PI / 2) 7
+}
+Save-Canvas $c 'Textures\ProjectGU\Effects\LiquorWorm\Manifest.png'
+
+# Liquor Worm refinement command icon: 64x64.
+$c = New-Canvas 64 64
+$c.G.FillEllipse((New-Object System.Drawing.SolidBrush((Color 255 40 26 14))), 2, 2, 60, 60)
+$c.G.DrawEllipse((New-Object System.Drawing.Pen((Color 255 200 140 60), 2)), 2, 2, 60, 60)
+$c.G.DrawEllipse((New-Object System.Drawing.Pen((Color 150 255 210 120), 2)), 12, 24, 40, 18)
+Draw-Worm $c.G 32 30 34 13 30 0.8 7
+Save-Canvas $c 'Textures\ProjectGU\UI\Abilities\LiquorWormRefinement.png'

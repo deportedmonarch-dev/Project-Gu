@@ -41,6 +41,21 @@ namespace ProjectGu.Presentation
         /// <summary>Rotate to the event heading. When false the sprite is drawn upright.</summary>
         public bool orientToHeading = true;
 
+        // Orbit (pawn-attached sustained layers only). The sprite circles the anchor on an ellipse in the ground plane,
+        // drawn just below the pawn's lowest render layer on the far half and just above its highest on the near half.
+        public bool orbit;
+        /// <summary>Ellipse radii in cells: x across the screen, y (world z) toward and away from the viewer.</summary>
+        public Vector2 orbitRadius = new Vector2(0.42f, 0.16f);
+        /// <summary>Offset of the orbit centre from the anchor's draw position, in cells (negative z moves it down-screen).</summary>
+        public Vector2 orbitCenterOffset = new Vector2(0f, -0.12f);
+        public int orbitPeriodTicks = 120;
+        public bool orbitClockwise;
+        /// <summary>Pawn render-layer units (RimWorld uses -10..100) for the near and far halves of the orbit.</summary>
+        public float orbitFrontLayer = 100.6f;
+        public float orbitBackLayer = -12.5f;
+        /// <summary>Scale multiplier at the far point of the orbit; the near point is 1.</summary>
+        public float orbitBackScale = 0.85f;
+
         public int FrameAt(int age)
         {
             int frame = ticksPerFrame <= 0 ? 0 : age / ticksPerFrame;
@@ -60,6 +75,25 @@ namespace ProjectGu.Presentation
         public float ScaleAt(int age) =>
             Mathf.Lerp(startScale, endScale, lifetimeTicks <= 1 ? 1f : Mathf.Clamp01(age / (float)(lifetimeTicks - 1)));
 
+        /// <summary>Orbit position at an age in ticks: ground-plane offset from the anchor, near or far half, tangent heading.</summary>
+        public OrbitSample OrbitAt(int age)
+        {
+            float turn = orbitPeriodTicks <= 0 ? 0f : (age % orbitPeriodTicks) / (float)orbitPeriodTicks;
+            float angle = turn * 2f * Mathf.PI * (orbitClockwise ? -1f : 1f);
+            float sin = Mathf.Sin(angle), cos = Mathf.Cos(angle);
+            var offset = new Vector2(orbitCenterOffset.x + orbitRadius.x * cos, orbitCenterOffset.y + orbitRadius.y * sin);
+            float direction = orbitClockwise ? -1f : 1f;
+            float tangentX = -orbitRadius.x * sin * direction, tangentZ = orbitRadius.y * cos * direction;
+            float heading = Mathf.Atan2(tangentX, tangentZ) * Mathf.Rad2Deg;
+            bool front = sin < 0f;
+            float nearness = (1f - sin) * 0.5f;
+            return new OrbitSample(offset, front, heading < 0f ? heading + 360f : heading,
+                Mathf.Lerp(orbitBackScale, 1f, nearness), (front ? orbitFrontLayer : orbitBackLayer) * PawnLayerAltitude);
+        }
+
+        /// <summary>Altitude per pawn render layer, matching RimWorld's PawnRenderUtility.AltitudeForLayer.</summary>
+        internal const float PawnLayerAltitude = 0.0003658537f;
+
         public override IEnumerable<string> ConfigErrors()
         {
             foreach (string error in base.ConfigErrors()) yield return error;
@@ -68,8 +102,27 @@ namespace ProjectGu.Presentation
             if (frameCount < 1 || frameCount > columns * rows) yield return $"{defName}: frameCount must be between 1 and columns × rows";
             if (ticksPerFrame is < 1 or > 600) yield return $"{defName}: ticksPerFrame must be between 1 and 600";
             if (lifetimeTicks is < 1 or > 2500) yield return $"{defName}: lifetimeTicks must be between 1 and 2500";
+            if (orbit && (orbitPeriodTicks is < 2 or > 6000 || orbitRadius.x < 0f || orbitRadius.y < 0f || orbitRadius.x > 5f || orbitRadius.y > 5f))
+                yield return $"{defName}: orbit needs orbitPeriodTicks 2-6000 and radii between 0 and 5";
             if (drawSize.x <= 0f || drawSize.y <= 0f || drawSize.x > 20f || drawSize.y > 20f)
                 yield return $"{defName}: drawSize components must be in (0, 20]";
+        }
+    }
+    public readonly struct OrbitSample
+    {
+        public readonly Vector2 Offset;
+        public readonly bool Front;
+        public readonly float Heading;
+        public readonly float Scale;
+        public readonly float AltitudeOffset;
+
+        public OrbitSample(Vector2 offset, bool front, float heading, float scale, float altitudeOffset)
+        {
+            Offset = offset;
+            Front = front;
+            Heading = heading;
+            Scale = scale;
+            AltitudeOffset = altitudeOffset;
         }
     }
 }

@@ -34,6 +34,25 @@
     <habitatTags><li>spirit_spring</li><li>moon_orchid</li></habitatTags>
     <capabilityTags><li>active_essence_ability</li></capabilityTags>
   </ProjectGu.Domain.GuSpeciesDef>
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_LiquorWorm</defName>
+    <label>Liquor Worm</label>
+    <description>Rank one Gu, a plump amber worm that cannot resist the scent of alcohol. Refined and stored in its Gu Master's aperture, it refines that cultivator's primeval essence of the current minor stage into the next higher quality without changing its volume.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <wildProjectionKind>GU_WildLiquorWorm</wildProjectionKind>
+    <dormantProjectionDef>GU_DormantLiquorWorm</dormantProjectionDef>
+    <refinementBaseWorkTicks>7000</refinementBaseWorkTicks>
+    <refinementEssenceCost>10</refinementEssenceCost>
+    <refinementResistance>1</refinementResistance>
+    <abilities><li>GU_LiquorWormRefinement</li></abilities>
+    <encounterLures><li>Beer</li></encounterLures>
+    <encounterLureTicks>600</encounterLureTicks>
+    <pathTags><li>food</li></pathTags>
+    <habitatTags><li>spirit_spring</li></habitatTags>
+    <capabilityTags><li>essence_refinement</li></capabilityTags>
+  </ProjectGu.Domain.GuSpeciesDef>
   <!-- Development fixture for cohort and individual persistence. -->
   <ProjectGu.Domain.GuSpeciesDef>
     <defName>GU_DevTestSpringGu</defName>

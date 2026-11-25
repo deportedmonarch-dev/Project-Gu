@@ -32,6 +32,7 @@ internal static class ManagedEngineChecks
             RefinementManagedChecks.Run(directory.FullName);
             CombatManagedChecks.Run(directory.FullName);
             RankOneCultivationChecks.Run();
+            LiquorWormManagedChecks.Run(directory.FullName);
         }
         finally
         {

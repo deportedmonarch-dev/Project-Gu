@@ -20,7 +20,8 @@ public sealed partial class LiveLifecycleChecks
     private static bool Alpha2Visual => GenCommandLine.CommandLineArgPassed("gualpha2visual");
     private static IEnumerator<Func<bool>> visualScript;
     private static readonly StringBuilder visualLog = new();
-    private static string ShotFolder => Path.Combine(GenFilePaths.SaveDataFolderPath, "alpha2-screenshots");
+    private static string shotFolderName = "alpha2-screenshots";
+    private static string ShotFolder => Path.Combine(GenFilePaths.SaveDataFolderPath, shotFolderName);
 
     private static void StartAlpha2Visual()
     {

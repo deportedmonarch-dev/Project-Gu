@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
@@ -20,19 +21,21 @@ namespace ProjectGu.Presentation
 
         private static readonly Dictionary<GuFxProfileDef, Entry> cache = new();
 
-        internal static bool Draw(GuFxInstance instance, int now, Vector3 center)
+        internal static bool Draw(GuFxInstance instance, int now, GuFxPose pose)
         {
             var profile = instance.Profile;
             var entry = Resolve(profile);
             if (entry.Missing) return false;
             int age = instance.Age(now);
-            float alpha = profile.AlphaAt(age) * profile.color.a;
+            // Sustained layers hold their faded-in look for as long as their owner keeps them alive.
+            int envelopeAge = instance.Sustained ? Math.Min(age, Math.Max(0, profile.fadeInTicks)) : age;
+            float alpha = profile.AlphaAt(envelopeAge) * profile.color.a;
             if (alpha <= 0.01f) return false;
             Material material = alpha >= 0.99f ? entry.Material : FadedMaterialPool.FadedVersionOf(entry.Material, alpha);
-            float scale = profile.ScaleAt(age);
+            float scale = profile.ScaleAt(envelopeAge) * pose.Scale;
             var size = new Vector3(profile.drawSize.x * scale, 1f, profile.drawSize.y * scale);
-            Quaternion rotation = profile.orientToHeading ? Quaternion.AngleAxis(instance.Heading, Vector3.up) : Quaternion.identity;
-            Graphics.DrawMesh(entry.Frames[profile.FrameAt(age)], Matrix4x4.TRS(center, rotation, size), material, 0);
+            Quaternion rotation = profile.orientToHeading ? Quaternion.AngleAxis(pose.Heading, Vector3.up) : Quaternion.identity;
+            Graphics.DrawMesh(entry.Frames[profile.FrameAt(age)], Matrix4x4.TRS(pose.Position, rotation, size), material, 0);
             return true;
         }
 
