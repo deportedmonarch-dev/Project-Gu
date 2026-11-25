@@ -130,6 +130,8 @@ public sealed partial class LiveLifecycleChecks
         Report($"Acquired and refined Moonlight Gu {record.Id}; disciple aptitude {aperture.AptitudeGrade} {aperture.Aptitude}, max essence {aperture.MaxEssence:0.0}.");
 
         SetEssence(aperture, Math.Min(aperture.MaxEssence, 15f));
+        Check(aperture.TryUpgradeEssence(RankOneStage.Initial, 14) && aperture.Stage == RankOneStage.Initial,
+            "The combat acceptance cast is funded by a mixture of Initial and Middle essence");
         var watch = new EssenceWatch(disciple, aperture);
         var fx = cave.GetComponent<GuFxMapComponent>();
         Check(fx != null && GuFxMapComponent.EffectsEnabled, "The cavern has a presentation component and cosmetic effects are on");
@@ -143,6 +145,8 @@ public sealed partial class LiveLifecycleChecks
             $"Acceptance 3/5: one cast paid {first.Cast.EssencePaid:0.000} essence and dealt {first.Observed:0.00} observed damage to {target.LabelShort}");
         Check(fx.TotalSpawned - fxBefore == 3, $"Launch, travel and impact effects were scheduled ({fx.TotalSpawned - fxBefore})");
         watch.AssertExact("After the first cast");
+        Check(aperture.EssenceOfQuality(RankOneStage.Middle) is > 11 and < 14,
+            "The first Moonblade consumed both qualities at face value for the same three-unit charge");
 
         // Acceptance 10 (cooldown and repeat use): the same Gu recovers before it can cast again.
         Check(!GuAbilityService.TryOrderCast(disciple, record.Id, Moonblade, target, out string cooldown) && cooldown.Contains("recovering")
@@ -381,8 +385,16 @@ public sealed partial class LiveLifecycleChecks
     private static IEnumerable<Projectile_GuAbility> LiveProjectiles(Map map) =>
         map.listerThings.AllThings.OfType<Projectile_GuAbility>().Where(projectile => projectile.Spawned);
 
-    private static void SetEssence(Hediff_Aperture aperture, float value) =>
-        typeof(Hediff_Aperture).GetProperty(nameof(Hediff_Aperture.Essence))!.SetValue(aperture, value);
+    private static void SetEssence(Hediff_Aperture aperture, float value)
+    {
+        double volume = Enum.GetValues<RankOneStage>().Sum(aperture.EssenceOfQuality);
+        while (volume < value)
+        {
+            aperture.RecoverEssence();
+            volume = Enum.GetValues<RankOneStage>().Sum(aperture.EssenceOfQuality);
+        }
+        if (volume > value) Check(aperture.TrySpendEssence(volume - value), "Adjusted fixture essence via the aperture");
+    }
 
     private static Pawn SpawnTarget(Map map, IntVec3 origin, int minDistance, int maxDistance)
     {

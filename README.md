@@ -38,6 +38,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 For the Playable Alpha 1 loop, enable **Core, Harmony and Project GU**, then choose **Southern Border Clan**. See the [player flow and verification](docs/ALPHA-1-SOUTHERN-BORDER.md).
 
+On the Rank 1 cultivation branch, the same scenario supports advancement from Initial to Peak. See the [cultivation guide and essence contract](docs/RANK-1-CULTIVATION.md).
+
 ## Development workflow
 
 1. Use the current passing build as the reference baseline; commit changes on a dedicated branch.

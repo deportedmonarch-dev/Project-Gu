@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using ProjectGu.Domain;
+using ProjectGu.Jobs;
 using RimWorld;
 using Verse;
+using Verse.AI;
 
 namespace ProjectGu
 {
@@ -42,7 +44,7 @@ namespace ProjectGu
             {
                 defaultLabel = "Manage aperture Gu",
                 icon = ManageIcon,
-                defaultDesc = "Refine dormant Gu, resume will-enforcement, and inspect, store or withdraw this cultivator's bonded Gu.",
+                defaultDesc = "Inspect and cultivate the aperture. Refine dormant Gu, or manage this cultivator's bonded Gu.",
                 action = () => OpenManagementMenu(__instance, aperture, registry)
             };
             var gizmos = new List<Gizmo> { command };
@@ -63,6 +65,7 @@ namespace ProjectGu
             int claims = registry.ApertureClaimCount(aperture);
             options.Add(new FloatMenuOption($"Inspect aperture Gu ({claims}/{GuIndividualRegistry.MortalApertureCapacity})",
                 () => Inspect(registry, aperture, occupants)));
+            AddCultivationOptions(host, aperture, options);
 
             if (claims < GuIndividualRegistry.MortalApertureCapacity
                 && host.inventory?.GetDirectlyHeldThings() is { } inventory)
@@ -92,6 +95,44 @@ namespace ProjectGu
 
             AddRefinementOptions(host, registry, options);
             return options;
+        }
+
+        private static void AddCultivationOptions(Pawn host, Hediff_Aperture aperture, List<FloatMenuOption> options)
+        {
+            if (aperture.Rank != 1 || aperture.Stage == RankOneStage.Peak) return;
+            RankOneStage stage = aperture.Stage;
+            string progress = $"{aperture.WallNourishment:0.##}/{aperture.WallNourishmentRequired:0} wall nourishment";
+            string label = aperture.CanAdvanceRankOne ? $"Advance to {stage + 1}" : $"Nourish aperture walls ({progress})";
+
+            if (host.Drafted || host.Downed)
+            {
+                options.Add(new FloatMenuOption($"{label} (requires an undrafted, conscious cultivator)", null));
+                return;
+            }
+
+            if (aperture.CanAdvanceRankOne)
+            {
+                options.Add(new FloatMenuOption(label, () =>
+                {
+                    if (JobDriver_GuNourishAperture.FindCultivatingAperture(host) == aperture && aperture.TryAdvanceRankOne(stage))
+                        Messages.Message($"{host.LabelShort} advanced to Rank 1 {aperture.Stage}. Newly recovered essence is now {aperture.Stage} quality.",
+                            new LookTargets(host), MessageTypeDefOf.PositiveEvent, false);
+                }));
+                return;
+            }
+
+            if (!aperture.CanNourishWalls)
+            {
+                options.Add(new FloatMenuOption($"{label} (waiting for essence recovery)", null));
+                return;
+            }
+
+            options.Add(new FloatMenuOption(label, () =>
+            {
+                if (JobDriver_GuNourishAperture.FindCultivatingAperture(host) == aperture && aperture.Stage == stage
+                    && aperture.CanNourishWalls && JobDriver_GuNourishAperture.NourishJob is { } job)
+                    host.jobs.TryTakeOrderedJob(JobMaker.MakeJob(job), JobTag.Misc);
+            }));
         }
 
         private static void AddRefinementOptions(Pawn host, GuIndividualRegistry registry, List<FloatMenuOption> options)
@@ -153,7 +194,8 @@ namespace ProjectGu
                 $"{Describe(record)}\n{RefinementStatus(record)}{AbilityStatus(record)}\nCondition: {record.Condition}; custody revision: {record.CustodyRevision}; "
                 + $"identity: {record.Id}; aperture: {aperture.ApertureId}"));
             Find.WindowStack.Add(new Dialog_MessageBox(
-                $"{aperture.pawn.LabelShort}'s mortal aperture ({registry.ApertureClaimCount(aperture)}/{GuIndividualRegistry.MortalApertureCapacity})\n\n{details}"));
+                $"{aperture.pawn.LabelShort}'s mortal aperture ({registry.ApertureClaimCount(aperture)}/{GuIndividualRegistry.MortalApertureCapacity})"
+                + $"\n\n{aperture.CultivationStatus}\n\n{details}"));
         }
 
         private static string Describe(GuRecord record) =>

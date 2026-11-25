@@ -53,10 +53,10 @@ namespace ProjectGu.Domain
         {
             if (!IsValid || aperture == null) return false;
             if (completedWorkTicks >= totalWorkTicks || tick <= lastAdvancedTick) return true;
-            float charge = completedWorkTicks + 1 == totalWorkTicks
-                ? RemainingEssence : totalEssenceCost / totalWorkTicks;
-            if (!aperture.TrySpendEssence(charge)) return false;
-            essenceSpent = Math.Min(totalEssenceCost, essenceSpent + charge);
+            // Price the cumulative work from the saved debit, avoiding error from repeatedly adding a rounded charge.
+            float due = Math.Max(essenceSpent, (float)((double)totalEssenceCost * (completedWorkTicks + 1) / totalWorkTicks));
+            if (!aperture.TrySpendAccruedEssence(essenceSpent, due)) return false;
+            essenceSpent = due;
             completedWorkTicks++;
             lastAdvancedTick = tick;
             return true;

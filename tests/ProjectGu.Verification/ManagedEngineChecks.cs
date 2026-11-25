@@ -31,6 +31,7 @@ internal static class ManagedEngineChecks
             CultivatorFoundationChecks.Run(game, directory.FullName);
             RefinementManagedChecks.Run(directory.FullName);
             CombatManagedChecks.Run(directory.FullName);
+            RankOneCultivationChecks.Run();
         }
         finally
         {

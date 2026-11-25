@@ -22,17 +22,10 @@ internal static class CombatManagedChecks
         var aperture = new Hediff_Aperture();
         aperture.Initialize(22);
         float start = aperture.Essence;
-        Check(aperture.TrySpendEssence(3f) && Math.Abs(aperture.Essence - (start - 3f)) < 0.0001f,
-            "A cast debit removes exactly the ability cost from the aperture.");
-        aperture.RestoreUncommittedEssence(3f);
-        Check(Math.Abs(aperture.Essence - start) < 0.0001f,
-            "A launch that fails in the commit tick restores exactly the uncommitted debit.");
-        aperture.RestoreUncommittedEssence(1000f);
-        Check(Math.Abs(aperture.Essence - aperture.MaxEssence) < 0.0001f,
-            "Restoration never raises essence above the aperture's capacity.");
-        aperture.RestoreUncommittedEssence(float.NaN);
-        aperture.RestoreUncommittedEssence(-5f);
-        Check(Math.Abs(aperture.Essence - aperture.MaxEssence) < 0.0001f, "Invalid restorations are ignored.");
+        Check(!aperture.TrySpendEssenceForCast(3, () => false) && aperture.Essence == start,
+            "A failed launch restores the exact aperture balance.");
+        Check(aperture.TrySpendEssenceForCast(3, () => true) && aperture.Essence == start - 3,
+            "A committed cast removes exactly the ability cost from the aperture.");
         while (aperture.TrySpendEssence(3f)) { }
         Check(aperture.Essence < 3f && !aperture.TrySpendEssence(3f), "An aperture below the cost cannot pay for a cast.");
     }

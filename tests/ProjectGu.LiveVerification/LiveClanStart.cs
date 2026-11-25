@@ -151,7 +151,7 @@ public sealed partial class LiveLifecycleChecks
         Report($"Start: elder {Describe(elder)}; disciples {string.Join(", ", disciples.Select(Describe))}; workers {string.Join(", ", workers.Select(Describe))}; pit {distance:0.0} cells from the nearest colonist at {pit.Position}; biome {home.Biome.defName}, hilliness {home.TileInfo.hilliness}.");
 
         var plan = AssertPlanned(colonists);
-        if (!Alpha1 && !Alpha2)
+        if (!Alpha1 && !Alpha2 && !RankOne)
         {
             File.WriteAllLines(ClanPlanPath, plan.Select(p => $"{p.Key}={p.Value}"));
             GameDataSaveLoader.SaveGame(PrefoundingSave);
@@ -190,6 +190,11 @@ public sealed partial class LiveLifecycleChecks
         Report($"Ordinary travel and awakening: {disciple.LabelShort} descended in {ticks} ticks and opened a {discipleAperture.AptitudeGrade}-grade aperture ({discipleAperture.Aptitude}). Hope Gu {mature}+{juvenile} -> {spring.HopeGuAvailable}+{spring.HopeGuJuvenile}.");
 
         var exit = site.Endpoints.Single(end => !end.IsSurface).Anchor;
+        if (RankOne)
+        {
+            ExerciseRankOne(elder, elderAperture);
+            return;
+        }
         if (Alpha1)
         {
             ExerciseAlpha1(disciple, discipleRecord, discipleAperture, springThing, spring, exit);

@@ -71,7 +71,7 @@ namespace ProjectGu.Combat
             reason = $"{ability.LabelCap} is recovering ({remaining.ToStringSecondsFromTicks()}).";
             if (remaining > 0) return false;
             reason = $"Not enough primeval essence ({aperture.Essence:0.0} of {ability.essenceCost:0.0}).";
-            if (aperture.Essence + 0.0001f < ability.essenceCost) return false;
+            if (!aperture.CanSpendEssence(ability.essenceCost)) return false;
             grant = new GuAbilityGrant(caster, aperture, record, ability);
             reason = null;
             return true;
@@ -115,23 +115,23 @@ namespace ProjectGu.Combat
 
             string castId = Guid.NewGuid().ToString("N");
             var context = new GuCastContext(caster, grant.Gu, grant.Aperture, ability, castId);
-            float before = grant.Aperture.Essence;
-            reason = "Primeval essence could not be committed.";
-            if (!grant.Aperture.TrySpendEssence(ability.essenceCost)) return false;
-
+            string launchReason = "Primeval essence could not be committed.";
             bool launched;
-            Thing projectile;
-            try { launched = ability.Worker.TryLaunch(context, target, out projectile, out reason); }
+            Thing projectile = null;
+            try
+            {
+                launched = grant.Aperture.TrySpendEssenceForCast(ability.essenceCost,
+                    () => ability.Worker.TryLaunch(context, target, out projectile, out launchReason));
+            }
             catch (Exception exception)
             {
                 Log.Warning($"[Project GU] {ability.defName} worker failed before commitment. {exception}");
                 launched = false;
-                projectile = null;
-                reason = "The ability failed to form.";
+                launchReason = "The ability failed to form.";
             }
             if (!launched)
             {
-                grant.Aperture.RestoreUncommittedEssence(before - grant.Aperture.Essence);
+                reason = launchReason;
                 return false;
             }
 
@@ -142,7 +142,7 @@ namespace ProjectGu.Combat
                 Ability = ability,
                 CasterId = caster.GetUniqueLoadID(),
                 ApertureId = grant.Aperture.ApertureId,
-                EssencePaid = before - grant.Aperture.Essence,
+                EssencePaid = ability.essenceCost,
                 LaunchTick = Find.TickManager.TicksGame,
                 TargetDescription = target.HasThing ? target.Thing.GetUniqueLoadID() : target.Cell.ToString()
             };
