@@ -27,6 +27,12 @@ namespace ProjectGu.Interface
         public bool RecognizesHost;
         public string OwnerName;
         public readonly List<GuApertureAction> Actions = new();
+        /// <summary>Nourishment at the moment of the refresh. Read-only.</summary>
+        public GuNourishmentSnapshot Nourishment;
+        /// <summary>Feeding, kept apart from the custody actions so the Gu page can draw it beside the meter.</summary>
+        public GuApertureAction FeedAction;
+        /// <summary>Accepted foods and how many of each this cultivator could use now.</summary>
+        public readonly List<(GuFoodOption Option, int Available)> Foods = new();
     }
 
     public enum GuApertureGuPlacement { Aperture, Inventory, Nearby }
@@ -61,6 +67,8 @@ namespace ProjectGu.Interface
         public int ClaimCapacity => GuIndividualRegistry.MortalApertureCapacity;
         public GuChannelSession ActiveChannel { get; private set; }
         public GuRefinementProcess ActiveRefinement { get; private set; }
+        /// <summary>Whether this cultivator feeds their own hungry Gu automatically (player policy).</summary>
+        public bool AutoTend { get; private set; }
 
         public GuApertureAction NourishAction { get; private set; }
         public GuApertureAction AdvanceAction { get; private set; }
@@ -98,6 +106,7 @@ namespace ProjectGu.Interface
             KnownGu.Clear();
             ChannelActions.Clear();
             NourishAction = AdvanceAction = null;
+            AutoTend = false;
             ActiveChannel = null;
             ActiveRefinement = null;
             Activity = GuApertureActivity.None;
@@ -130,6 +139,7 @@ namespace ProjectGu.Interface
                 ChannelActions.AddRange(GuApertureActions.CultivationChannels(pawn, Aperture));
             }
             CollectGu(pawn, registry);
+            AutoTend = CanManage && Sustenance.GuSustenanceComponent.Instance?.AutoTendEnabled(pawn) == true;
         }
 
         private void ReadActivity(Pawn pawn)
@@ -186,18 +196,26 @@ namespace ProjectGu.Interface
             Gu.Add(entry);
         }
 
-        private static ApertureGuEntry Entry(GuRecord record, Thing_GuDormantProjection thing, GuApertureGuPlacement placement, Pawn pawn, GuIndividualRegistry registry)
+        private ApertureGuEntry Entry(GuRecord record, Thing_GuDormantProjection thing, GuApertureGuPlacement placement, Pawn pawn, GuIndividualRegistry registry)
         {
             string ownerId = record.Refinement?.CultivatorId;
-            return new ApertureGuEntry
+            var entry = new ApertureGuEntry
             {
                 Record = record,
                 Thing = thing,
                 Placement = placement,
                 RecognizesHost = registry.IsRecognizedByCultivator(record, pawn),
                 OwnerName = string.IsNullOrEmpty(ownerId) ? null
-                    : Current.Game?.GetComponent<GuWorldComponent>()?.FindCultivator(ownerId)?.CachedName ?? "another cultivator"
+                    : Current.Game?.GetComponent<GuWorldComponent>()?.FindCultivator(ownerId)?.CachedName ?? "another cultivator",
+                Nourishment = Sustenance.GuSustenance.Snapshot(registry, record)
             };
+            if (record.Species?.SimulatedFeeding is { } props)
+            {
+                foreach (var option in props.foods)
+                    if (option?.thingDef != null) entry.Foods.Add((option, CanManage ? props.Worker?.CountAvailable(pawn, option) ?? 0 : 0));
+                if (CanManage) entry.FeedAction = GuApertureActions.Feed(pawn, registry, record);
+            }
+            return entry;
         }
 
         /// <summary>Full detail for the player's own people; outward rank and stage only for anyone else.</summary>

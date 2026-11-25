@@ -4,13 +4,14 @@ using System.Linq;
 using ProjectGu.Combat;
 using ProjectGu.Domain;
 using ProjectGu.Jobs;
+using ProjectGu.Sustenance;
 using RimWorld;
 using Verse;
 using Verse.AI;
 
 namespace ProjectGu.Interface
 {
-    public enum GuApertureActionKind { NourishWalls, AdvanceStage, Channel, EnforceWill, ResumeWill, AbandonWill, Store, Withdraw }
+    public enum GuApertureActionKind { NourishWalls, AdvanceStage, Channel, EnforceWill, ResumeWill, AbandonWill, Store, Withdraw, Feed }
 
     /// <summary>
     /// One player action on an aperture or one of its Gu, described from the authoritative state at the moment it was
@@ -198,6 +199,59 @@ namespace ProjectGu.Interface
             if (registry?.Resolve(thing) is not { } record || !registry.CanAbandonRefinement(thing, host)) return null;
             return new GuApertureAction(GuApertureActionKind.AbandonWill, $"Abandon will-enforcement: {Describe(record)} (essence spent is lost)", record.Id, () =>
                 registry.TryAbandonRefinement(thing, host, out string reason) ? null : reason);
+        }
+
+        // ---- Feeding -------------------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Feeding one Gu this pawn can reach, or null when the species has no simulated feeding or the pawn has no way to
+        /// reach it. Building the action is cheap and read-only; running it plans the meal, and the job consumes food only
+        /// at its commitment toil.
+        /// </summary>
+        public static GuApertureAction Feed(Pawn feeder, GuIndividualRegistry registry, GuRecord record)
+        {
+            if (registry == null || record?.Species?.SimulatedFeeding is not { } props || feeder?.IsColonistPlayerControlled != true) return null;
+            string id = record.Id;
+            int revision = record.CustodyRevision;
+            var access = registry.FeedAccess(feeder, record, out _, out string reason);
+            string label = $"Feed {record.Species.label}";
+            if (access == GuFeedAccess.None)
+                return new GuApertureAction(GuApertureActionKind.Feed, label, id, null, reason) { Tooltip = FeedTooltip(props) };
+            if (feeder.Drafted || feeder.Downed)
+                return new GuApertureAction(GuApertureActionKind.Feed, label, id, null, "requires an undrafted, conscious colonist") { Tooltip = FeedTooltip(props) };
+            var snapshot = GuSustenance.Snapshot(registry, record);
+            GuFoodOption usable = null;
+            bool wantsAny = false;
+            foreach (var option in props.foods)
+            {
+                if (GuNourishmentRules.MealsWanted(props, option, snapshot.NourishmentTicks) < 1) continue;
+                wantsAny = true;
+                if (props.Worker?.CountAvailable(feeder, option) >= option.mealCount)
+                {
+                    usable = option;
+                    break;
+                }
+            }
+            if (!wantsAny)
+                return new GuApertureAction(GuApertureActionKind.Feed, label, id, null, "it is sated") { Tooltip = FeedTooltip(props) };
+            if (usable == null)
+                return new GuApertureAction(GuApertureActionKind.Feed, label, id, null,
+                    $"no {GuSustenanceComponent.DietSummary(props)} available on this map") { Tooltip = FeedTooltip(props) };
+            return new GuApertureAction(GuApertureActionKind.Feed, $"Feed {record.Species.label} ({usable.mealCount} {usable.Label} per meal)", id, () =>
+            {
+                if (registry.Resolve(id) is not { } live || live.CustodyRevision != revision) return "The Gu moved or changed custody.";
+                return GuSustenance.TryOrderFeed(feeder, live, out string failure) ? null : failure?.CapitalizeFirst();
+            }) { Tooltip = FeedTooltip(props) };
+        }
+
+        private static string FeedTooltip(GuFeedingProperties props)
+        {
+            var lines = new List<string>();
+            foreach (var food in props.foods)
+                if (food?.thingDef != null)
+                    lines.Add($"{food.mealCount} {food.Label} per meal, sustaining {food.daysPerMeal:0.##} days" + (food.note.NullOrEmpty() ? "" : $" ({food.note})"));
+            return "The colonist fetches the food and feeds this exact Gu. Food is used only when the meal is given; an interrupted feeding keeps it.\n\n"
+                + string.Join("\n", lines);
         }
 
         /// <summary>Dormant Gu the cultivator carries, and those within reach on the ground, for refinement and storage.</summary>

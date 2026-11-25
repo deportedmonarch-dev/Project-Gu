@@ -10,6 +10,8 @@ namespace ProjectGu
     /// Read-only ability authorization. A Gu grants its species abilities only while it is a living, resolved individual
     /// contained in the live mortal aperture of the awakened cultivator it recognizes. Every other placement (inventory,
     /// ground, wild, another aperture, unresolved, quarantined or ended) grants nothing. No ability state is stored here.
+    /// A withering (long-starved) Gu stays listed so its command can explain itself, but <see cref="IsAbilityGrantedBy"/>,
+    /// which every cast, channel start and channel tick uses, refuses it (Alpha 5A).
     /// </summary>
     public sealed partial class GuIndividualRegistry
     {
@@ -48,7 +50,9 @@ namespace ProjectGu
             aperture = null;
             if (!TryGetAbilityCaster(pawn, out var cultivator, out var live) || Resolve(guId) is not { } found
                 || !apertureOf.TryGetValue(found.Id, out var bound) || bound != live
-                || !GrantsAbilities(found, live, cultivator.CultivatorId)) return false;
+                || !GrantsAbilities(found, live, cultivator.CultivatorId)
+                // A withering Gu stays listed (its command shows why) but cannot act: every commitment path checks here.
+                || StarvationImpairment(found) != null) return false;
             record = found;
             aperture = live;
             return true;

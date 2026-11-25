@@ -82,7 +82,7 @@ public sealed partial class LiveLifecycleChecks
 
         // 3. Finish will-enforcement a few ticks per frame and show the newly refined Gu that cannot fit the full aperture.
         SetEssence(aperture, aperture.MaxEssence);
-        for (int frame = 0; frame < 900 && third.Refinement == null; frame++)
+        for (int frame = 0; frame < 1800 && third.Refinement == null; frame++) // up to 21,600 ticks: low-aptitude disciples need ~12,000
         {
             for (int tick = 0; tick < 12 && third.Refinement == null; tick++) Find.TickManager.DoSingleTick();
             yield return Frames(1);

@@ -33,6 +33,11 @@ namespace ProjectGu
         {
             foreach (var option in base.GetFloatMenuOptions(selPawn)) yield return option;
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+            // Any colonist who can reach a dormant Gu on the ground can feed it; the food is consumed only when it is given.
+            if (registry?.Resolve(this) is { } record && Interface.GuApertureActions.Feed(selPawn, registry, record) is { } feed)
+                yield return feed.Available
+                    ? new FloatMenuOption($"Feed {Label}", () => Interface.GuApertureActions.Run(feed))
+                    : new FloatMenuOption($"Feed {Label} ({feed.DisabledReason})", null);
             if (registry?.CanOrderDormantPickup(this, selPawn) != true
                 || DefDatabase<JobDef>.GetNamedSilentFail("GU_PickupDormant") is not { } jobDef) yield break;
 

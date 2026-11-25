@@ -78,6 +78,20 @@ namespace ProjectGu.Interface
             int cooldown = GuCombatLedger.Instance?.CooldownRemaining(record.Id, Find.TickManager.TicksGame) ?? 0;
             if (cooldown > 0) Stat(box, ref y, "Recovering", cooldown.ToStringTicksToPeriod(), ApertureTabStyle.Warning);
             if (!stored) Stat(box, ref y, "Status", "Unavailable until stored in the aperture", ApertureTabStyle.Warning);
+            if (record.Species?.SimulatedFeeding is { } feeding)
+            {
+                // The restriction the authoritative ability check enforces; feeding itself lives on the Gu page.
+                var nourishment = view.Gu.FirstOrDefault(entry => entry.Record == record)?.Nourishment;
+                if (nourishment?.Impaired == true)
+                    Stat(box, ref y, "Sustenance", "Unavailable: the Gu is withering from starvation. Feed it on the Gu page.", ApertureTabStyle.Warning);
+                else
+                {
+                    bool hungry = nourishment?.Level >= GuNourishmentLevel.Hungry;
+                    Stat(box, ref y, "Sustenance", $"Needs a fed Gu: unavailable after {feeding.impairAfterStarvingDays:0.#} days of starvation"
+                        + (hungry ? $" (currently {LevelLabel(nourishment.Value.Level).ToLowerInvariant()})" : ""),
+                        hungry ? ApertureTabStyle.Warning : ApertureTabStyle.Body);
+                }
+            }
             foreach (string limit in ability.limitations ?? new List<string>()) Bullet(box, ref y, limit, ApertureTabStyle.Muted);
             y += 6f;
         }

@@ -229,6 +229,11 @@ namespace ProjectGu
                 binding = $"Species: {record.Species?.label ?? record.SpeciesDefName}\nIndividual identity: {record.Id}"
                     + $"\nPhysical custody: {observed.Form}" + (observed.HolderId == null ? "" : $" ({observed.HolderId})")
                     + $"\nRefinement allegiance: {ownerStatus}";
+                var nourishment = Sustenance.GuSustenance.Snapshot(registry, record);
+                if (nourishment.Simulated)
+                    binding += $"\nNourishment: {Interface.ITab_Pawn_Aperture.LevelLabel(nourishment.Level)}, "
+                        + $"{Interface.ITab_Pawn_Aperture.NourishmentDays(nourishment.NourishmentTicks)} stored"
+                        + (nourishment.Mode == GuSustenanceMode.Advancing ? "" : " (hunger paused)");
                 if (record.Origin == GuRecord.DevelopmentOrigin || record.Species?.capabilityTags?.Contains("development_test") == true)
                     binding += "\nDevelopment test Gu";
                 if (record.RefinementProcess is { IsValid: true } process)

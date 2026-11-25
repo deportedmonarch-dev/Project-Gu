@@ -40,6 +40,15 @@ namespace ProjectGu.Domain
         /// <summary>Effects this Gu provides that are not listed abilities (passive or contextual), shown as bullets.</summary>
         [MustTranslate] public List<string> effectNotes = new List<string>();
 
+        /// <summary>
+        /// Individual feeding policy (Alpha 5A). Missing means no implemented policy: nothing is simulated and no diet is
+        /// invented. The lure items above are bait, not meals.
+        /// </summary>
+        public GuFeedingProperties feeding;
+
+        public GuFeedingStatus FeedingStatus => feeding?.status ?? GuFeedingStatus.NotImplemented;
+        public GuFeedingProperties SimulatedFeeding => feeding?.Simulated == true ? feeding : null;
+
         // Optional lure encounter: instead of a plain search, a colonist sets out one of these items at the habitat and waits.
         public List<ThingDef> encounterLures = new List<ThingDef>();
         public int encounterLureTicks = 600;
@@ -97,6 +106,8 @@ namespace ProjectGu.Domain
                     if (ability == null) yield return $"{defName}: abilities contains an unresolved GuAbilityDef";
             if (terminalEffectWorker != null && !typeof(GuTerminalEffectWorker).IsAssignableFrom(terminalEffectWorker))
                 yield return $"{defName}: terminalEffectWorker must derive from ProjectGu.Domain.GuTerminalEffectWorker";
+            if (feeding != null)
+                foreach (string error in feeding.ConfigErrors(defName)) yield return error;
             foreach (string error in ValidateTags(pathTags, "pathTags")) yield return error;
             foreach (string error in ValidateTags(habitatTags, "habitatTags")) yield return error;
             foreach (string error in ValidateTags(capabilityTags, "capabilityTags")) yield return error;

@@ -34,7 +34,11 @@ namespace ProjectGu.Combat
             if (caster.Drafted) return false;
             reason = "This Gu is not refined, stored in this Gu Master's aperture, or able to act.";
             if (!registry.IsAbilityGrantedBy(guId, caster, out var record, out var aperture)
-                || record.Species?.abilities?.Contains(ability) != true) return false;
+                || record.Species?.abilities?.Contains(ability) != true)
+            {
+                if (registry.Resolve(guId) is { } starving && registry.StarvationImpairment(starving) is { } impairment) reason = impairment + ".";
+                return false;
+            }
 
             var worker = ability.channel.Worker(ability);
             var existing = ledger.ChannelFor(record.Id);
@@ -125,7 +129,11 @@ namespace ProjectGu.Combat
             if (registry == null || session == null || caster.Drafted) return false;
             if (!registry.TryGetAbilityCaster(caster, out _, out _)) return false;
             reason = "The Gu left the Gu Master's aperture or no longer recognizes them.";
-            if (!registry.IsAbilityGrantedBy(session.GuId, caster, out _, out var live) || live.ApertureId != session.ApertureId) return false;
+            if (!registry.IsAbilityGrantedBy(session.GuId, caster, out _, out var live) || live.ApertureId != session.ApertureId)
+            {
+                if (registry.Resolve(session.GuId) is { } starving && registry.StarvationImpairment(starving) is { } impairment) reason = impairment + ".";
+                return false;
+            }
             aperture = live;
             reason = null;
             return true;

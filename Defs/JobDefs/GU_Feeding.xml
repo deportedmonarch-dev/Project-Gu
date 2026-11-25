@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Alpha 5A: feeding one exact Gu individual with physical food. Items are consumed only at the commitment toil. -->
+  <JobDef>
+    <defName>GU_FeedGu</defName>
+    <driverClass>ProjectGu.Jobs.JobDriver_GuFeedGu</driverClass>
+    <reportString>feeding a Gu.</reportString>
+    <casualInterruptible>true</casualInterruptible>
+    <carryThingAfterJob>false</carryThingAfterJob>
+  </JobDef>
+</Defs>

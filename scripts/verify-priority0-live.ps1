@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -571,6 +571,23 @@ Measure-Phase 'planning' {
             Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha4a -gualpha4aperf'
             continue
         }
+        if ($name -eq 'Alpha5A' -or $name -eq 'Alpha5AVisual') {
+            # Alpha 5A: Gu feeding on the Alpha 3 save; reload with a feeding job in progress and starvation deaths; a final
+            # fresh-process check; then the same save with every Alpha 5A element removed, loaded as an older save.
+            $unit = New-Unit $name $saveData "PASS $name Gu feeding, reload, starvation and older-save activation. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'feeding' $false $false '-guclanstart -gualpha3 -gualpha5a'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha3 -gualpha5a -gualpha5areload'
+            Add-Launch $unit 'final' $false $false '-guclanstart -gualpha3 -gualpha5a -gualpha5afinal'
+            Add-Action $unit 'LegacyFeedingFixture' @{ From = (Join-Path $saveData 'Saves/alpha5a-legacy-source.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+            Add-Launch $unit 'legacy' $false $false '-guclanstart -gualpha3 -gualpha5a -gualpha5alegacy'
+            if ($name -eq 'Alpha5AVisual') {
+                # Rendered inspection of feeding opens a game window; run with -Parallel 1 and no other RimWorld instance.
+                Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha5a-feeding.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+                Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha5a -gualpha5avisual'
+            }
+            continue
+        }
         if ($name -eq 'GuGeneration') {
             $unit = New-Unit $name $saveData "PASS $name native animal pools, direct factory refusal and fresh-process reload. Evidence in $saveData"
             Add-Launch $unit 'new' $true $false '-guclanstart -gugeneration'
@@ -759,6 +776,24 @@ function Step-Unit($Unit) {
                 }
                 Copy-Item -LiteralPath $step.From -Destination $step.To -Force
                 ([IO.FileInfo]$step.To).IsReadOnly = $false
+            }
+            'LegacyFeedingFixture' {
+                # An older save, as a build before Alpha 5A writes it: the same game without the feeding component,
+                # nourishment states or feeding intents. Nothing else in the save changes.
+                $doc = New-Object Xml.XmlDocument
+                $doc.PreserveWhitespace = $true
+                $doc.Load($step.From)
+                $removed = 0
+                foreach ($xpath in @("//li[@Class='ProjectGu.Sustenance.GuSustenanceComponent']", "//li[@Class='ProjectGu.Domain.GuNourishment']", '//guFeedIntent')) {
+                    foreach ($node in @($doc.SelectNodes($xpath))) { [void]$node.ParentNode.RemoveChild($node); $removed += 1 }
+                }
+                $doc.Save($step.To)
+                $text = [IO.File]::ReadAllText($step.To)
+                if ($removed -lt 2 -or $text.Contains('GuSustenanceComponent') -or $text.Contains('GuNourishment') -or $text.Contains('GU_FeedGu')) {
+                    Set-UnitFailed $Unit $step "The legacy feeding fixture is incomplete ($removed elements removed)."
+                    return
+                }
+                $step.Detail = "Removed $removed Alpha 5A elements"
             }
             'CultivatorInvalidFixture' {
                 $workingSave = Join-Path $Unit.SaveData 'Saves/autostart.rws'

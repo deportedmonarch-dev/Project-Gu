@@ -18,6 +18,11 @@
     <capabilityTags><li>awakening_consumable</li></capabilityTags>
     <role>awakening</role>
     <effectNotes><li>Consumed in the awakening ceremony that opens a mortal's aperture. It grants no technique to a Gu Master.</li></effectNotes>
+    <!-- Alpha 5A: no canonical individual diet is established for Hope Gu, so none is invented. Spring ecology and awakening are unchanged. -->
+    <feeding>
+      <status>NotImplemented</status>
+      <note>No individual feeding policy is implemented for Hope Gu. Its spring ecology sustains wild populations; captured Hope Gu are consumed in awakening.</note>
+    </feeding>
   </ProjectGu.Domain.GuSpeciesDef>
   <ProjectGu.Domain.GuSpeciesDef>
     <defName>GU_MoonlightGu</defName>
@@ -36,6 +41,25 @@
     <pathTags><li>moon</li></pathTags>
     <habitatTags><li>spirit_spring</li><li>moon_orchid</li></habitatTags>
     <capabilityTags><li>active_essence_ability</li></capabilityTags>
+    <!-- Alpha 5A. Lore: two moon orchid petals in the morning and two in the evening (four a day), so one meal of two
+         petals sustains half a day. Storage, hunger and starvation timings are balance choices, deliberately forgiving. -->
+    <feeding>
+      <status>Simulated</status>
+      <note>Eats moon orchid petals: two in the morning and two in the evening.</note>
+      <foods>
+        <li>
+          <thingDef>GU_MoonOrchidPetals</thingDef>
+          <mealCount>2</mealCount>
+          <daysPerMeal>0.5</daysPerMeal>
+        </li>
+      </foods>
+      <maxDays>2</maxDays>
+      <hungryBelowDays>0.5</hungryBelowDays>
+      <initialDays>1.5</initialDays>
+      <legacyGraceDays>3</legacyGraceDays>
+      <impairAfterStarvingDays>2</impairAfterStarvingDays>
+      <terminalAfterStarvingDays>10</terminalAfterStarvingDays>
+    </feeding>
   </ProjectGu.Domain.GuSpeciesDef>
   <ProjectGu.Domain.GuSpeciesDef>
     <defName>GU_LiquorWorm</defName>
@@ -56,6 +80,27 @@
     <pathTags><li>food</li></pathTags>
     <habitatTags><li>spirit_spring</li></habitatTags>
     <capabilityTags><li>essence_refinement</li></capabilityTags>
+    <!-- Alpha 5A. Lore: Liquor Worm drinks wine; a jar of green bamboo wine sustains it about four days. Beer is the
+         first available substitute and, as a balance choice, sustains it about two days per bottle. Future wines add
+         entries here with their own daysPerMeal. The beer lure is bait and is not counted as a meal. -->
+    <feeding>
+      <status>Simulated</status>
+      <note>Drinks wine. Beer is a poor substitute.</note>
+      <foods>
+        <li>
+          <thingDef>Beer</thingDef>
+          <mealCount>1</mealCount>
+          <daysPerMeal>2</daysPerMeal>
+          <note>A lower-quality substitute for proper wine.</note>
+        </li>
+      </foods>
+      <maxDays>4</maxDays>
+      <hungryBelowDays>1</hungryBelowDays>
+      <initialDays>2</initialDays>
+      <legacyGraceDays>3</legacyGraceDays>
+      <impairAfterStarvingDays>2</impairAfterStarvingDays>
+      <terminalAfterStarvingDays>10</terminalAfterStarvingDays>
+    </feeding>
   </ProjectGu.Domain.GuSpeciesDef>
   <!-- Development fixture for cohort and individual persistence. -->
   <ProjectGu.Domain.GuSpeciesDef>
@@ -69,5 +114,9 @@
     <dormantProjectionDef>GU_DevTestDormantGu</dormantProjectionDef>
     <habitatTags><li>spirit_spring</li></habitatTags>
     <capabilityTags><li>development_test</li></capabilityTags>
+    <feeding>
+      <status>Exempt</status>
+      <note>Developer-only persistence fixture; exempt from simulated feeding.</note>
+    </feeding>
   </ProjectGu.Domain.GuSpeciesDef>
 </Defs>

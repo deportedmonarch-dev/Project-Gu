@@ -38,7 +38,7 @@
   <ThingDef ParentName="PlantBaseNonEdible">
     <defName>GU_MoonOrchid</defName>
     <label>moon orchid</label>
-    <description>A blue-violet orchid that grows on primeval qi-rich soil even in darkness. It can be sown in growing zones.</description>
+    <description>A blue-violet orchid that grows on primeval qi-rich soil even in darkness. It can be sown in growing zones. Mature flowers can be harvested for their petals without uprooting the plant; the orchid then needs time to regrow before it flowers again.</description>
     <selectable>true</selectable>
     <graphicData>
       <texPath>ProjectGU/MoonOrchid</texPath>
@@ -59,6 +59,15 @@
       <maxMeshCount>1</maxMeshCount>
       <visualSizeRange>0.40~1.15</visualSizeRange>
       <neverBlightable>true</neverBlightable>
+      <!-- Alpha 5A petal harvest. Non-destructive: growth falls to harvestAfterGrowth and must climb back above
+           harvestMinGrowth before the next harvest, so a single plant cannot be harvested without regrowing.
+           0.7 keeps a harvested wild orchid above the 0.65 cavern-lighting threshold. Balance values, not lore. -->
+      <harvestedThingDef>GU_MoonOrchidPetals</harvestedThingDef>
+      <harvestYield>6</harvestYield>
+      <harvestWork>200</harvestWork>
+      <harvestTag>Standard</harvestTag>
+      <harvestMinGrowth>0.85</harvestMinGrowth>
+      <harvestAfterGrowth>0.7</harvestAfterGrowth>
     </plant>
     <comps>
       <li Class="ProjectGu.Springs.CompProperties_GuSpiritFlora">

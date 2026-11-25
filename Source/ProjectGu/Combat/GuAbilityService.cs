@@ -68,7 +68,11 @@ namespace ProjectGu.Combat
             if (!registry.TryGetAbilityCaster(caster, out _, out _)) return false;
             reason = "This Gu is not refined, stored in this Gu Master's aperture, or able to act.";
             if (!registry.IsAbilityGrantedBy(guId, caster, out var record, out var aperture)
-                || record.Species?.abilities?.Contains(ability) != true) return false;
+                || record.Species?.abilities?.Contains(ability) != true)
+            {
+                if (registry.Resolve(guId) is { } starving && registry.StarvationImpairment(starving) is { } impairment) reason = impairment + ".";
+                return false;
+            }
             int remaining = ledger.CooldownRemaining(record.Id, Find.TickManager.TicksGame);
             reason = $"{ability.LabelCap} is recovering ({remaining.ToStringSecondsFromTicks()}).";
             if (remaining > 0) return false;

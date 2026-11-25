@@ -243,6 +243,27 @@ namespace ProjectGu.Domain
             return record;
         }
 
+        /// <summary>The first species state of this type, or null. Read-only.</summary>
+        internal T GetState<T>() where T : GuStateComponent
+        {
+            if (state == null) return null;
+            for (int i = 0; i < state.Count; i++)
+                if (state[i] is T found) return found;
+            return null;
+        }
+
+        /// <summary>Attaches one species state of a type the record does not yet carry. Never replaces an existing state.</summary>
+        internal bool AttachState(GuStateComponent component)
+        {
+            if (component == null || existence != GuExistence.Living) return false;
+            state ??= new();
+            var type = component.GetType();
+            for (int i = 0; i < state.Count; i++)
+                if (state[i]?.GetType() == type) return false;
+            state.Add(component);
+            return true;
+        }
+
         internal void MarkCohortDebitCommitted() => cohortDebitCommitted = true;
 
         internal void Quarantine(string reason)

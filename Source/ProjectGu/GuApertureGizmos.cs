@@ -94,6 +94,17 @@ namespace ProjectGu
                     options.Add(new FloatMenuOption(withdraw.Label,
                         () => GuApertureActions.Run(withdraw, $"Withdrew {GuApertureActions.Describe(record)} to inventory.")));
 
+            // Feeding, from the same action the Aperture tab's Gu page draws.
+            var feedable = new List<GuRecord>(occupants);
+            foreach (var thing in held) if (registry.Resolve(thing) is { } heldRecord) feedable.Add(heldRecord);
+            foreach (var record in feedable)
+                if (GuApertureActions.Feed(host, registry, record) is { } feed)
+                {
+                    string label = $"Feed {GuApertureActions.Describe(record)}";
+                    options.Add(feed.Available ? new FloatMenuOption(label, () => GuApertureActions.Run(feed))
+                        : new FloatMenuOption($"{label} ({feed.DisabledReason})", null));
+                }
+
             var candidates = new List<Thing_GuDormantProjection>(held);
             foreach (var thing in nearby) if (!candidates.Contains(thing)) candidates.Add(thing);
             foreach (var thing in candidates)
