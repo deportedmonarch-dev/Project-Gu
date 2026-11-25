@@ -107,7 +107,7 @@ What the `Alpha3` stages verify, all with Development Mode off:
   - Capture, pickup and will-enforcement use the ordinary routes.
   - An unrefined Liquor Worm grants nothing, and neither does a refined one before storage.
   - A Moonlight Gu is acquired and stored in the same aperture. Each Gu grants its own command to the disciple and nothing to the elder.
-  - Every storage point asserts the exact occupants with no physical projection, with diagnostics. The earlier Alpha 2 custody observation did not recur in any Alpha 3 run.
+  - Every storage point asserts the exact occupants with no physical projection, with diagnostics. The spring encounter follow-up records an unbound Moonlight Gu pawn found before the search and the successful Alpha 3 retry. [Native follow-up](UNDERGROUND-SPIRIT-SPRING.md#wild-gu-encounters).
 - **Commitment:** a new session pays exactly 2 essence once, records one commitment and starts the cooldown.
 - **Conversion:** each pulse moves exactly 1 Initial unit to Middle. An independent account of recovery matches to 0.0001, and stage and walls are unchanged.
 - **Stops:**

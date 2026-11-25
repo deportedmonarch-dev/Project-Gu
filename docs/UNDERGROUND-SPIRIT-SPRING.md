@@ -31,6 +31,16 @@ The revised spring sprite is a low, irregular teal seep with a small blue-white 
 
 The original raster assets were generated with the built-in image tool and packaged as game textures. The prompts asked for an irregular top-down dark teal seep with a restrained blue-white upwelling and submerged slate, charcoal-blue earth with distributed fine green moss and grass, and a transparent silvery cyan grass tuft with pale blade tips. [Spring seep](../Textures/ProjectGU/SpiritSpringSeep.png), [Spirit Grass](../Textures/ProjectGU/SpiritGrassBank.png), [qi-rich soil](../Textures/ProjectGU/Terrain/PrimevalQiRichSoil.png).
 
+## Wild Gu encounters
+
+Select the spring to see the mature and juvenile counts for each saved cohort, including the Hope Gu carrying capacity. A mature Hope Gu or Moonlight Gu can be searched for from the spring. Liquor Worm uses the colonist's lure order. The panel reads the spring's existing ledger, so an older spring shows the cohorts present in its save.
+
+On independent levels, spring encounters require a connected player passage with live anchors and unfogged, standable landing cells. A pawn standing at a landing can temporarily block travel while the spring's search and lure options remain available. The registry checks map access again before committing the adult cohort debit and binding the new wild Gu.
+
+On RimWorld 1.7.5014 rev1195, native campaign `4cd1edc8a5dc4be1884beb81059acbfd` reproduced the missing searches on accepted Alpha 3 `758f756` immediately after descent, with three mature Hope Gu and two mature Moonlight Gu in the ledger. With the fix, campaign `c85dcf0d225f450881ebd753cc8c3ab9` passed Alpha 1, Alpha 2, Core lifecycle and Slice 3B-5A. Alpha 1 verified both commands with Development Mode off, all three cohort rows, rejection after the entrance binding is lost, and one adult debit with the rope exit occupied. Fresh-process reloads preserved the cohort counts and the Gu's identity.
+
+Alpha 3 passed its new-game and both fresh-process reload stages on retry in campaign `13c4892d067a4fa29414ebc3ab148c12`. The first attempt found an unbound Moonlight Gu pawn before the fixture issued a Moonlight search. On the accepted build, Moonlight Gu inherits positive petness from Core's hare Def, making it eligible for the stock random starting-pet selector.
+
 ## Primeval stones
 
 The global stack limit is 200. The revised spring tries two actual Core shallow-water tiles at the lower edge of the main basin, then the two adjacent dry shoreline cells. Older maps use their established eastern and southern outlets. An output requires a standable, reachable, unfogged cell with capacity for the batch. Full or incompatible stacks send the spring to the next candidate. The native placement callback debits reserve and updates lifetime output by the actual acknowledged quantity. The normal schedule can retry after a blocked attempt.

@@ -176,6 +176,7 @@ public sealed partial class LiveLifecycleChecks
         var spring = springThing.TryGetComp<CompGuSpiritSpring>();
         int mature = spring.HopeGuAvailable, juvenile = spring.HopeGuJuvenile;
         Check(mature == 3, $"The new cavern holds 3 mature Hope Gu, found {mature}");
+        if (Alpha1) VerifyAlpha1SpringArrival(disciple, springThing, spring, site, surfaceEnd);
         Check(!springThing.GetFloatMenuOptions(elder).Any(o => o.Label.Contains("awakening")) || elder.Map != cave,
             "The awakened elder is not offered another awakening");
         Order(disciple, springThing, "Attempt awakening at spirit spring");

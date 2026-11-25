@@ -38,7 +38,7 @@ Use an untouched backup of the 0.2.4 save, plus a fresh test game. Do not overwr
 3. **Fresh spring:** 3 mature, 0 juvenile Hope Gu, baseline capacity 3. Inspect reserve/purity/stones are unchanged.
 4. **Flora:** one Moon Orchid raises capacity to 5; adding Spirit Grass raises it to 9; removing each reverses immediately.
 5. **Development day:** with habitat, a juvenile appears; next step matures juveniles. No reproduction without habitat.
-6. **Secondary species:** select spring and press **GU: seed secondary test cohort** once. Inspect shows **Dev test Gu: 2 mature + 1 juvenile**. Pressing twice should not duplicate.
+6. **Secondary species.** Select the spring and press **GU: seed secondary test cohort** once. The inspector shows **test spring Gu (developer only): 2 mature + 1 juvenile**. Press again and check that the same single row remains.
 7. **Species isolation:** after adding test Gu, use **GU: simulate ecology day**. Hope Gu progresses normally; developer cohort stays 2 mature + 1 juvenile. Awakening only consumes mature Hope Gu.
 8. **Two springs:** one spring with the test cohort and one without; changes to one spring do not affect the other.
 9. **Save/load new game:** save, exit to menu, reload; confirm both species' counts, habitat, reserve, and the new spring's identity-related registry behavior. Repeat two save/reload cycles; no duplication or reset.

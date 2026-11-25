@@ -3,8 +3,10 @@ using ProjectGu;
 using ProjectGu.Clan;
 using ProjectGu.Domain;
 using ProjectGu.Springs;
+using ProjectGu.Underground;
 using RimWorld;
 using Verse;
+using Verse.AI;
 
 public sealed partial class LiveLifecycleChecks
 {
@@ -16,10 +18,52 @@ public sealed partial class LiveLifecycleChecks
         string HabitatId, string CultivatorId, string ApertureId, string ProcessId, int WorkTicks, int CompletedTicks,
         float EssenceSpent, float MeasuredDebit, float EssenceAtSave, int SpringReserve);
 
+    private static void VerifyAlpha1SpringArrival(Pawn disciple, Thing springThing, CompGuSpiritSpring spring,
+        GuIndependentSite site, GuIndependentEndpoint surfaceEnd)
+    {
+        var exit = site.Endpoints.Single(end => !end.IsSurface).Anchor;
+        var cave = disciple.Map;
+        Check(!Prefs.DevMode && !cave.IsPlayerHome && disciple.Position == exit.Position
+            && JobDriver_GuPocketProbeTravel.CanLand(cave, exit.Position, disciple)
+            && !JobDriver_GuPocketProbeTravel.CanLand(cave, exit.Position, null),
+            "Ordinary descent arrived on a live independent cavern's rope-exit cell and occupied it");
+        var commands = springThing.GetGizmos().OfType<Command_Action>().ToArray();
+        Check(commands.Any(command => command.defaultLabel == "Search for Hope Gu")
+            && commands.Any(command => command.defaultLabel == "Search for Moonlight Gu")
+            && !commands.Any(command => command.defaultLabel == "Search for Liquor Worm"),
+            $"The occupied arrival must offer Hope and Moonlight searches with Liquor Worm reserved for luring. "
+            + $"Mature cohorts: Hope {spring.HopeGuAvailable}, Moonlight {spring.MatureCountFor("GU_MoonlightGu")}; "
+            + $"commands: {string.Join(", ", commands.Select(command => command.defaultLabel))}");
+        string inspect = springThing.GetInspectString();
+        Check(inspect.Contains("Hope Gu: 3 mature + 0 juvenile")
+            && inspect.Contains("Moonlight Gu: 2 mature + 0 juvenile")
+            && inspect.Contains("Liquor Worm: 2 mature + 0 juvenile"),
+            "The spring inspector lists each initial cohort and both age counts");
+
+        var pit = surfaceEnd.Anchor;
+        surfaceEnd.Anchor = null;
+        try
+        {
+            Check(!springThing.GetGizmos().OfType<Command_Action>()
+                .Any(command => command.defaultLabel.StartsWith("Search for ", StringComparison.Ordinal)),
+                "A missing entrance binding hides searches even with a colonist in the cavern");
+            commands.Single(command => command.defaultLabel == "Search for Hope Gu").action();
+            var hope = DefDatabase<GuSpeciesDef>.GetNamed("GU_HopeGu");
+            Check(!spring.TryEncounterWildGu(hope, IndividualRegistry, out _, out string reason)
+                && reason.Contains("protected map")
+                && spring.HopeGuAvailable == 3 && !IndividualRegistry.Records.Any() && !ActuallyProjectedGu().Any(),
+                "A stale search command and a direct encounter attempt cannot debit or materialize on a closed route");
+        }
+        finally { surfaceEnd.Anchor = pit; }
+        Report("Spirit spring searches are available on arrival with Development Mode off, the inspector shows all three cohorts, and a missing entrance blocks encounters.");
+    }
+
     private static void ExerciseAlpha1(Pawn disciple, GuCultivatorRecord cultivator, Hediff_Aperture aperture,
         Thing springThing, CompGuSpiritSpring spring, Thing exit)
     {
         var registry = IndividualRegistry;
+        disciple.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.Goto, exit.Position), JobTag.Misc);
+        TickUntil(() => disciple.Position == exit.Position, 1800, "The disciple walked back to stand on the rope exit");
         var search = springThing.GetGizmos().OfType<Command_Action>()
             .Single(command => command.defaultLabel == "Search for Hope Gu");
         Check(!Prefs.DevMode && !registry.Records.Any() && spring.HopeGuAvailable == 2,
@@ -31,7 +75,7 @@ public sealed partial class LiveLifecycleChecks
         Check(wild.Spawned && wild.Map == disciple.Map && wild.GuId == record.Id && ActuallyProjectedGu().Single() == wild
             && record.SpeciesDefName == "GU_HopeGu" && record.IsActionable && record.Refinement == null
             && record.CohortDebitCommitted && record.OriginId == spring.HabitatId && spring.HopeGuAvailable == 1,
-            $"One natural Hope Gu {record.Id} emerged from the clan cavern, consuming one adult");
+            $"Searching with the rope exit occupied materialized one natural Hope Gu {record.Id} and consumed one adult");
         int wildRevision = record.CustodyRevision;
 
         Order(disciple, wild, "Capture Hope Gu (unrefined)");
@@ -160,6 +204,10 @@ public sealed partial class LiveLifecycleChecks
             && spring.HopeGuAvailable == 1 && spring.HopeGuJuvenile == 0
             && spring.Reserve == state.SpringReserve && PhysicalStoneCount() == 60,
             "One Gu identity and event, one remaining mature Hope Gu, unchanged spring reserve and exactly 60 physical stones");
+        Check(spring.CompInspectStringExtra().Contains("Hope Gu: 1 mature + 0 juvenile")
+            && spring.CompInspectStringExtra().Contains("Moonlight Gu: 2 mature + 0 juvenile")
+            && spring.CompInspectStringExtra().Contains("Liquor Worm: 2 mature + 0 juvenile"),
+            "The inspector reads the debited cohort and the two untouched species directly from the ledger");
     }
 
     private static void RunAlpha1ApertureOption(Pawn disciple, string prefix, string guId, string detail = "")

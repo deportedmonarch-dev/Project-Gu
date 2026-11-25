@@ -58,6 +58,18 @@ namespace ProjectGu.Underground
                 && HasUsableSurfaceRoute(site, level.LevelId, null, traveler);
         }
 
+        internal bool HasPlayerEncounterRoute(Map map)
+        {
+            if (!GuUndergroundLifecycleGuards.Installed || OperationInProgress
+                || !TryFindIndependentLevel(map, out var site, out var level)
+                || site.Kind?.playerTravel != true) return false;
+
+            // A traveler stands on the landing cell immediately after descending.
+            // Encounters need a connected passage, while crossing it needs a free landing.
+            return site.CanReachSurface(level.LevelId, end => end.HasAnchor(site)
+                && JobDriver_GuPocketProbeTravel.IsTraversablePassageCell(end.Anchor.Map, end.Anchor.Position));
+        }
+
         private bool FindRecoverySite(Pawn pawn, out GuIndependentSite site, out GuIndependentLevel level)
         {
             site = null;

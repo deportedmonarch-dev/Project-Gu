@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -264,8 +265,8 @@ namespace ProjectGu.Springs
                 && registry.TryEncounterWildCohort(this, request, map, cell, out individual, out reason);
         }
 
-        private static bool PlayerCanAccessEncounterMap(Map map) => map is { Disposed: false }
-            && (map.IsPlayerHome || Current.Game?.GetComponent<GuPocketProbeComponent>()?.HasProtectedProjectionRoute(map) == true);
+        internal static bool PlayerCanAccessEncounterMap(Map map) => GuPocketProbeComponent.IsLive(map)
+            && (map.IsPlayerHome || Current.Game?.GetComponent<GuPocketProbeComponent>()?.HasPlayerEncounterRoute(map) == true);
         private void EcologyDayStep()
         {
             if (!populationsReady || DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) == null) return;
@@ -365,18 +366,29 @@ namespace ProjectGu.Springs
         public override string CompInspectStringExtra()
         {
             EnsureHabitatFresh();
-            GuPopulationRecord extra = GuPopulationLedger.Find(populations, TestSpecies);
             return "Spring profile: " + Props.regionProfile + " (prototype preset)" +
                 "\nPrimeval reserve: " + Math.Max(0, reserve) + " / " + Props.initialReserve +
                 "\nPurity: " + Props.purityPercent + "%" +
                 "\nPrimeval stones produced: " + lifetimeProduced + "; next: " + ProductionDue +
                 "\nSpirit flora: " + currentHabitatPatches + " patches (support " + floraSupport + ")" +
-                (populationsReady
-                    ? "\nHope Gu: " + HopeGuAvailable + " mature + " + juvenileHopeGu +
-                        " juvenile / " + carryingCapacity + " capacity"
-                    : "\nGu population unavailable. See the game log.") +
-                (extra != null ? "\nDev test Gu: " + extra.MatureCount + " mature + " + extra.JuvenileCount + " juvenile" : "") +
+                InspectPopulation() +
                 (floraSupport > 0 ? "\nHabitat supports Hope Gu reproduction" : "\nNo habitat: reproduction suspended");
+        }
+
+        private string InspectPopulation()
+        {
+            if (!populationsReady) return "\nGu population unavailable. See the game log.";
+            if (populations.Count == 0) return "\nNo Gu cohorts at this spring.";
+
+            var text = new StringBuilder();
+            foreach (var cohort in populations)
+            {
+                var species = DefDatabase<GuSpeciesDef>.GetNamedSilentFail(cohort.SpeciesDefName);
+                string name = species?.label ?? cohort.SpeciesDefName + " (species unavailable)";
+                text.Append($"\n{name}: {cohort.MatureCount} mature + {cohort.JuvenileCount} juvenile");
+                if (cohort.SpeciesDefName == HopeSpecies) text.Append($" / {carryingCapacity} capacity");
+            }
+            return text.ToString();
         }
     }
 }

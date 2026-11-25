@@ -93,7 +93,7 @@ namespace ProjectGu
                 && anchor.GetUniqueLoadID() == request.SourceNativeId && habitat.HasUniqueIdentity
                 && CanPlaceDormant(map, cell, staged) && anchor.Position.DistanceToSquared(cell) <= 36
                 && !map.reservationManager.IsReserved(cell)
-                && (playerEncounter ? map.IsPlayerHome || underground?.HasProtectedProjectionRoute(map) == true
+                && (playerEncounter ? CompGuSpiritSpring.PlayerCanAccessEncounterMap(map)
                     : underground?.HasProtectedProjectionRoute(map) == true)
                 && habitat.CohortFor(request.SpeciesDefName) == cohort && cohort.Revision == request.ExpectedRevision
                 && cohort.MatureCount > 0;

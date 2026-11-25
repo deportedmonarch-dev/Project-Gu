@@ -58,10 +58,12 @@ namespace ProjectGu.Underground
             return true;
         }
 
+        internal static bool IsTraversablePassageCell(Map map, IntVec3 cell) =>
+            GuPocketProbeComponent.IsLive(map) && cell.InBounds(map) && !cell.Fogged(map) && cell.Standable(map);
+
         internal static bool CanLand(Map map, IntVec3 cell, Pawn traveler)
         {
-            if (!GuPocketProbeComponent.IsLive(map) || !cell.InBounds(map) || cell.Fogged(map) || !cell.Standable(map))
-                return false;
+            if (!IsTraversablePassageCell(map, cell)) return false;
             foreach (Thing thing in cell.GetThingList(map))
                 if (thing is Pawn occupant && occupant != traveler)
                     return false;
