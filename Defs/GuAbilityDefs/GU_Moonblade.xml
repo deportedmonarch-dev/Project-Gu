@@ -17,6 +17,14 @@
     <projectileDef>GU_Projectile_Moonblade</projectileDef>
     <launchSound>Shot_ChargeBlaster</launchSound>
     <iconPath>ProjectGU/UI/Abilities/Moonblade</iconPath>
+    <category>Combat</category>
+    <effectNotes>
+      <li>Condenses primeval essence into a crescent-shaped blade of moonlight and fires it as a cutting projectile.</li>
+      <li>Flies like an ordinary projectile toward a pawn or location: it can be intercepted by cover or pawns along its path, and each blade can hit only once.</li>
+    </effectNotes>
+    <limitations>
+      <li>Cast from the pawn's command bar. Essence is paid only when the blade leaves the Gu Master's hand; stopping during the aim costs nothing.</li>
+    </limitations>
     <launchFx>GU_Fx_MoonbladeLaunch</launchFx>
     <travelFx>GU_Fx_MoonbladeTrail</travelFx>
     <impactFx>GU_Fx_MoonbladeImpact</impactFx>

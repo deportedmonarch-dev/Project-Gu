@@ -16,6 +16,8 @@
     <pathTags><li>human</li></pathTags>
     <habitatTags><li>spirit_spring</li></habitatTags>
     <capabilityTags><li>awakening_consumable</li></capabilityTags>
+    <role>awakening</role>
+    <effectNotes><li>Consumed in the awakening ceremony that opens a mortal's aperture. It grants no technique to a Gu Master.</li></effectNotes>
   </ProjectGu.Domain.GuSpeciesDef>
   <ProjectGu.Domain.GuSpeciesDef>
     <defName>GU_MoonlightGu</defName>
@@ -30,6 +32,7 @@
     <refinementEssenceCost>10</refinementEssenceCost>
     <refinementResistance>1</refinementResistance>
     <abilities><li>GU_Moonblade</li></abilities>
+    <role>attack</role>
     <pathTags><li>moon</li></pathTags>
     <habitatTags><li>spirit_spring</li><li>moon_orchid</li></habitatTags>
     <capabilityTags><li>active_essence_ability</li></capabilityTags>
@@ -47,6 +50,7 @@
     <refinementEssenceCost>10</refinementEssenceCost>
     <refinementResistance>1</refinementResistance>
     <abilities><li>GU_LiquorWormRefinement</li></abilities>
+    <role>cultivation support</role>
     <encounterLures><li>Beer</li></encounterLures>
     <encounterLureTicks>600</encounterLureTicks>
     <pathTags><li>food</li></pathTags>

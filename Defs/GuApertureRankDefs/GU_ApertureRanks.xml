@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!--
+    Aperture presentation per cultivation rank: essence terminology, colours and replaceable art.
+    Presentation only. Cultivation rules never read these Defs. Only Rank 1 is implemented and playable; the other ranks
+    record naming conventions for future work and are never shown as reachable.
+    Art pipeline and replacement instructions: docs/ALPHA-4A-APERTURE-INTERFACE.md#art-pipeline
+  -->
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank1</defName>
+    <label>rank one</label>
+    <rank>1</rank>
+    <essenceLabel>Green Copper Primeval Essence</essenceLabel>
+    <essenceColor>(0.40, 0.68, 0.48)</essenceColor>
+    <implemented>true</implemented>
+    <baseTexPath>ProjectGU/UI/Aperture/Rank1_Base</baseTexPath>
+    <seaMaskTexPath>ProjectGU/UI/Aperture/Rank1_SeaMask</seaMaskTexPath>
+    <wallMaskTexPath>ProjectGU/UI/Aperture/Rank1_WallMask</wallMaskTexPath>
+    <highlightsTexPath>ProjectGU/UI/Aperture/Rank1_Highlights</highlightsTexPath>
+    <structureTint>0.4</structureTint>
+    <!-- Provisional shades, pending the owner's canonical palette. Edit the colours here; no code change is needed. -->
+    <stages>
+      <li>
+        <label>Initial</label>
+        <essenceColor>(0.30, 0.72, 0.52)</essenceColor>
+        <description>Jade-green essence of a newly opened aperture.</description>
+      </li>
+      <li>
+        <label>Middle</label>
+        <essenceColor>(0.68, 0.92, 0.70)</essenceColor>
+        <description>Pale-green essence, lighter and more refined.</description>
+      </li>
+      <li>
+        <label>Upper</label>
+        <essenceColor>(0.13, 0.55, 0.29)</essenceColor>
+        <description>Deep-green essence, dense and saturated.</description>
+      </li>
+      <li>
+        <label>Peak</label>
+        <essenceColor>(0.07, 0.30, 0.18)</essenceColor>
+        <description>Black-green essence at the limit of Rank 1.</description>
+      </li>
+    </stages>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <!-- Naming conventions only. Not implemented: no art, no cultivation. -->
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank2</defName>
+    <label>rank two</label>
+    <rank>2</rank>
+    <essenceLabel>Red Steel Primeval Essence</essenceLabel>
+    <essenceKind>Primeval</essenceKind>
+    <essenceColor>(0.70, 0.22, 0.18)</essenceColor>
+    <immortalAperture>false</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank3</defName>
+    <label>rank three</label>
+    <rank>3</rank>
+    <essenceLabel>White Silver Primeval Essence</essenceLabel>
+    <essenceKind>Primeval</essenceKind>
+    <essenceColor>(0.85, 0.87, 0.90)</essenceColor>
+    <immortalAperture>false</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank4</defName>
+    <label>rank four</label>
+    <rank>4</rank>
+    <essenceLabel>Yellow Gold Primeval Essence</essenceLabel>
+    <essenceKind>Primeval</essenceKind>
+    <essenceColor>(0.92, 0.76, 0.25)</essenceColor>
+    <immortalAperture>false</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank5</defName>
+    <label>rank five</label>
+    <rank>5</rank>
+    <essenceLabel>Purple Crystal Primeval Essence</essenceLabel>
+    <essenceKind>Primeval</essenceKind>
+    <essenceColor>(0.62, 0.38, 0.85)</essenceColor>
+    <immortalAperture>false</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank6</defName>
+    <label>rank six</label>
+    <rank>6</rank>
+    <essenceLabel>Green Grape Immortal Essence</essenceLabel>
+    <essenceKind>Immortal</essenceKind>
+    <essenceColor>(0.45, 0.75, 0.30)</essenceColor>
+    <immortalAperture>true</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank7</defName>
+    <label>rank seven</label>
+    <rank>7</rank>
+    <essenceLabel>Red Date Immortal Essence</essenceLabel>
+    <essenceKind>Immortal</essenceKind>
+    <essenceColor>(0.62, 0.12, 0.12)</essenceColor>
+    <immortalAperture>true</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank8</defName>
+    <label>rank eight</label>
+    <rank>8</rank>
+    <essenceLabel>White Litchi Immortal Essence</essenceLabel>
+    <essenceKind>Immortal</essenceKind>
+    <essenceColor>(0.96, 0.94, 0.90)</essenceColor>
+    <immortalAperture>true</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+
+  <ProjectGu.Interface.GuApertureRankDef>
+    <defName>GU_ApertureRank9</defName>
+    <label>rank nine</label>
+    <rank>9</rank>
+    <essenceLabel>Yellow Apricot Immortal Essence</essenceLabel>
+    <essenceKind>Immortal</essenceKind>
+    <essenceColor>(0.98, 0.78, 0.30)</essenceColor>
+    <immortalAperture>true</immortalAperture>
+  </ProjectGu.Interface.GuApertureRankDef>
+</Defs>

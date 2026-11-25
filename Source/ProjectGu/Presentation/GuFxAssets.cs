@@ -32,7 +32,7 @@ namespace ProjectGu.Presentation
             float alpha = profile.AlphaAt(envelopeAge) * profile.color.a;
             if (alpha <= 0.01f) return false;
             Material material = alpha >= 0.99f ? entry.Material : FadedMaterialPool.FadedVersionOf(entry.Material, alpha);
-            float scale = profile.ScaleAt(envelopeAge) * pose.Scale;
+            float scale = profile.ScaleAt(envelopeAge) * pose.Scale * profile.PulseAt(age);
             var size = new Vector3(profile.drawSize.x * scale, 1f, profile.drawSize.y * scale);
             Quaternion rotation = profile.orientToHeading ? Quaternion.AngleAxis(pose.Heading, Vector3.up) : Quaternion.identity;
             Graphics.DrawMesh(entry.Frames[profile.FrameAt(age)], Matrix4x4.TRS(pose.Position, rotation, size), material, 0);

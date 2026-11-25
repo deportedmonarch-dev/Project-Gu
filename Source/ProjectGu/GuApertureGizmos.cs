@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using ProjectGu.Domain;
-using ProjectGu.Jobs;
+using ProjectGu.Interface;
 using RimWorld;
 using Verse;
-using Verse.AI;
 
 namespace ProjectGu
 {
-    /// <summary>Player-facing mortal-aperture inspection and custody actions for the selected cultivator.</summary>
+    /// <summary>
+    /// Fallback "Manage aperture Gu" menu and the Gu ability commands for the selected cultivator. The Aperture inspection
+    /// tab is the primary interface; this menu offers the same operations, built from the same
+    /// <see cref="GuApertureActions"/>, until the tab has been accepted as a full replacement.
+    /// </summary>
     [StaticConstructorOnStartup]
     internal static class GuApertureGizmos
     {
@@ -38,13 +41,14 @@ namespace ProjectGu
         {
             if (!Installed || __instance?.IsColonistPlayerControlled != true
                 || Current.Game?.GetComponent<GuIndividualRegistry>() is not { } registry
-                || FindAperture(__instance) is not { } aperture) return;
+                || GuApertureActions.FindAperture(__instance) is not { } aperture) return;
 
             var command = new Command_Action
             {
                 defaultLabel = "Manage aperture Gu",
                 icon = ManageIcon,
-                defaultDesc = "Inspect and cultivate the aperture. Refine dormant Gu, or manage this cultivator's bonded Gu.",
+                defaultDesc = "Inspect and cultivate the aperture. Refine dormant Gu, or manage this cultivator's bonded Gu.\n\n"
+                    + "The Aperture tab in this pawn's inspection pane offers the same actions with a full view of the aperture.",
                 action = () => OpenManagementMenu(__instance, aperture, registry)
             };
             var gizmos = new List<Gizmo> { command };
@@ -58,128 +62,54 @@ namespace ProjectGu
         {
             var options = new List<FloatMenuOption>();
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
-            var aperture = FindAperture(host);
+            var aperture = GuApertureActions.FindAperture(host);
             if (registry == null || aperture == null) return options;
 
             GuRecord[] occupants = registry.ApertureOccupants(aperture).OrderBy(record => record.Id, StringComparer.Ordinal).ToArray();
             int claims = registry.ApertureClaimCount(aperture);
             options.Add(new FloatMenuOption($"Inspect aperture Gu ({claims}/{GuIndividualRegistry.MortalApertureCapacity})",
                 () => Inspect(registry, aperture, occupants)));
-            AddCultivationOptions(host, aperture, options);
 
-            if (claims < GuIndividualRegistry.MortalApertureCapacity
-                && host.inventory?.GetDirectlyHeldThings() is { } inventory)
-            {
-                foreach (var thing in inventory.OfType<Thing_GuDormantProjection>())
-                {
-                    if (registry.Resolve(thing) is not { } record || !registry.IsRecognizedByCultivator(record, host)) continue;
-                    options.Add(new FloatMenuOption($"Store {Describe(record)}", () =>
+            // One cultivation option, as before: advancement once the walls are full, otherwise nourishment.
+            var cultivation = aperture.CanAdvanceRankOne
+                ? GuApertureActions.Advance(host, aperture) : GuApertureActions.Nourish(host, aperture);
+            if (cultivation != null) options.Add(GuApertureActions.ToOption(cultivation));
+
+            var held = new List<Thing_GuDormantProjection>();
+            var nearby = new List<Thing_GuDormantProjection>();
+            GuApertureActions.CollectDormant(host, held, nearby);
+
+            if (claims < GuIndividualRegistry.MortalApertureCapacity)
+                foreach (var thing in held)
+                    if (GuApertureActions.Store(host, aperture, registry, thing) is { } store)
                     {
-                        bool stored = registry.TryStoreDormant(thing, thing.GuRevision, host, aperture, out string reason);
-                        Messages.Message(stored ? $"Stored {Describe(record)} in the aperture." : reason,
-                            stored ? MessageTypeDefOf.NeutralEvent : MessageTypeDefOf.RejectInput, false);
-                    }));
-                }
-            }
+                        string label = registry.Resolve(thing) is { } record ? GuApertureActions.Describe(record) : thing.LabelCap;
+                        options.Add(store.Available
+                            ? new FloatMenuOption(store.Label, () => GuApertureActions.Run(store, $"Stored {label} in the aperture."))
+                            : new FloatMenuOption(store.Label, () => Messages.Message(store.DisabledReason, MessageTypeDefOf.RejectInput, false)));
+                    }
 
-            foreach (var record in occupants.Where(record => registry.IsRecognizedByCultivator(record, host)))
-            {
-                options.Add(new FloatMenuOption($"Withdraw {Describe(record)}", () =>
-                {
-                    bool withdrawn = registry.TryWithdrawDormant(record.Id, record.CustodyRevision, host, aperture,
-                        out _, out string reason);
-                    Messages.Message(withdrawn ? $"Withdrew {Describe(record)} to inventory." : reason,
-                        withdrawn ? MessageTypeDefOf.NeutralEvent : MessageTypeDefOf.RejectInput, false);
-                }));
-            }
+            foreach (var record in occupants)
+                if (GuApertureActions.Withdraw(host, aperture, registry, record) is { } withdraw)
+                    options.Add(new FloatMenuOption(withdraw.Label,
+                        () => GuApertureActions.Run(withdraw, $"Withdrew {GuApertureActions.Describe(record)} to inventory.")));
 
-            AddRefinementOptions(host, registry, options);
-            return options;
-        }
-
-        private static void AddCultivationOptions(Pawn host, Hediff_Aperture aperture, List<FloatMenuOption> options)
-        {
-            if (aperture.Rank != 1 || aperture.Stage == RankOneStage.Peak) return;
-            RankOneStage stage = aperture.Stage;
-            string progress = $"{aperture.WallNourishment:0.##}/{aperture.WallNourishmentRequired:0} wall nourishment";
-            string label = aperture.CanAdvanceRankOne ? $"Advance to {stage + 1}" : $"Nourish aperture walls ({progress})";
-
-            if (host.Drafted || host.Downed)
-            {
-                options.Add(new FloatMenuOption($"{label} (requires an undrafted, conscious cultivator)", null));
-                return;
-            }
-
-            if (aperture.CanAdvanceRankOne)
-            {
-                options.Add(new FloatMenuOption(label, () =>
-                {
-                    if (JobDriver_GuNourishAperture.FindCultivatingAperture(host) == aperture && aperture.TryAdvanceRankOne(stage))
-                        Messages.Message($"{host.LabelShort} advanced to Rank 1 {aperture.Stage}. Newly recovered essence is now {aperture.Stage} quality.",
-                            new LookTargets(host), MessageTypeDefOf.PositiveEvent, false);
-                }));
-                return;
-            }
-
-            if (!aperture.CanNourishWalls)
-            {
-                options.Add(new FloatMenuOption($"{label} (waiting for essence recovery)", null));
-                return;
-            }
-
-            options.Add(new FloatMenuOption(label, () =>
-            {
-                if (JobDriver_GuNourishAperture.FindCultivatingAperture(host) == aperture && aperture.Stage == stage
-                    && aperture.CanNourishWalls && JobDriver_GuNourishAperture.NourishJob is { } job)
-                    host.jobs.TryTakeOrderedJob(JobMaker.MakeJob(job), JobTag.Misc);
-            }));
-        }
-
-        private static void AddRefinementOptions(Pawn host, GuIndividualRegistry registry, List<FloatMenuOption> options)
-        {
-            var candidates = new HashSet<Thing_GuDormantProjection>();
-            if (host.inventory?.GetDirectlyHeldThings() is { } inventory)
-                foreach (var thing in inventory.OfType<Thing_GuDormantProjection>()) candidates.Add(thing);
-            if (host.Map != null && !host.Map.Disposed)
-                foreach (IntVec3 cell in GenRadial.RadialCellsAround(host.Position, 8f, true))
-                {
-                    if (!cell.InBounds(host.Map)) continue;
-                    foreach (var thing in cell.GetThingList(host.Map).OfType<Thing_GuDormantProjection>()) candidates.Add(thing);
-                }
-
+            var candidates = new List<Thing_GuDormantProjection>(held);
+            foreach (var thing in nearby) if (!candidates.Contains(thing)) candidates.Add(thing);
             foreach (var thing in candidates)
             {
-                if (registry.Resolve(thing) is not { } record) continue;
-                string label = Describe(record);
-                if (registry.CanOrderRefinement(thing, host, out var quote))
-                {
-                    var process = record.RefinementProcess;
-                    string actionLabel = process != null
-                        ? $"Resume will-enforcement: {label} ({100f * process.CompletedWorkTicks / process.TotalWorkTicks:0}% complete, {process.RemainingEssence:0.0} essence left)"
-                        : $"Enforce will over {label} ({quote.WorkTicks / 2500f:0.0} h, {quote.EssenceCost:0.0} essence)";
-                    options.Add(new FloatMenuOption(actionLabel, () =>
-                    {
-                        if (!registry.CanOrderRefinement(thing, host)
-                            || DefDatabase<JobDef>.GetNamedSilentFail("GU_RefineMortalGu") is not { } jobDef)
-                        {
-                            Messages.Message("This Gu can no longer be refined by this cultivator.", MessageTypeDefOf.RejectInput, false);
-                            return;
-                        }
-                        host.jobs.TryTakeOrderedJob(JobMaker.MakeJob(jobDef, thing));
-                    }));
-                }
-                if (registry.CanAbandonRefinement(thing, host))
-                    options.Add(new FloatMenuOption($"Abandon will-enforcement: {label} (essence spent is lost)", () =>
-                    {
-                        bool abandoned = registry.TryAbandonRefinement(thing, host, out string reason);
-                        Messages.Message(reason, abandoned ? MessageTypeDefOf.NeutralEvent : MessageTypeDefOf.RejectInput, false);
-                    }));
+                if (GuApertureActions.EnforceWill(host, registry, thing) is { } enforce)
+                    options.Add(new FloatMenuOption(enforce.Label, () => GuApertureActions.Run(enforce)));
+                if (GuApertureActions.AbandonWill(host, registry, thing) is { } abandon)
+                    options.Add(new FloatMenuOption(abandon.Label, () => GuApertureActions.Run(abandon,
+                        "The refinement attempt was abandoned. Its essence remains spent; Gu identity, custody and allegiance are unchanged.")));
             }
+            return options;
         }
 
         private static void OpenManagementMenu(Pawn host, Hediff_Aperture aperture, GuIndividualRegistry registry)
         {
-            if (!IsCurrentAperture(host, aperture) || Current.Game?.GetComponent<GuIndividualRegistry>() != registry)
+            if (!GuApertureActions.CanManage(host, aperture) || Current.Game?.GetComponent<GuIndividualRegistry>() != registry)
             {
                 Messages.Message("This cultivator's aperture is no longer available.", MessageTypeDefOf.RejectInput, false);
                 return;
@@ -189,17 +119,14 @@ namespace ProjectGu
 
         private static void Inspect(GuIndividualRegistry registry, Hediff_Aperture aperture, IReadOnlyList<GuRecord> occupants)
         {
-            if (!IsCurrentAperture(aperture?.pawn, aperture) || Current.Game?.GetComponent<GuIndividualRegistry>() != registry) return;
+            if (!GuApertureActions.CanManage(aperture?.pawn, aperture) || Current.Game?.GetComponent<GuIndividualRegistry>() != registry) return;
             string details = occupants.Count == 0 ? "No bound Gu." : string.Join("\n\n", occupants.Select(record =>
-                $"{Describe(record)}\n{RefinementStatus(record)}{AbilityStatus(record)}\nCondition: {record.Condition}; custody revision: {record.CustodyRevision}; "
+                $"{GuApertureActions.Describe(record)}\n{RefinementStatus(record)}{AbilityStatus(record)}\nCondition: {record.Condition}; custody revision: {record.CustodyRevision}; "
                 + $"identity: {record.Id}; aperture: {aperture.ApertureId}"));
             Find.WindowStack.Add(new Dialog_MessageBox(
                 $"{aperture.pawn.LabelShort}'s mortal aperture ({registry.ApertureClaimCount(aperture)}/{GuIndividualRegistry.MortalApertureCapacity})"
                 + $"\n\n{aperture.CultivationStatus}\n\n{details}"));
         }
-
-        private static string Describe(GuRecord record) =>
-            $"{record.Species?.label ?? record.SpeciesDefName} [{record.Id}]";
 
         private static string AbilityStatus(GuRecord record) => record.Species?.abilities is { Count: > 0 } abilities
             ? "\nAbilities: " + string.Join(", ", abilities.Where(ability => ability != null).Select(ability =>
@@ -214,16 +141,5 @@ namespace ProjectGu
             var owner = Current.Game?.GetComponent<GuWorldComponent>()?.FindCultivator(ownerId);
             return $"Recognized cultivator: {owner?.CachedName ?? ownerId}";
         }
-
-        private static Hediff_Aperture FindAperture(Pawn host)
-        {
-            var matches = host?.health?.hediffSet?.hediffs.OfType<Hediff_Aperture>()
-                .Where(hediff => hediff.def == GuWorldComponent.ApertureDef).Take(2).ToArray();
-            return matches?.Length == 1 ? matches[0] : null;
-        }
-
-        private static bool IsCurrentAperture(Pawn host, Hediff_Aperture aperture) =>
-            host?.IsColonistPlayerControlled == true && aperture != null && aperture.pawn == host
-            && aperture.def == GuWorldComponent.ApertureDef && host.health?.hediffSet?.hediffs.Contains(aperture) == true;
     }
 }

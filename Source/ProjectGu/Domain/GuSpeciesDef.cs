@@ -34,6 +34,12 @@ namespace ProjectGu.Domain
         // Active abilities this species grants to the cultivator it recognizes while stored in that cultivator's aperture.
         public List<ProjectGu.Combat.GuAbilityDef> abilities = new List<ProjectGu.Combat.GuAbilityDef>();
 
+        // Descriptive data for the Aperture tab. None of it changes gameplay.
+        /// <summary>Short role shown on Gu cards and in the Techniques reference, for example "attack" or "support".</summary>
+        [MustTranslate] public string role;
+        /// <summary>Effects this Gu provides that are not listed abilities (passive or contextual), shown as bullets.</summary>
+        [MustTranslate] public List<string> effectNotes = new List<string>();
+
         // Optional lure encounter: instead of a plain search, a colonist sets out one of these items at the habitat and waits.
         public List<ThingDef> encounterLures = new List<ThingDef>();
         public int encounterLureTicks = 600;

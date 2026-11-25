@@ -52,7 +52,7 @@ namespace ProjectGu.Jobs
                 }
 
                 if (!aperture.CanAdvanceRankOne) return;
-                Messages.Message($"{pawn.LabelShort}'s aperture is ready. Choose Advance to {aperture.Stage + 1} in Manage aperture Gu.",
+                Messages.Message($"{pawn.LabelShort}'s aperture is ready. Advance to {aperture.Stage + 1} from the Aperture tab or Manage aperture Gu.",
                     new LookTargets(pawn), MessageTypeDefOf.PositiveEvent, false);
                 EndJobWith(JobCondition.Succeeded);
             };

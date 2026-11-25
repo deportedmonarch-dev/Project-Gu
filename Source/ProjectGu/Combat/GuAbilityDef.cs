@@ -11,6 +11,9 @@ namespace ProjectGu.Combat
     /// committed cast does. Costs, targeting rules and timing live here so a new Gu species can reuse the projectile
     /// worker by adding XML, or supply a new worker for a different effect.
     /// </summary>
+    /// <summary>Reference grouping for Gu techniques. Gu serve many purposes besides attack.</summary>
+    public enum GuAbilityCategory { Combat, Cultivation, Support, Defense, Movement, Information, Utility, Refinement, Transformation }
+
     public sealed class GuAbilityDef : Def
     {
         public Type workerClass = typeof(GuAbilityWorker_Projectile);
@@ -36,6 +39,14 @@ namespace ProjectGu.Combat
         public GuFxProfileDef launchFx;
         public GuFxProfileDef travelFx;
         public GuFxProfileDef impactFx;
+
+        // Descriptive data for the Aperture tab's Techniques reference. None of it changes gameplay.
+        /// <summary>What kind of technique this is. Cultivation channels also appear as controls on the Cultivation page.</summary>
+        public GuAbilityCategory category = GuAbilityCategory.Combat;
+        /// <summary>Plain statements of what the technique does, shown as bullets.</summary>
+        [MustTranslate] public List<string> effectNotes = new List<string>();
+        /// <summary>Important restrictions, shown as bullets.</summary>
+        [MustTranslate] public List<string> limitations = new List<string>();
 
         /// <summary>When set, the ability is a self-use timed channel instead of a targeted launch.</summary>
         public GuChannelProperties channel;

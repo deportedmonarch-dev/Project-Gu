@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -329,7 +329,7 @@ try {
         $test = Join-Path $mods 'ProjectGuPriority0Test'
         $harmony = Join-Path $mods 'Harmony'
         New-Item -ItemType Directory -Path $project,$harmony,(Join-Path $test 'About'),(Join-Path $test 'Assemblies') -Force | Out-Null
-        foreach ($entry in @('About','Defs','Patches','Textures','1.7')) { Copy-Item -LiteralPath (Join-Path $root $entry) -Destination $project -Recurse }
+        foreach ($entry in @('About','Defs','Languages','Patches','Textures','1.7')) { Copy-Item -LiteralPath (Join-Path $root $entry) -Destination $project -Recurse }
         foreach ($entry in @('About','1.7','LoadFolders.xml')) { Copy-Item -LiteralPath (Join-Path $harmonyMod $entry) -Destination $harmony -Recurse }
         Copy-Item -LiteralPath (Join-Path $source 'About.xml') -Destination (Join-Path $test 'About')
         Copy-Item -LiteralPath (Join-Path $source 'Defs') -Destination $test -Recurse
@@ -547,6 +547,19 @@ Measure-Phase 'planning' {
             Add-Launch $unit 'final' $false $false '-guclanstart -gualpha3 -gualpha3final'
             # Rendered inspection opens a game window; run with -Parallel 1 and no other RimWorld instance.
             if ($name -eq 'Alpha3Visual') { Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha3visual' }
+            continue
+        }
+        if ($name -eq 'Alpha4A' -or $name -eq 'Alpha4AVisual') {
+            # Alpha 4A: the Aperture tab's actions on the Alpha 3 save, will-enforcement saved mid-process, fresh-process reload.
+            $unit = New-Unit $name $saveData "PASS $name Aperture interface actions and will-enforcement reload. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'aperture' $false $false '-guclanstart -gualpha3 -gualpha4a'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha3 -gualpha4a -gualpha4areload'
+            if ($name -eq 'Alpha4AVisual') {
+                # Rendered inspection of the real tab opens a game window; run with -Parallel 1 and no other RimWorld instance.
+                Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha4a-refining.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+                Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha4a -gualpha4avisual'
+            }
             continue
         }
         if ($name -eq 'GuGeneration') {

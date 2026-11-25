@@ -79,6 +79,7 @@ int botanicalRadius = (int)springSettings.Element("botanicalHabitatRadius")!;
 ManagedEngineChecks.Run(springDef, args[1], targets);
 ClanStartChecks.Run(root, args[1]);
 GuGenerationChecks.Run(root);
+ApertureInterfaceChecks.Run(root);
 
 void VerifyFlora(GuSpringCavernLayout layout, Dictionary<IntVec3, int> shore, int seed)
 {

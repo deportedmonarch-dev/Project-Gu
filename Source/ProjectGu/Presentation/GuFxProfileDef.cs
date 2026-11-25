@@ -40,6 +40,11 @@ namespace ProjectGu.Presentation
         public float forwardOffset;
         /// <summary>Rotate to the event heading. When false the sprite is drawn upright.</summary>
         public bool orientToHeading = true;
+        /// <summary>Continuous rotation in degrees per tick, added to the heading. Follows game ticks, so it stops when paused.</summary>
+        public float spinDegreesPerTick;
+        /// <summary>Gentle breathing: scale varies by this fraction over <see cref="pulsePeriodTicks"/>. 0 disables it.</summary>
+        public float pulseScale;
+        public int pulsePeriodTicks = 120;
 
         // Orbit (pawn-attached sustained layers only). The sprite circles the anchor on an ellipse in the ground plane,
         // drawn just below the pawn's lowest render layer on the far half and just above its highest on the near half.
@@ -71,6 +76,10 @@ namespace ProjectGu.Presentation
             if (fadeOutTicks > 0 && remaining < fadeOutTicks) alpha = Mathf.Min(alpha, Mathf.Max(0f, remaining) / fadeOutTicks);
             return Mathf.Clamp01(alpha);
         }
+
+        /// <summary>Breathing multiplier at an age in ticks; 1 when pulsing is off.</summary>
+        public float PulseAt(int age) => pulseScale == 0f || pulsePeriodTicks <= 0 ? 1f
+            : 1f + pulseScale * Mathf.Sin(age % pulsePeriodTicks / (float)pulsePeriodTicks * 2f * Mathf.PI);
 
         public float ScaleAt(int age) =>
             Mathf.Lerp(startScale, endScale, lifetimeTicks <= 1 ? 1f : Mathf.Clamp01(age / (float)(lifetimeTicks - 1)));
@@ -104,6 +113,9 @@ namespace ProjectGu.Presentation
             if (lifetimeTicks is < 1 or > 2500) yield return $"{defName}: lifetimeTicks must be between 1 and 2500";
             if (orbit && (orbitPeriodTicks is < 2 or > 6000 || orbitRadius.x < 0f || orbitRadius.y < 0f || orbitRadius.x > 5f || orbitRadius.y > 5f))
                 yield return $"{defName}: orbit needs orbitPeriodTicks 2-6000 and radii between 0 and 5";
+            if (!float.IsFinite(spinDegreesPerTick) || Mathf.Abs(spinDegreesPerTick) > 90f) yield return $"{defName}: spinDegreesPerTick must be between -90 and 90";
+            if (!float.IsFinite(pulseScale) || pulseScale < 0f || pulseScale > 0.5f || pulsePeriodTicks is < 2 or > 6000)
+                yield return $"{defName}: pulseScale must be 0-0.5 and pulsePeriodTicks 2-6000";
             if (drawSize.x <= 0f || drawSize.y <= 0f || drawSize.x > 20f || drawSize.y > 20f)
                 yield return $"{defName}: drawSize components must be in (0, 20]";
         }

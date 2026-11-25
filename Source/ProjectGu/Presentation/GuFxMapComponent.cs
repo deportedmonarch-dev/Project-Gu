@@ -205,7 +205,7 @@ namespace ProjectGu.Presentation
                 return new GuFxPose(orbitPos, sample.Heading, sample.Scale, sample.Front);
             }
 
-            float currentHeading = Heading;
+            float currentHeading = Heading + Profile.spinDegreesPerTick * Age(now);
             Vector3 basePosition = Anchor != null ? Anchor.DrawPos : position;
             if (Profile.forwardOffset != 0f)
                 basePosition += Quaternion.AngleAxis(currentHeading, Vector3.up) * new Vector3(0f, 0f, Profile.forwardOffset);

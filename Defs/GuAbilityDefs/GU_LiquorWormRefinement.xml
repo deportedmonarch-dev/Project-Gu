@@ -12,6 +12,18 @@
     <targetLocations>false</targetLocations>
     <requireLineOfSight>false</requireLineOfSight>
     <iconPath>ProjectGU/UI/Abilities/LiquorWormRefinement</iconPath>
+    <category>Cultivation</category>
+    <effectNotes>
+      <li>Refines Green Copper Primeval Essence of the cultivator's current minor stage into the next higher Rank 1 quality.</li>
+      <li>Preserves raw essence volume: each refined unit still counts as one unit of the shared capacity.</li>
+      <li>Higher-quality essence nourishes the aperture walls more efficiently (Middle 2, Upper 4, Peak 8 nourishment per unit).</li>
+      <li>Does not raise the cultivator's minor stage; advancing remains a separate act of cultivation.</li>
+    </effectNotes>
+    <limitations>
+      <li>Rank 1 apertures only. A Peak-stage cultivator has no higher Rank 1 quality to refine into.</li>
+      <li>A session is bound to the stage it began in and ends if the stage changes.</li>
+      <li>Requires an undrafted, conscious Gu Master. Drafting, another order, incapacitation or withdrawing the Gu suspends the session; completed pulses are kept and resuming is free.</li>
+    </limitations>
     <channel>
       <workerClass>ProjectGu.Combat.GuChannelWorker_EssenceRefinement</workerClass>
       <pulseIntervalTicks>250</pulseIntervalTicks>

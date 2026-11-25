@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!--
+    Will-enforcement presentation: shown only while a cultivator's will-enforcement job is genuinely driving a refinement
+    process. Cosmetic only; refinement time, costs and authority never read it. Respects the Project GU visual-effects
+    setting. Art specifications: docs/ALPHA-4A-APERTURE-INTERFACE.md#will-enforcement-effect
+  -->
+  <ProjectGu.Presentation.GuRefinementPresentationDef>
+    <defName>GU_Presentation_WillEnforcement</defName>
+    <label>will-enforcement</label>
+    <kind>WillEnforcement</kind>
+    <cultivatorLayers>
+      <li>GU_Fx_WillSuppressionField</li>
+      <li>GU_Fx_WillSuppressionCurrents</li>
+    </cultivatorLayers>
+  </ProjectGu.Presentation.GuRefinementPresentationDef>
+
+  <!-- A slowly turning ring of branching essence currents on the ground beneath the cultivator. -->
+  <ProjectGu.Presentation.GuFxProfileDef>
+    <defName>GU_Fx_WillSuppressionField</defName>
+    <texPath>ProjectGU/Effects/WillEnforcement/SuppressionField</texPath>
+    <columns>1</columns>
+    <rows>1</rows>
+    <frameCount>1</frameCount>
+    <ticksPerFrame>60</ticksPerFrame>
+    <lifetimeTicks>60</lifetimeTicks>
+    <loop>true</loop>
+    <drawSize>(2.3,2.3)</drawSize>
+    <fadeInTicks>40</fadeInTicks>
+    <color>(1,1,1,0.75)</color>
+    <shaderType>MoteGlow</shaderType>
+    <altitudeLayer>MoteLow</altitudeLayer>
+    <orientToHeading>true</orientToHeading>
+    <spinDegreesPerTick>0.6</spinDegreesPerTick>
+    <pulseScale>0.04</pulseScale>
+    <pulsePeriodTicks>150</pulsePeriodTicks>
+  </ProjectGu.Presentation.GuFxProfileDef>
+
+  <!-- Swirling suppression currents closing around the cultivator's hands and the Gu they hold. -->
+  <ProjectGu.Presentation.GuFxProfileDef>
+    <defName>GU_Fx_WillSuppressionCurrents</defName>
+    <texPath>ProjectGU/Effects/WillEnforcement/Currents</texPath>
+    <columns>4</columns>
+    <rows>1</rows>
+    <frameCount>4</frameCount>
+    <ticksPerFrame>8</ticksPerFrame>
+    <lifetimeTicks>32</lifetimeTicks>
+    <loop>true</loop>
+    <drawSize>(1.5,1.5)</drawSize>
+    <fadeInTicks>40</fadeInTicks>
+    <color>(1,1,1,0.65)</color>
+    <shaderType>MoteGlow</shaderType>
+    <altitudeLayer>MoteOverheadLow</altitudeLayer>
+    <orientToHeading>true</orientToHeading>
+    <spinDegreesPerTick>-2.2</spinDegreesPerTick>
+    <pulseScale>0.06</pulseScale>
+    <pulsePeriodTicks>90</pulsePeriodTicks>
+  </ProjectGu.Presentation.GuFxProfileDef>
+</Defs>

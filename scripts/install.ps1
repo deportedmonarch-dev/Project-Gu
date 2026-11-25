@@ -17,7 +17,7 @@ try {
     $versionTarget = Join-Path $target '1.7'
     $assemblyTarget = Join-Path $versionTarget 'Assemblies'
     New-Item -ItemType Directory -Force $assemblyTarget | Out-Null
-    foreach ($folder in @('About','Defs','Patches','Textures')) {
+    foreach ($folder in @('About','Defs','Languages','Patches','Textures')) {
         Copy-Item -LiteralPath (Join-Path $root $folder) -Destination $target -Recurse -Force
     }
     $versionSource = Join-Path $root '1.7'
