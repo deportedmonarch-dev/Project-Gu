@@ -82,6 +82,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         else if (GenCommandLine.CommandLineArgPassed("gualpha1stored")) Run(VerifyAlpha1Stored, "stored");
         else if (GenCommandLine.CommandLineArgPassed("gualpha2visual")) StartAlpha2Visual();
         else if (GenCommandLine.CommandLineArgPassed("gualpha2final")) Run(VerifyAlpha2Final, "final");
+        else if (GenCommandLine.CommandLineArgPassed("gualpha4aperf")) StartAlpha4APerf();
         else if (GenCommandLine.CommandLineArgPassed("gualpha4avisual")) StartAlpha4AVisual();
         else if (GenCommandLine.CommandLineArgPassed("gualpha4areload")) Run(VerifyAlpha4AReload, "reload");
         else if (Alpha4A) Run(VerifyAlpha4AAperture, "aperture");

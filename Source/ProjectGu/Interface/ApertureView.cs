@@ -73,6 +73,8 @@ namespace ProjectGu.Interface
         private readonly List<Thing_GuDormantProjection> held = new();
         private readonly List<Thing_GuDormantProjection> nearby = new();
 
+        /// <summary>Increments on every refresh, so callers can cache text derived from the snapshot.</summary>
+        public int Version { get; private set; }
         public bool Valid => Pawn != null && Aperture != null;
         public bool AtPeak => Rank == 1 && Stage == (int)RankOneStage.Peak;
 
@@ -89,6 +91,7 @@ namespace ProjectGu.Interface
 
         public void Refresh(Pawn pawn)
         {
+            Version++;
             Pawn = pawn;
             Aperture = GuApertureActions.FindAperture(pawn);
             Gu.Clear();

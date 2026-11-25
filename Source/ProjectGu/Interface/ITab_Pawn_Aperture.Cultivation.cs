@@ -12,6 +12,17 @@ namespace ProjectGu.Interface
     {
         private const float RowHeight = 24f;
         private float cultivationContentHeight = 600f;
+        private int tooltipVersion = -1;
+        private string orbTip, compositionTip;
+
+        /// <summary>Tooltip text is rebuilt only when the view refreshes, not on every GUI event.</summary>
+        private void RefreshTooltips(ApertureView view)
+        {
+            if (tooltipVersion == view.Version) return;
+            tooltipVersion = view.Version;
+            orbTip = OrbTooltip(view);
+            compositionTip = CompositionText(view);
+        }
 
         private void DrawCultivation(Rect rect)
         {
@@ -21,13 +32,14 @@ namespace ProjectGu.Interface
             var preview = DevPreview is { } vitality && Prefs.DevMode
                 ? new GuApertureVisualState(vitality, 0.75f, view.Activity, true) : (GuApertureVisualState?)null;
             Orb.Draw(orbRect, view.OrbInput(preview));
-            TooltipHandler.TipRegion(orbRect, OrbTooltip(view));
+            RefreshTooltips(view);
+            TooltipHandler.TipRegion(orbRect, orbTip);
             if (preview != null)
                 ApertureTabStyle.Label(new Rect(orbRect.x, orbRect.y, orbRect.width, 20f), $"Developer preview: {DevPreview}",
                     ApertureTabStyle.Warning, GameFont.Tiny, TextAnchor.UpperCenter);
 
             Rect under = new Rect(rect.x, orbRect.yMax + 6f, orbSize, rect.yMax - orbRect.yMax - 6f);
-            if (view.Disclosure == ApertureDisclosure.Full) DrawComposition(under, view);
+            if (view.Disclosure == ApertureDisclosure.Full) DrawComposition(under, view, compositionTip);
             else ApertureTabStyle.Label(under, "The primeval sea is concealed.", ApertureTabStyle.Faint, GameFont.Tiny, TextAnchor.UpperCenter);
 
             Rect column = new Rect(orbRect.xMax + 16f, rect.y, rect.xMax - orbRect.xMax - 16f, rect.height);
@@ -201,7 +213,7 @@ namespace ProjectGu.Interface
         }
 
         /// <summary>A proportional bar of the sea's composition against the shared capacity, with exact numbers.</summary>
-        private static void DrawComposition(Rect rect, ApertureView view)
+        private static void DrawComposition(Rect rect, ApertureView view, string tooltip)
         {
             Rect bar = new Rect(rect.x, rect.y, rect.width, 12f);
             Widgets.DrawBoxSolid(bar, ApertureTabStyle.BarBack);
@@ -216,7 +228,7 @@ namespace ProjectGu.Interface
             GUI.color = ApertureTabStyle.PanelEdge;
             Widgets.DrawBox(bar);
             GUI.color = Color.white;
-            TooltipHandler.TipRegion(bar, CompositionText(view));
+            TooltipHandler.TipRegion(bar, tooltip);
             ApertureTabStyle.Label(new Rect(rect.x, bar.yMax + 2f, rect.width, 20f),
                 $"{view.Total:0.##} / {view.Capacity:0} essence", ApertureTabStyle.Muted, GameFont.Tiny, TextAnchor.UpperCenter);
         }

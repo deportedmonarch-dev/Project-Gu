@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -560,6 +560,15 @@ Measure-Phase 'planning' {
                 Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha4a-refining.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
                 Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha4a -gualpha4avisual'
             }
+            continue
+        }
+        if ($name -eq 'Alpha4APerf') {
+            # Rendered performance profile of the Aperture tab orb; opens a game window. Run with -Parallel 1 and nothing else running.
+            $unit = New-Unit $name $saveData "PASS $name Aperture orb performance profile. Results in $saveData\alpha4a-perf.txt"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'aperture' $false $false '-guclanstart -gualpha3 -gualpha4a'
+            Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha4a-refining.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+            Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha4a -gualpha4aperf'
             continue
         }
         if ($name -eq 'GuGeneration') {

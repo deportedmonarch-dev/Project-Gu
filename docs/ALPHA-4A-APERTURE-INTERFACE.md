@@ -62,7 +62,7 @@ All new presentation code lives in `Source/ProjectGu/Interface/`. None of it sav
 | `ITab_Pawn_Aperture` (+ `.Cultivation`, `.Gu`, `.Techniques`, `.Foundation`) | The native inspection tab. It sizes itself to the space above the inspection pane at any UI scale, and every page scrolls. |
 | `ApertureView` | A read-only snapshot rebuilt from the aperture, registry, combat ledger and current job four times a second while open, and at once after any action. It holds no authority between refreshes. |
 | `GuApertureAction` / `GuApertureActions` | One description per available operation (nourish, advance, channel, store, withdraw, enforce, resume, abandon), built from authoritative state. Running one calls the existing registry, aperture or channel service, which revalidates and commits. The tab and the fallback menu both use them, and the tab never calls a commit method directly (a managed check enforces this). |
-| `ApertureOrbRenderer` | Composites the orb on the CPU into one 256×256 texture, at most 30 times a second while visible. Animation follows real time; there is no tick work and no world scan. |
+| `ApertureOrbRenderer` | Composites the orb on the CPU into one 256×256 texture. Static pixels are cached; only the sea animates, at 12 FPS while the game runs, and nothing is recomposed while paused unless an input changes. No tick work and no world scan. See [Renderer performance](#renderer-performance). |
 | `PrimevalSeaLayout` | Pure geometry: area-to-row conversion and quality layering. Covered by managed tests. |
 | `GuApertureRankDef` | Rank terminology, essence colours and art paths. Presentation only. |
 | `GuApertureConditions` / `IGuApertureConditionSource` | The reusable vitality system. See [Conditions](#aperture-conditions). |
@@ -273,10 +273,85 @@ A harness defect also surfaced and was fixed. The reload assertion compared the 
 
 A real player session through the ordinary main menu was not performed. The rendered harness drives the real inspection pane and tab, but the owner's own playthrough remains the acceptance check for feel and readability.
 
+## Renderer performance
+
+A focused review of `ApertureOrbRenderer` after `47be46d` measured the renderer, changed it in small steps and measured again. Gameplay and the Gu Framework are untouched.
+
+### Method
+
+- **`ApertureOrbStats`:** cheap counters, two timestamp reads per measured step and no allocation. They count compositions, uploads, skipped frames and static rebuilds, and record average and worst composition, setup and upload time, plus managed bytes allocated inside composition and upload.
+- **Rendered profile (`Alpha4APerf`):** Vulkan, 2560×1600, UI scale 1.125. It loads the will-enforcement save, warms the tab up, then measures nine windows of 300 real frames each, with game speed actually applied. The windows are:
+  - tab closed
+  - Cultivation at Normal, Fast and Superfast
+  - Cultivation while paused
+  - Gu page (no orb)
+  - UI scale 2
+  - Liquor Worm refinement running
+  - tab closed again, as a drift check
+
+  Each window also records frame time (average, 95th percentile, worst) and main-thread allocations. Results go to `alpha4a-perf.txt`.
+- **Baseline:** the `47be46d` renderer and tab with only the counters added, measured in campaign `bb74fadb6fb94c6ebf3de1ffd390b04e`.
+- **Final:** campaign `e7dd2618380140a2b2eda7daa3e16021`.
+- **Managed micro-benchmark:** composition only, no GPU and no frame noise. It reports medians after warm-up and runs in `verify.ps1`.
+
+### Results (rendered, 300 frames ≈ 1.8 s per window)
+
+| Window | Compositions (before → after) | Composition avg / worst ms (before → after) | Upload avg ms | Orb main-thread cost per second (before → after) |
+| --- | --- | --- | --- | --- |
+| Cultivation, Normal | 50 → 23 | 1.92 / 2.69 → 1.53 / 1.65 | 0.16 | ≈ 56 ms → ≈ 21 ms (−62%) |
+| Cultivation, Fast | 50 → 22 | 1.81 / 2.64 → 1.45 / 1.71 | 0.16 | ≈ 50 ms → ≈ 19 ms |
+| Cultivation, Superfast | 52 → 23 | 1.83 / 2.33 → 1.60 / 3.16 | 0.16 | ≈ 54 ms → ≈ 21 ms |
+| Cultivation, paused | 50 → 1 | 2.08 / 15.22 → 1.41 | 0.15 | ≈ 61 ms → ≈ 0.9 ms (−99%) |
+| UI scale 2 | 51 → 21 | 1.89 / 2.59 → 1.53 / 1.69 | 0.16 | ≈ 56 ms → ≈ 19 ms |
+| Liquor Worm channel | 51 → 22 | 1.61 / 2.11 → 1.26 / 2.81 | 0.15 | ≈ 49 ms → ≈ 17 ms (−65%) |
+
+- **Uploads:** they fall in step with compositions (50 → 22 per window, 50 → 1 when paused).
+- **Allocations:**
+  - The engine's `Texture2D.Apply` allocates about 2.7 KB per upload, so upload allocations drop from about 105 KB to about 60 KB per window (2 KB when paused).
+  - Composition allocates nothing, before or after. The managed benchmark shows 0 bytes over 400 incremental frames.
+  - Total main-thread allocation with the Cultivation page open fell from 12.1–17.2 MB to 10.6–12.9 MB per window. For comparison, it is about 9.0 MB on the Gu page and 7–8 MB with the tab closed; the rest is ordinary UI text.
+- **Managed benchmark (final):** a full pass takes 1.21 ms median (1.90 ms 99th percentile). An incremental sea-only pass takes 0.79 ms median (1.16 ms 99th percentile) with 0 bytes allocated.
+- **Frame time:** this machine renders the game at its 165 Hz cap (6.06 ms) with headroom, so median and 95th-percentile frame times are 6.06 ms in every window, before and after. The orb's cost is therefore reported directly as main-thread milliseconds rather than inferred from frame rate. The occasional 13–90 ms worst frames appear with the tab closed too.
+
+### What changed
+
+1. **Animation rate:** 30 → 12 FPS (`ApertureOrbRenderer.AnimationFps`). The slow two-part wave moves at most about 0.1 rad between frames, which still reads as smooth motion in the rendered inspection.
+2. **Pause behaviour:** the animation clock advances only while the game runs and the aperture is alive. Paused or dead, the orb freezes in place and recomposes only when an input changes, for example storing a Gu while paused. Speed doesn't alter the motion, which follows real time.
+3. **Dirty-state rendering:** the renderer keeps the inputs of its last frame (rank, stage, every essence amount, capacity, wall progress, condition, crack severity, activity, preview). An unchanged frame on a frozen clock is skipped, with no composition and no upload.
+4. **Static caching:**
+   - Pixels outside the sea mask (shell, wall ring, highlights, overlays) are composited once and kept.
+   - They are rebuilt only when rank art, stage, wall progress, condition or crack severity changes, or when nourishment starts or stops (the wall ring pulses while nourishing).
+   - Animated frames recompose only the sea pixels, plus the wall ring during nourishment.
+   - A managed test proves that the incremental frame equals a full composition pixel for pixel in six states (healthy, nourishing, essence refinement, will-enforcement, cracked, dead), and that each static input triggers a rebuild.
+5. **Inner loop:**
+   - The per-pixel work runs over local copies of every array and value it reads.
+   - The caustic shimmer uses per-column and per-row sine tables via sin(a + b) = sin a cos b + cos a sin b.
+   - The layer-cache key string is built only when the rank or stage changes, which removed the last per-frame allocation.
+6. **Tooltips:** the orb and composition tooltips are rebuilt only when the view refreshes, instead of on every GUI event.
+
+Two attempts were measured and rejected:
+- **Per-pixel method:** a version that composited through a per-pixel method reading instance fields cost about 5 ms per composition.
+- **`AggressiveOptimization` on the loop:** it cost about 3.1 ms in game, because skipping tiered compilation also loses dynamic profile-guided optimization. The final loop leaves .NET tiering on, and on-stack replacement promotes it within the first compositions.
+
+### Regression on the final build
+
+- **Managed:** `verify.ps1 -Focused` passes, with 69 Alpha 4A checks including the pixel-parity and zero-allocation checks.
+- **Rendered `Alpha4AVisual`:** campaign `e69719f195684f4fa93f027843bdcfaf` passed every stage. The screenshots keep the layered mixed-quality sea, refinement currents, crack and dead previews, and UI scales.
+- **Headless:** campaign `ccaf891114f046a0a3549ac53049b490` passed `Alpha4A`, `Alpha1` and `Alpha3`. Earlier campaign `5b10d61854fa454d9ed34e4067bf4022` on the optimized code passed `Alpha4A`, `Alpha3`, `Alpha2` and `RankOne`.
+- **Intermittent failures:** two ordinary-pathing timeouts occurred during this review, both in code these changes don't touch. Headless runs never draw the tab.
+  - A baseline-build clan-start descent did not reach the pit in 6,000 ticks.
+  - One `Alpha1` capture job did not finish in time; its rerun, campaign `a73c3068852d43a19d8f30ad9b4b2309`, passed.
+
+### Remaining limitations
+
+- **Main thread:** composition and upload still run on the main thread during Repaint, about 1.5 + 0.16 ms twelve times a second while the Cultivation page is open and the game runs. Waylith offers no GPU-side alternative: material blits through `Graphics.DrawTexture` and `PackTextures` are stubs. Moving composition to a worker thread would need double-buffering, and wasn't justified at about 2% of one core.
+- **Wall ring and caustics:** the static wall ring and highlight cost is paid once, but a stage change or the start of nourishment triggers a full pass (about 1.2 ms in the managed benchmark). The caustic pattern changed imperceptibly: exact sine instead of the 1,024-entry table.
+- **Frame-time impact:** it could not be resolved below the 165 Hz frame cap on this machine. A slower machine would show the per-second costs above as frame time.
+
 ## Open items for the owner
 
 - **Placeholder art:** the orb and effect art are original placeholders, specified above for replacement with handmade Krita assets.
 - **Palette:** the Rank 1 colours are provisional pending the canonical palette.
 - **Fallback menu:** **Manage aperture Gu** stays as a fallback until the owner accepts the tab as a full replacement. Removing it needs no save migration, since it saves nothing.
 - **Observed view:** what a pawn outside the clan may perceive (currently rank and stage only) is a provisional design choice.
-- **Layer order:** higher-quality essence settling lowest is a presentation choice. It can be reversed in `PrimevalSeaLayout.Layers`.
+- **Layer order:** the sea is sorted by quality (density), not brightness: Peak at the bottom, then Upper, Middle, and Initial on top. Because Rank 1 Middle (pale green) is lighter than Initial (jade), a pale layer sits under a jade one when both are present; from Middle upward each lower layer is darker. The owner endorsed this ordering on 2026-11-25. Sorting strictly by darkness would be a one-line change in `PrimevalSeaLayout.Layers`.

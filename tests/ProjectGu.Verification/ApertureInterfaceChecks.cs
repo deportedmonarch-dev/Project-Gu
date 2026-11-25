@@ -19,6 +19,7 @@ internal static class ApertureInterfaceChecks
     {
         VerifySeaLayout();
         VerifyStageAndQualityStaySeparate();
+        VerifyIncrementalComposition();
         VerifyRankDefinitions(root);
         VerifyConditions();
         VerifyProfiles(root);
@@ -94,6 +95,96 @@ internal static class ApertureInterfaceChecks
         PrimevalSeaLayout.Layers(circle, amounts, aperture.MaxEssence, boundaries);
         Check(boundaries[1] - boundaries[0] > 1f && boundaries[2] - boundaries[1] > 1f && boundaries[3] == boundaries[2],
             "The orb draws separate Initial and Middle layers rather than a uniform Middle sea");
+    }
+
+    /// <summary>
+    /// The renderer caches pixels outside the sea and recomposes only the animated ones. For every visual state, an
+    /// incremental frame must equal a full composition of the same inputs pixel for pixel.
+    /// </summary>
+    private static void VerifyIncrementalComposition()
+    {
+        const int size = ApertureOrbRenderer.Size;
+        var random = new Random(4);
+        float[] Pattern(double density) => Enumerable.Range(0, size * size).Select(_ => random.NextDouble() < density ? (float)random.NextDouble() : 0f).ToArray();
+        var rank = new GuApertureRankDef
+        {
+            defName = "ManagedOrbRank", rank = 1, essenceLabel = "x", implemented = true, structureTint = 0.4f,
+            stages = new[] { (0.30f, 0.72f, 0.52f), (0.68f, 0.92f, 0.70f), (0.13f, 0.55f, 0.29f), (0.07f, 0.30f, 0.18f) }
+                .Select((c, i) => new GuApertureStageVisual { label = i.ToString(), essenceColor = new UnityEngine.Color(c.Item1, c.Item2, c.Item3) }).ToList()
+        };
+        ApertureOrbRenderer.InjectLayers(rank, ApertureOrbRenderer.GeneratedLayers(Pattern(0.05), Pattern(0.3), Pattern(0.1)));
+        ApertureOrbInput Input(double[] amounts, GuApertureVisualState visual, float arc = 0.3f, int stage = 0) =>
+            new() { Rank = rank, Stage = stage, Amounts = amounts, Capacity = 40, WallArc = arc, Visual = visual };
+        bool Same(UnityEngine.Color32[] a, UnityEngine.Color32[] b)
+        {
+            for (int i = 0; i < a.Length; i++)
+                if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b || a[i].a != b[i].a) return false;
+            return true;
+        }
+
+        var cases = new (string, GuApertureVisualState)[]
+        {
+            ("healthy", new(GuApertureVitality.Healthy, 0f, GuApertureActivity.None)),
+            ("nourishing", new(GuApertureVitality.Healthy, 0f, GuApertureActivity.NourishingWalls)),
+            ("essence refinement", new(GuApertureVitality.Healthy, 0f, GuApertureActivity.EssenceRefinement)),
+            ("will-enforcement", new(GuApertureVitality.Healthy, 0f, GuApertureActivity.WillEnforcement)),
+            ("cracked", new(GuApertureVitality.Cracked, 0.7f, GuApertureActivity.None)),
+            ("dead", new(GuApertureVitality.Dead, 0f, GuApertureActivity.None))
+        };
+        double[] before = { 10, 4, 0, 0 }, after = { 9.5, 5, 1, 0 };
+        foreach (var (label, visual) in cases)
+        {
+            var incremental = new ApertureOrbRenderer();
+            incremental.ComposeBuffer(Input(before, visual), 0.4f);
+            incremental.ComposeBuffer(Input(after, visual), 2.9f);
+            var full = new ApertureOrbRenderer();
+            full.ComposeBuffer(Input(after, visual), 2.9f);
+            Check(incremental.StaticRebuilds == 1 && full.StaticRebuilds == 1 && Same(incremental.Buffer, full.Buffer),
+                $"Incremental composition equals a full composition pixel for pixel ({label})");
+        }
+        var orb = new ApertureOrbRenderer();
+        var healthy = cases[0].Item2;
+        orb.ComposeBuffer(Input(before, healthy), 1f);
+        orb.ComposeBuffer(Input(before, healthy, arc: 0.6f), 1f);
+        orb.ComposeBuffer(Input(before, cases[1].Item2, arc: 0.6f), 1f);
+        orb.ComposeBuffer(Input(before, cases[4].Item2, arc: 0.6f), 1f);
+        var initial = (UnityEngine.Color32[])orb.Buffer.Clone();
+        orb.ComposeBuffer(Input(before, cases[4].Item2, arc: 0.6f, stage: 1), 1f);
+        Check(orb.StaticRebuilds == 5 && !Same(initial, orb.Buffer),
+            "Wall progress, the start of nourishment, a condition and a stage change each rebuild the static pixels, and the stage retints them");
+
+        // CPU cost, no game frame noise: full passes versus incremental (sea-only) passes, and allocations.
+        var bench = new ApertureOrbRenderer();
+        var refining = cases[2].Item2;
+        bench.ComposeBuffer(Input(after, refining), 0f);
+        for (int warm = 0; warm < 20; warm++) bench.ComposeBuffer(Input(after, refining), warm * 0.08f);
+        var watch = new System.Diagnostics.Stopwatch();
+        double Time(Action step, int frames, out double worst, out long bytes)
+        {
+            var samples = new double[frames];
+            long start = GC.GetAllocatedBytesForCurrentThread();
+            for (int f = 0; f < frames; f++)
+            {
+                watch.Restart();
+                step();
+                samples[f] = watch.Elapsed.TotalMilliseconds;
+            }
+            bytes = GC.GetAllocatedBytesForCurrentThread() - start;
+            Array.Sort(samples);
+            worst = samples[(int)(frames * 0.99)];
+            return samples[frames / 2]; // median
+        }
+        int frame = 0;
+        Action incrementalStep = () => bench.ComposeBuffer(Input(after, refining), ++frame * 0.083f);
+        Action fullStep = () => bench.ComposeBuffer(Input(after, refining, arc: (++frame % 2) * 0.1f + 0.2f), frame * 0.083f);
+        Time(fullStep, 100, out _, out _); // JIT warm-up of both paths
+        Time(incrementalStep, 100, out _, out _);
+        double fullMs = Time(fullStep, 400, out double fullWorst, out _);
+        double incrementalMs = Time(incrementalStep, 400, out double incrementalWorst, out long incrementalBytes);
+        Console.WriteLine($"MEASURE: orb composition (refining, managed, no GPU): full {fullMs:0.000} ms median / {fullWorst:0.000} p99; "
+            + $"incremental {incrementalMs:0.000} ms median / {incrementalWorst:0.000} p99; incremental allocations {incrementalBytes} bytes over 400 frames");
+        Check(incrementalBytes == 0, "Incremental composition allocates nothing");
+        Check(incrementalMs < fullMs, "An incremental (sea-only) pass is cheaper than a full pass");
     }
 
     private static void VerifyRankDefinitions(string root)
