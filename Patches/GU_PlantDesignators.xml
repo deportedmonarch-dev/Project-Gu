@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <!-- Alpha 5B plant framework: the "Gather seeds" order sits in the Orders menu beside the native Harvest order. -->
+  <Operation Class="PatchOperationInsert">
+    <xpath>Defs/DesignationCategoryDef[defName="Orders"]/specialDesignatorClasses/li[text()="Designator_PlantsHarvest"]</xpath>
+    <order>Append</order>
+    <value>
+      <li>ProjectGu.Botany.Designator_GuGatherSeeds</li>
+    </value>
+  </Operation>
+</Patch>

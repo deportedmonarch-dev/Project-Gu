@@ -152,6 +152,9 @@ namespace ProjectGu.Domain
         internal int feedRevision;
         internal GuNourishmentLevel notifiedLevel = GuNourishmentLevel.Sated;
         internal bool fromLegacySave;
+        /// <summary>Alpha 5B: meals given by background provisioning, and where the last automatic meal came from.</summary>
+        internal int automaticMeals;
+        internal string lastFeedSource;
 
         public int NourishmentTicks => nourishmentTicks;
         public int StarvingTicks => starvingTicks;
@@ -164,6 +167,8 @@ namespace ProjectGu.Domain
         public int ItemsEaten => itemsEaten;
         public int FeedRevision => feedRevision;
         public bool FromLegacySave => fromLegacySave;
+        public int AutomaticMeals => automaticMeals;
+        public string LastFeedSource => lastFeedSource;
 
         public override void ExposeData()
         {
@@ -179,6 +184,8 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref feedRevision, "feedRevision");
             Scribe_Values.Look(ref notifiedLevel, "notifiedLevel", GuNourishmentLevel.Sated);
             Scribe_Values.Look(ref fromLegacySave, "fromLegacySave");
+            Scribe_Values.Look(ref automaticMeals, "automaticMeals");
+            Scribe_Values.Look(ref lastFeedSource, "lastFeedSource");
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 nourishmentTicks = Math.Max(0, nourishmentTicks);

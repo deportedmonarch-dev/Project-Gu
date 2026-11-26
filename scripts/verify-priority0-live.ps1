@@ -1,8 +1,10 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [string]$InstalledProjectGuPath = '',
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
+    [string]$Alpha5BLogisticsSave = '',
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
     # Saves written by the v0.2.5 Schema V1 build. Each is copied, never modified, and checked by SHA-256.
@@ -53,6 +55,9 @@ $profiles = @(switch ($Profile) {
 })
 foreach ($legacy in @('Legacy31', 'Legacy39')) { if ($historical[$legacy]) { $profiles += $legacy } }
 $profiles = @($profiles | Select-Object -Unique)
+if ($Alpha5BLogisticsSave -and ($profiles -notcontains 'Alpha5BLogistics' -or !(Test-Path -LiteralPath $Alpha5BLogisticsSave -PathType Leaf))) {
+    throw 'Pass an existing save copy with -Profile Alpha5BLogistics.'
+}
 if ($CultivatorFixtures -and $profiles -notcontains 'CultivatorMigration') {
     throw 'CultivatorFixtures requires -Profile CultivatorMigration.'
 }
@@ -83,6 +88,14 @@ if (!$HarmonyPath) {
 }
 $HarmonyPath = (Resolve-Path -LiteralPath $HarmonyPath).Path
 $harmonyMod = Split-Path (Split-Path (Split-Path $HarmonyPath))
+if ($InstalledProjectGuPath) {
+    $InstalledProjectGuPath = (Resolve-Path -LiteralPath $InstalledProjectGuPath).Path
+    $installedAbout = [xml](Get-Content -LiteralPath (Join-Path $InstalledProjectGuPath 'About/About.xml') -Raw)
+    if ($installedAbout.ModMetaData.packageId -ne 'projectgu.livingcultivation' -or
+        !(Test-Path -LiteralPath (Join-Path $InstalledProjectGuPath '1.7/Assemblies/ProjectGu.dll') -PathType Leaf)) {
+        throw 'InstalledProjectGuPath must name a deployed Project GU 1.7 mod.'
+    }
+}
 $objRoot = [IO.Path]::GetFullPath((Join-Path $root 'tests/obj'))
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -329,7 +342,13 @@ try {
         $test = Join-Path $mods 'ProjectGuPriority0Test'
         $harmony = Join-Path $mods 'Harmony'
         New-Item -ItemType Directory -Path $project,$harmony,(Join-Path $test 'About'),(Join-Path $test 'Assemblies') -Force | Out-Null
-        foreach ($entry in @('About','Defs','Languages','Patches','Textures','1.7')) { Copy-Item -LiteralPath (Join-Path $root $entry) -Destination $project -Recurse }
+        if ($InstalledProjectGuPath) {
+            Get-ChildItem -LiteralPath $InstalledProjectGuPath -Force | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination $project -Recurse -Force
+            }
+        } else {
+            foreach ($entry in @('About','Defs','Languages','Patches','Textures','1.7')) { Copy-Item -LiteralPath (Join-Path $root $entry) -Destination $project -Recurse }
+        }
         foreach ($entry in @('About','1.7','LoadFolders.xml')) { Copy-Item -LiteralPath (Join-Path $harmonyMod $entry) -Destination $harmony -Recurse }
         Copy-Item -LiteralPath (Join-Path $source 'About.xml') -Destination (Join-Path $test 'About')
         Copy-Item -LiteralPath (Join-Path $source 'Defs') -Destination $test -Recurse
@@ -585,6 +604,40 @@ Measure-Phase 'planning' {
                 # Rendered inspection of feeding opens a game window; run with -Parallel 1 and no other RimWorld instance.
                 Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha5a-feeding.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
                 Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha5a -gualpha5avisual'
+            }
+            continue
+        }
+        if ($name -eq 'Alpha5BLogistics') {
+            $unit = New-Unit $name $saveData "PASS Alpha 5B native logistics. Evidence in $saveData"
+            if ($Alpha5BLogisticsSave) {
+                New-Item -ItemType Directory -Path (Join-Path $saveData 'Saves') -Force | Out-Null
+                Add-Action $unit 'Copy' @{ From = $Alpha5BLogisticsSave; To = (Join-Path $saveData 'Saves/autostart.rws') }
+                Add-Launch $unit 'logistics' $false $false '-guclanstart -gualpha5bownersave'
+            } else {
+                Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+                Add-Launch $unit 'logistics' $false $false '-guclanstart -gualpha5blogistics'
+                Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha5blogisticsreload'
+            }
+            continue
+        }
+        if ($name -eq 'Alpha5B' -or $name -eq 'Alpha5BVisual') {
+            # Alpha 5B: plant interactions, seed-gated sowing, petal hauling, background provisioning, Hope Gu ambience, capture and the
+            # developer spawn on the Alpha 3 save; a fresh-process reload mid-sowing and mid-haul; then a real save written by the Alpha 5A
+            # build (d82c723), preserved locally in tests/obj/Alpha5ASaves with its SHA-256.
+            $unit = New-Unit $name $saveData "PASS $name gameplay integration, reload and Alpha 5A save compatibility. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'integration' $false $false '-guclanstart -gualpha3 -gualpha5b'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha3 -gualpha5b -gualpha5breload'
+            $legacySaves = Join-Path $root 'tests/obj/Alpha5ASaves'
+            if (Test-Path -LiteralPath (Join-Path $legacySaves 'alpha5a-feeding.rws')) {
+                Add-Action $unit 'Copy' @{ From = (Join-Path $legacySaves 'alpha5a-feeding.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+                Add-Action $unit 'Copy' @{ From = (Join-Path $legacySaves 'alpha5a-ids.json'); To = (Join-Path $saveData 'alpha5a-ids.json') }
+                Add-Launch $unit 'legacy5a' $false $false '-guclanstart -gualpha3 -gualpha5b -gualpha5blegacy'
+            } else { Write-Warning "Alpha 5A save not found in $legacySaves; the legacy5a stage is skipped." }
+            if ($name -eq 'Alpha5BVisual') {
+                # Rendered inspection opens a game window; run with -Parallel 1 and no other RimWorld instance.
+                Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha5b-midway.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+                Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha5b -gualpha5bvisual'
             }
             continue
         }

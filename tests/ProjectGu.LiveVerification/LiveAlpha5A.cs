@@ -287,22 +287,22 @@ public sealed partial class LiveLifecycleChecks
         Check(ss.MealsEaten == 0 && !ss.FromLegacySave && Snap(second).NourishmentTicks <= initial && Snap(second).NourishmentTicks >= initial - (Now - capturedAt),
             $"The captured Liquor Worm starts at the species' initial nourishment ({Days(Snap(second).NourishmentTicks)}), not a beer meal");
 
-        // 14. Routine feeding: an ordered job is never interrupted, a drafted pawn never feeds, then the Gu Master tends it.
+        // 14. Routine feeding. Alpha 5B replaced the routine feeding job with background provisioning: the hungry Liquor Worm
+        // drinks the beer its Gu Master carries without any job, while the ordered job continues uninterrupted.
         Drain(liquor, Snap(liquor).NourishmentTicks - Day / 2);
-        SpawnItem(cave, ThingDefOf.Beer, 1, disciple.Position, 4);
+        var carriedBeer = ThingMaker.MakeThing(ThingDefOf.Beer);
+        Check(disciple.inventory.innerContainer.TryAdd(carriedBeer, false), "The Gu Master carries one beer");
+        int beerBefore = TotalItems(cave, ThingDefOf.Beer);
         component.SetAutoTend(disciple, true);
-        component.NextAutoTendCheck.Clear();
-        var waitJob = JobMaker.MakeJob(JobDefOf.Wait, 900);
+        var waitJob = JobMaker.MakeJob(JobDefOf.Wait, 6000);
         Check(disciple.jobs.TryTakeOrderedJob(waitJob, JobTag.Misc), "Ordered a wait");
-        TickUntil(() => false, 600);
-        Check(disciple.CurJob == waitJob, "Routine feeding did not interrupt the ordered job");
-        disciple.drafter.Drafted = true;
-        TickUntil(() => false, JobGiver_GuTendOwnGu.CheckInterval + 50);
-        Check(disciple.CurJobDef?.defName != GuSustenance.FeedJobDefName && ls.MealsEaten == liquorLure.MealsEaten, "A drafted Gu Master does not feed");
-        disciple.drafter.Drafted = false;
         int autoMeals = ls.MealsEaten;
-        TickUntil(() => disciple.jobs.curDriver is JobDriver_GuFeedGu { Automatic: true }, JobGiver_GuTendOwnGu.CheckInterval * 3, "The Gu Master chose to feed the hungry Liquor Worm");
-        TickUntil(() => ls.MealsEaten > autoMeals, 3000, "Routine feeding fed it");
+        bool fedByJob = false;
+        TickUntil(() => { fedByJob |= disciple.CurJobDef?.defName == GuSustenance.FeedJobDefName; return ls.MealsEaten > autoMeals; },
+            GuSustenanceComponent.SweepPeriod + 10, "Background provisioning fed the hungry Liquor Worm");
+        Check(!fedByJob && disciple.CurJob == waitJob && TotalItems(cave, ThingDefOf.Beer) == beerBefore - (ls.MealsEaten - autoMeals)
+            && ls.LastFeedSource == "inventory", "Routine feeding used the carried beer without a job and did not interrupt the ordered job");
+        disciple.jobs.EndCurrentJob(JobCondition.InterruptForced);
         component.SetAutoTend(disciple, false);
         Check(Snap(liquor).Level == GuNourishmentLevel.Sated, $"Routine feeding restored the Liquor Worm ({Days(Snap(liquor).NourishmentTicks)})");
 

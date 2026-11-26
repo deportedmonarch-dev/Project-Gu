@@ -24,7 +24,7 @@ Accepted base: `95725cbb0d5b454c589effbd6b05bf05c4bf5692` (Alpha 4A with the opt
    - **What happens:** the colonist fetches the food from their inventory or the map, carries it to the Gu and offers it for a few seconds.
    - **When food is used:** only when the meal is actually given.
    - **Interruption:** drafting, another order or a lost route keeps every item. The colonist drops what they carried.
-4. **Let the Gu Master tend their own Gu.**
+4. **Let the Gu Master tend their own Gu.** *Superseded in Alpha 5B:* the same switch now feeds in the background from inventory and stockpiles, with no job. See [Alpha 5B](ALPHA-5B-PLAYTEST-CORRECTIONS.md). The Alpha 5A behaviour was:
    - **The policy:** **Feed own Gu automatically** sits at the top of the Gu page. It is on by default and set per cultivator.
    - **What it does:** the Gu Master feeds their own hungry, refined Gu from their inventory or the stockpiles of the map they are on.
    - **When:** only while choosing a new job. It never interrupts a job, a cultivation session, combat, a drafted pawn or a lord duty, and it does nothing with enemies within 25 cells.
@@ -232,6 +232,7 @@ Screenshots in `tests/obj/Priority0-5e684dda6d324147afb1cfd16ef77208/Alpha5AVisu
 
 ### Observations outside Alpha 5A
 
+- **Historical regression follow-up:** the disabled beer-lure menu remains an intermittent fixture risk with an unresolved trigger. A controlled starvation replay demonstrated that an unrelated letter could invalidate the global count while both Gu retained the expected terminal events and notifications. The [Alpha 5B regression records](ALPHA-5B-PLAYTEST-CORRECTIONS.md#open-regression-records) describe the evidence and future assertions by Gu ID.
 - **Hope Gu capture in the planted basin.** Capture needs an open cell under the wild Gu (an existing rule). In the densely planted spirit-grass basin a wild Hope Gu can stay uncapturable for a long time, with the order ending without explanation in the world. This is unchanged by Alpha 5A.
 - **Renderer benchmark flake.** One managed run failed the Alpha 4A renderer micro-benchmark ("incremental pass cheaper than full pass") under machine load, and passed on rerun. The renderer is unchanged on this branch.
 

@@ -6,8 +6,17 @@ namespace ProjectGu.Underground
 {
     public sealed class JobDriver_GuPassageHaulPack : JobDriver
     {
+        private Building_GuPocketProbeEndpoint Endpoint => job.targetB.Thing as Building_GuPocketProbeEndpoint;
+
         public override bool TryMakePreToilReservations(bool errorOnFailed) =>
-            pawn.Reserve(job.targetA, job, 1, -1, null, errorOnFailed);
+            GuPassageHauling.CanStartLeg(pawn, Endpoint) && pawn.CanReserve(job.targetA)
+            && pawn.Reserve(job.targetA, job, 1, -1, null, errorOnFailed);
+
+        public override void Notify_Starting()
+        {
+            base.Notify_Starting();
+            GuPassageHauling.ClaimLeg(pawn, Endpoint);
+        }
 
         protected override IEnumerable<Toil> MakeNewToils()
         {
@@ -24,7 +33,7 @@ namespace ProjectGu.Underground
     public sealed class JobDriver_GuPassageHaulStore : JobDriver
     {
         public override bool TryMakePreToilReservations(bool errorOnFailed) =>
-            pawn.Reserve(job.targetB, job, 1, -1, null, errorOnFailed);
+            pawn.CanReserve(job.targetB) && pawn.Reserve(job.targetB, job, 1, -1, null, errorOnFailed);
 
         protected override IEnumerable<Toil> MakeNewToils()
         {

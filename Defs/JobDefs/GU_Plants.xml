@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Alpha 5B plant framework. Sowing a seed-gated plant: the material is consumed only in the tick the sowing completes. -->
+  <JobDef>
+    <defName>GU_SowWithMaterial</defName>
+    <driverClass>ProjectGu.Botany.JobDriver_GuSowWithMaterial</driverClass>
+    <reportString>sowing TargetA.</reportString>
+    <casualInterruptible>true</casualInterruptible>
+    <carryThingAfterJob>false</carryThingAfterJob>
+  </JobDef>
+  <JobDef>
+    <defName>GU_GatherPlantSeeds</defName>
+    <driverClass>ProjectGu.Botany.JobDriver_GuGatherSeeds</driverClass>
+    <reportString>gathering seeds from TargetA.</reportString>
+    <casualInterruptible>true</casualInterruptible>
+  </JobDef>
+</Defs>

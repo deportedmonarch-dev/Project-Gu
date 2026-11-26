@@ -11,7 +11,7 @@ public sealed partial class LiveLifecycleChecks
     private static void ExerciseAutomaticHauling()
     {
         Map home = Find.CurrentMap;
-        Pawn pawn = home.mapPawns.FreeColonistsSpawned.First(person => !person.WorkTypeIsDisabled(WorkTypeDefOf.Hauling));
+        Pawn pawn = home.mapPawns.FreeColonistsSpawned.First(person => !person.WorkTypeIsDisabled(GuPassageHauling.WorkType));
         Pawn blocker = home.mapPawns.FreeColonistsSpawned.First(person => person != pawn);
         var site = OpenIndependentSite(pawn, home);
         var surface = site.Endpoints.Single(end => end.IsSurface).Anchor;
@@ -27,7 +27,7 @@ public sealed partial class LiveLifecycleChecks
         Thing first = GenSpawn.Spawn(MakeStack(CargoPrototypeCount), EmptyCargoCell(cave, exit.Position, null, 7), cave);
         Thing second = GenSpawn.Spawn(MakeStack(SecondCargoCount), EmptyCargoCell(cave, exit.Position, null, 7), cave);
         second.SetForbidden(true, false);
-        SetOnlyHaulingWork(pawn);
+        SetOnlyHaulingWork(pawn, GuPassageHauling.WorkType);
         blocker.drafter.Drafted = true;
         Prefs.DevMode = false;
         surface.GetFloatMenuOptions(pawn).Single(option => option.Label == AssignHaulerLabel).action();
@@ -160,11 +160,11 @@ public sealed partial class LiveLifecycleChecks
         Report("Fresh-process reload resumed cargo. Delivery cancellation, filtering after dispatch, partial capacity, successive stacks, ordinary ordered travel and a missing passage all preserved native custody.");
     }
 
-    private static void SetOnlyHaulingWork(Pawn pawn)
+    private static void SetOnlyHaulingWork(Pawn pawn, WorkTypeDef workType = null)
     {
         pawn.workSettings.EnableAndInitialize();
         foreach (WorkTypeDef work in DefDatabase<WorkTypeDef>.AllDefsListForReading)
-            if (!pawn.WorkTypeIsDisabled(work)) pawn.workSettings.SetPriority(work, work == WorkTypeDefOf.Hauling ? 1 : 0);
+            if (!pawn.WorkTypeIsDisabled(work)) pawn.workSettings.SetPriority(work, work == (workType ?? WorkTypeDefOf.Hauling) ? 1 : 0);
         pawn.jobs.StopAll();
     }
 

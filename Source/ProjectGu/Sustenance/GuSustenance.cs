@@ -147,6 +147,7 @@ namespace ProjectGu.Sustenance
             Thing eaten = food.stackCount > count ? food.SplitOff(count) : food;
             eaten.Destroy(DestroyMode.Vanish);
             GuNourishmentRules.Feed(state, props, option, meals, now);
+            state.lastFeedSource = intent.Automatic ? "automatic feeding job" : "fed by " + feeder.LabelShort;
             reason = null;
             return true;
         }

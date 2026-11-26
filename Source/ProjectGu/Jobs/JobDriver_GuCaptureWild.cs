@@ -32,9 +32,13 @@ namespace ProjectGu.Jobs
                 initAction = () =>
                 {
                     string reason = "The wild Gu is unavailable.";
-                    if (job.targetA.Thing is Pawn_GuWildProjection wild
+                    // The dormant Gu rests in the wild Gu's cell, or the open neighbouring cell nearest the captor (Alpha 5B).
+                    var destination = job.targetA.Thing is Pawn_GuWildProjection target ? GuIndividualRegistry.CaptureDestination(target, pawn) : IntVec3.Invalid;
+                    if (!destination.IsValid && job.targetA.Thing is Pawn_GuWildProjection blocked)
+                        reason = $"There is no open ground beside the wild {blocked.LabelShort} to hold it in dormant form. Clear items or buildings around it, or wait for it to move.";
+                    else if (job.targetA.Thing is Pawn_GuWildProjection wild
                         && Current.Game?.GetComponent<GuIndividualRegistry>()?.TryCaptureWild(wild, expectedRevision, pawn,
-                            wild.Position, out var dormant, out reason) == true)
+                            destination, out var dormant, out reason) == true)
                     {
                         Messages.Message("Captured Gu in dormant form. It remains unrefined on the ground; pick it up to carry it.",
                             new LookTargets(dormant), MessageTypeDefOf.NeutralEvent, false);

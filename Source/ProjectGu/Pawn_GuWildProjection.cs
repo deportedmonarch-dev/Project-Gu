@@ -48,7 +48,9 @@ namespace ProjectGu
         {
             // Both ThingMaker and fresh PawnGenerator requests use PostMake. Scribe does not.
             if (def == null || def != permittedRace)
-                throw new InvalidOperationException("Wild Gu Pawns require Project GU registry generation.");
+                throw new InvalidOperationException("Wild Gu Pawns require Project GU registry generation. Vanilla Spawn pawn/thing cannot "
+                    + "create a Gu, because every Gu body must belong to one registered individual. In Development Mode use "
+                    + "Project GU > Spawn registered wild Gu..., or meet one through a spirit spring.");
             permittedRace = null;
             base.PostMake();
         }
@@ -89,8 +91,16 @@ namespace ProjectGu
 
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
             var jobDef = DefDatabase<JobDef>.GetNamedSilentFail("GU_CaptureWildGu");
-            if (jobDef == null || registry?.CanOrderWildCapture(this, selPawn) != true) yield break;
+            if (jobDef == null || registry == null) yield break;
             string speciesName = registry.Resolve(this)?.Species?.label ?? "wild Gu";
+            if (!registry.CanOrderWildCapture(this, selPawn))
+            {
+                // Alpha 5B: explain a refused capture instead of offering nothing.
+                string refusal = registry.WildCaptureRefusal(this, selPawn);
+                if (refusal != null && registry.Resolve(this) != null && selPawn?.IsColonistPlayerControlled == true)
+                    yield return new FloatMenuOption($"Cannot capture {speciesName}: {refusal}", null);
+                yield break;
+            }
             yield return new FloatMenuOption($"Capture {speciesName} (unrefined)", () =>
             {
                 if (registry.CanOrderWildCapture(this, selPawn))

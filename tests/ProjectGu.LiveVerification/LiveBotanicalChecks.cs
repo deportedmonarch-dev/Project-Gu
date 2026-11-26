@@ -51,14 +51,19 @@ public sealed partial class LiveLifecycleChecks
         zone.AddCell(cell);
         zone.SetPlantDefToGrow(NativeOrchid);
         var grower = (WorkGiver_Scanner)DefDatabase<WorkGiverDef>.GetNamed("GrowerSow").Worker;
+        // Alpha 5B: moon orchids are seed-gated. With one seed at hand the native work giver issues the seed-carrying sow job.
+        var seed = ThingMaker.MakeThing(DefDatabase<ThingDef>.GetNamed("GU_MoonOrchidSeeds"));
+        Check(pawn.inventory.innerContainer.TryAdd(seed, false), "The grower carries one moon orchid seed");
         Job job = grower.JobOnCell(pawn, cell);
-        Check(job?.def == JobDefOf.Sow, "The native growing-zone work giver assigns a sowing job");
+        Check(job?.def?.defName == "GU_SowWithMaterial", $"The native growing-zone work giver assigns a seed-gated sowing job ({job?.def?.defName})");
         pawn.jobs.StartJob(job, JobCondition.InterruptForced);
-        for (int tick = 0; tick < 1800 && cell.GetPlant(cave) is not { Growth: > 0f }; tick++)
-            Find.TickManager.DoSingleTick();
+        // A low-skill founder can need over 4,000 ticks for the Alpha 5B orchid's 400 sow work.
+        TickUntil(() => cell.GetPlant(cave) is { Growth: > 0f }, 12000);
         var sown = cell.GetPlant(cave);
         Check(sown?.def == NativeOrchid && sown.Growth > 0f && sown.DeliberatelyCultivated()
-            && sown.GrowthRateFactor_Light == 1f, "The native sowing job completed and left a cultivated seedling on Qi soil");
+            && sown.GrowthRateFactor_Light == 1f, $"The native sowing job completed and left a cultivated seedling on Qi soil. "
+            + $"Plant work speed={pawn.GetStatValue(StatDefOf.PlantWorkSpeed):F2}, job={pawn.CurJobDef?.defName}, growth={sown?.Growth}");
+        Check(pawn.inventory.innerContainer.All(thing => thing.def.defName != "GU_MoonOrchidSeeds"), "The sowing spent the seed");
         VerifyNativeGrowth(replacement, sown);
 
         IntVec3 surfaceCell = CellRect.CenteredOn(home.Center, 12).Cells.First(candidate => candidate.Standable(home)

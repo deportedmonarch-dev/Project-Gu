@@ -295,10 +295,26 @@ namespace ProjectGu
             .GroupBy(pawn => pawn.GetUniqueLoadID(), StringComparer.Ordinal)
             .Where(group => group.Count() == 1).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
-        internal bool TrySpawnDevelopmentGu(GuSpeciesDef species, Map map, IntVec3 cell, out Pawn_GuWildProjection pawn)
+        internal bool TrySpawnDevelopmentGu(GuSpeciesDef species, Map map, IntVec3 cell, out Pawn_GuWildProjection pawn) =>
+            TrySpawnDevelopmentGu(species, map, cell, configuredSpecies: false, out pawn);
+
+        /// <summary>
+        /// A species a developer may spawn as a registered wild individual (Alpha 5B): wild-capable, with an adult wild projection
+        /// and a configured dormant form. Real species spawned this way carry the development origin and say so when inspected.
+        /// </summary>
+        internal static bool IsDevelopmentSpawnable(GuSpeciesDef species) => species is { wildPopulationEnabled: true }
+            && FirstAdultProjectionStage(species.wildProjectionKind) != null && Thing_GuDormantProjection.IsConfigured(species.dormantProjectionDef);
+
+        /// <summary>
+        /// Development Mode only. Creates one registered wild individual through the registry's own creation path (protected
+        /// projection factory, canonical record, binding), never through vanilla spawning. <paramref name="configuredSpecies"/>
+        /// admits any <see cref="IsDevelopmentSpawnable"/> species; otherwise only developer test species. No cohort is debited.
+        /// </summary>
+        internal bool TrySpawnDevelopmentGu(GuSpeciesDef species, Map map, IntVec3 cell, bool configuredSpecies, out Pawn_GuWildProjection pawn)
         {
             pawn = null;
-            if (!CanUseDevelopmentCustody || species?.capabilityTags?.Contains("development_test") != true
+            if (!CanUseDevelopmentCustody || species == null
+                || (configuredSpecies ? !IsDevelopmentSpawnable(species) : species.capabilityTags?.Contains("development_test") != true)
                 || FirstAdultProjectionStage(species.wildProjectionKind) is not { } adult
                 || map?.Disposed != false || !Find.Maps.Contains(map) || !cell.InBounds(map)
                 || cell.Fogged(map) || !cell.Standable(map) || cell.GetFirstPawn(map) != null)

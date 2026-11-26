@@ -26,10 +26,11 @@ namespace ProjectGu.Underground
             foreach (FloatMenuOption option in base.GetFloatMenuOptions(selPawn))
                 yield return option;
             bool independent = GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var haulSite, out var endpoint);
-            if (independent && GuPassageHauling.Supports(haulSite) && GuPassageHauling.CanAssign(haulSite, selPawn))
+            if (independent && GuPassageHauling.Supports(haulSite) && selPawn.IsColonistPlayerControlled)
             {
-                yield return new FloatMenuOption("Assign to underground hauling",
-                    () => GuPassageHauling.Assign(haulSite, selPawn));
+                yield return new FloatMenuOption("Prioritize underground hauling", () => GuPassageHauling.Prioritize(haulSite, selPawn));
+                if (GuPassageHauling.CanAssign(haulSite, selPawn))
+                    yield return new FloatMenuOption("Assign to underground hauling", () => GuPassageHauling.Assign(haulSite, selPawn));
             }
             if (!Prefs.DevMode && !(independent && haulSite.Kind?.playerTravel == true))
                 yield break;
@@ -55,17 +56,27 @@ namespace ProjectGu.Underground
         {
             foreach (Gizmo gizmo in base.GetGizmos())
                 yield return gizmo;
-            if (GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var haulSite, out _)
-                && haulSite.Hauling is { Worker: { Dead: false } worker } hauling)
+            if (GuPocketProbeComponent.TryGetIndependentEndpoint(this, out var haulSite, out _) && GuPassageHauling.Supports(haulSite))
             {
+                var hauling = GuPassageHauling.HaulingFor(haulSite);
+                string worker = hauling.Worker?.LabelShort ?? "the assigned colonist";
                 yield return new Command_Toggle
                 {
                     defaultLabel = "Underground hauling",
-                    defaultDesc = $"Allow {worker.LabelShort} to collect underground cargo using their Hauling work priority. "
+                    defaultDesc = (hauling.Automatic
+                        ? "Allow any eligible colonist to collect cargo using their Underground hauling work priority. "
+                        : $"Allow {worker} to collect cargo using their Underground hauling work priority. ")
                         + "Pausing keeps any packed cargo in the colonist's inventory.",
                     isActive = () => hauling.Enabled,
                     toggleAction = () => GuPassageHauling.SetEnabled(hauling, !hauling.Enabled)
                 };
+                if (!hauling.Automatic)
+                    yield return new Command_Action
+                    {
+                        defaultLabel = "Allow any hauler",
+                        defaultDesc = "Allow any eligible colonist to take the next underground hauling trip.",
+                        action = () => GuPassageHauling.UseAnyWorker(haulSite)
+                    };
             }
             if (Prefs.DevMode && (GuPocketProbeComponent.TryGetSite(this, out GuPocketSiteRecord site)
                 && site.Entrance == this && !site.GenerationStarted

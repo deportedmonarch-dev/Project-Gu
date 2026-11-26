@@ -249,7 +249,7 @@ internal static class GuFeedingChecks
             && registry.Contains("UnbindAll(record);", StringComparison.Ordinal), "Starvation death uses the terminal transaction with one idempotent event key");
         string scheduler = Read("Source/ProjectGu/Domain/GuSpeciesDef.cs") + Read("Source/ProjectGu/Sustenance/GuSustenanceComponent.cs") + sustenance
             + Read("Source/ProjectGu/Domain/GuFeeding.cs") + Read("Source/ProjectGu/Domain/GuFeedingWorker_Items.cs")
-            + Read("Source/ProjectGu/Sustenance/JobGiver_GuTendOwnGu.cs") + registry;
+            + Read("Source/ProjectGu/Sustenance/GuProvisioning.cs") + registry;
         Check(new[] { "GU_MoonlightGu", "GU_LiquorWorm", "GU_HopeGu", "Moonlight", "Liquor", "Beer", "GU_MoonOrchid" }
                 .All(name => !scheduler.Contains(name, StringComparison.Ordinal)),
             "The feeding scheduler, rules and worker contain no species or food names");

@@ -34,7 +34,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\install.ps1
 ```
 
-`verify.ps1` runs PowerShell structural checks, compiles against the local game and runs isolated tests against the installed assemblies. `install.ps1` performs a fresh build in a private output directory before copying the mod. A failed build stops installation before it touches the deployed mod. Both scripts accept `-RimWorldPath` and `-HarmonyPath` for custom Steam library locations. Build outputs in `1.7/Assemblies/` are **intentionally excluded from Git**. Do not commit game binaries, SDK files, compiled DLLs, game logs, saves, or private data.
+`verify.ps1` runs PowerShell structural checks, compiles against the local game and runs isolated tests against the installed assemblies. Close RimWorld before running `install.ps1`. The installer builds in a private output directory, records installed paths and hashes, and retires obsolete files that match its ownership records. Unrelated files and locally changed retired files are preserved. `verify-install.ps1` exercises a clean deployment, an Alpha 5A upgrade and a repeat install in disposable directories. The scripts accept `-RimWorldPath` and `-HarmonyPath` for custom Steam library locations. Build outputs in `1.7/Assemblies/` are **intentionally excluded from Git**. Do not commit game binaries, SDK files, compiled DLLs, game logs, saves, or private data.
 
 For the Playable Alpha 1 loop, enable **Core, Harmony and Project GU**, then choose **Southern Border Clan**. See the [player flow and verification](docs/ALPHA-1-SOUTHERN-BORDER.md).
 

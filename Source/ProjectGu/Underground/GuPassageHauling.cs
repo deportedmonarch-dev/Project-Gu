@@ -1,4 +1,5 @@
 using System;
+using HarmonyLib;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -12,6 +13,7 @@ namespace ProjectGu.Underground
         public static JobDef GU_PassageHaulTravel;
         public static JobDef GU_PassageHaulPack;
         public static JobDef GU_PassageHaulStore;
+        public static WorkTypeDef GU_UndergroundHauling;
 
         static GuPassageHaulDefOf() => DefOfHelper.EnsureInitializedInCtor(typeof(GuPassageHaulDefOf));
     }
@@ -20,8 +22,13 @@ namespace ProjectGu.Underground
     {
         internal Pawn Worker;
         internal bool Enabled;
+        // Existing saved assignments lack this key and continue to use their named worker.
+        internal bool Automatic;
         internal Thing Packed;
         internal int NextCheckTick;
+        /// <summary>Index of the cargo kind that gets first claim on the next trip. It advances after every pack, so one plentiful
+        /// kind (primeval stone) can never starve the others (moon orchid petals).</summary>
+        internal int NextCargo;
 
         internal Thing Cargo => Packed?.holdingOwner != null
             && Packed.holdingOwner == Worker?.inventory?.GetDirectlyHeldThings() ? Packed : null;
@@ -35,8 +42,10 @@ namespace ProjectGu.Underground
             }
             Scribe_References.Look(ref Worker, "worker");
             Scribe_Values.Look(ref Enabled, "enabled");
+            Scribe_Values.Look(ref Automatic, "automatic");
             Scribe_References.Look(ref Packed, "packed");
             Scribe_Values.Look(ref NextCheckTick, "nextCheckTick");
+            Scribe_Values.Look(ref NextCargo, "nextCargo");
         }
     }
 
@@ -51,19 +60,58 @@ namespace ProjectGu.Underground
         private const int EmptyReturnCooldown = 1200;
         private static GuPocketProbeComponent Registry => Current.Game?.GetComponent<GuPocketProbeComponent>();
 
-        internal static bool Supports(GuIndependentSite site) => site.Kind?.haulingCargo?.Count > 0;
+        internal static WorkTypeDef WorkType => GuPassageHaulDefOf.GU_UndergroundHauling;
 
-        internal static bool CanAssign(GuIndependentSite site, Pawn pawn) => pawn?.IsColonistPlayerControlled == true
-            && !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Hauling)
-            && (Registry.HaulingSiteFor(pawn) is not { } other || other == site || other.Hauling.Cargo == null)
-            && (site.Hauling?.Worker == pawn || site.Hauling?.Cargo == null);
+        internal static void InitializeSavedWorkPriorities()
+        {
+            // GetPriority returns 3 for every enabled type when the Work tab uses checkboxes.
+            // Copy the backing values so a player who switches back retains their exact old priority.
+            var priorities = AccessTools.Field(typeof(Pawn_WorkSettings), "priorities");
+            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+            {
+                if (pawn.Faction != Faction.OfPlayer || !pawn.RaceProps.Humanlike
+                    || pawn.workSettings?.Initialized != true || pawn.WorkTypeIsDisabled(WorkType)) continue;
+                var saved = (DefMap<WorkTypeDef, int>)priorities.GetValue(pawn.workSettings);
+                pawn.workSettings.SetPriority(WorkType, saved[WorkTypeDefOf.Hauling]);
+            }
+        }
+
+        internal static bool Supports(GuIndependentSite site) => site?.Kind?.haulingCargo?.Count > 0;
+
+        internal static GuPassageHaul HaulingFor(GuIndependentSite site) =>
+            site.Hauling ??= new GuPassageHaul { Enabled = true, Automatic = true };
+
+        internal static bool CanAssign(GuIndependentSite site, Pawn pawn)
+        {
+            if (pawn?.IsColonistPlayerControlled != true || pawn.WorkTypeIsDisabled(WorkType))
+                return false;
+            ReleaseIdleWorker(site);
+            var other = Registry.HaulingSiteFor(pawn);
+            return (other == null || other == site || other.Hauling.Cargo == null && !other.Hauling.Automatic)
+                && (site.Hauling?.Worker == pawn || site.Hauling?.Worker == null
+                    || site.Hauling.Cargo == null && !site.Hauling.Automatic);
+        }
 
         internal static void Assign(GuIndependentSite site, Pawn pawn)
         {
             if (!CanAssign(site, pawn)) return;
-            if (Registry.HaulingSiteFor(pawn) is { } other && other != site) other.Hauling = null;
-            if (site.Hauling?.Worker != pawn) site.Hauling = new GuPassageHaul { Worker = pawn };
-            SetEnabled(site.Hauling, true);
+            if (Registry.HaulingSiteFor(pawn) is { } other && other != site)
+            {
+                other.Hauling.Worker = null;
+                other.Hauling.Automatic = true;
+            }
+            var haul = HaulingFor(site);
+            haul.Worker = pawn;
+            haul.Automatic = false;
+            SetEnabled(haul, true);
+        }
+
+        internal static void UseAnyWorker(GuIndependentSite site)
+        {
+            var haul = HaulingFor(site);
+            haul.Automatic = true;
+            haul.NextCheckTick = 0;
+            ReleaseIdleWorker(site);
         }
 
         internal static void SetEnabled(GuPassageHaul hauling, bool enabled)
@@ -72,16 +120,29 @@ namespace ProjectGu.Underground
             if (enabled) hauling.NextCheckTick = 0;
         }
 
+        private static bool Eligible(Pawn pawn) => pawn?.Spawned == true && pawn.IsColonistPlayerControlled
+            && !pawn.Drafted && !pawn.Downed && pawn.GetLord() == null && pawn.inventory != null && pawn.carryTracker != null
+            && pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation)
+            && !pawn.WorkTypeIsDisabled(WorkType) && pawn.workSettings?.Initialized == true
+            && pawn.workSettings.WorkIsActive(WorkType);
+
         internal static GuIndependentSite ActiveSite(Pawn pawn)
         {
-            if (pawn?.Spawned != true || !pawn.IsColonistPlayerControlled || pawn.Drafted || pawn.Downed
-                || pawn.GetLord() != null || pawn.inventory == null || pawn.carryTracker == null
-                || !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation)
-                || pawn.workSettings?.WorkIsActive(WorkTypeDefOf.Hauling) != true)
-                return null;
-
+            if (!Eligible(pawn)) return null;
             var site = Registry?.HaulingSiteFor(pawn);
             return site?.Hauling.Enabled == true && Supports(site) ? site : null;
+        }
+
+        private static void ReleaseIdleWorker(GuIndependentSite site)
+        {
+            var haul = site.Hauling;
+            if (haul is not { Automatic: true, Worker: { } worker } || haul.Cargo != null) return;
+            if (worker.Spawned && (worker.Map.Parent is GuUndergroundLevelParent level && site.Level(level.LevelId)?.Parent == level
+                || worker.CurJobDef == GuPassageHaulDefOf.GU_PassageHaulTravel
+                    && site.Endpoints.Exists(end => end.IsSurface && end.Anchor == worker.CurJob.targetA.Thing)))
+                return;
+            haul.Worker = null;
+            haul.Packed = null;
         }
 
         private static bool TryRoute(GuIndependentSite site, out GuIndependentEndpoint surface, out GuIndependentEndpoint below)
@@ -101,47 +162,119 @@ namespace ProjectGu.Underground
 
         internal static Job Plan(Pawn pawn)
         {
-            var site = ActiveSite(pawn);
-            if (site == null || pawn.carryTracker.CarriedThing != null || Registry.OperationInProgress) return null;
+            var registry = Registry;
+            if (!Eligible(pawn) || pawn.carryTracker.CarriedThing != null || registry == null || registry.OperationInProgress)
+                return null;
 
-            var haul = site.Hauling;
+            if (registry.HaulingSiteFor(pawn) is { } bound)
+            {
+                ReleaseIdleWorker(bound);
+                if (bound.Hauling.Worker == pawn)
+                    return PlanAt(bound, pawn, prioritized: false, out _);
+            }
+            foreach (var site in registry.HaulingSitesFrom(pawn.Map))
+            {
+                ReleaseIdleWorker(site);
+                if (HaulingFor(site) is { Automatic: true, Worker: null }
+                    && PlanAt(site, pawn, prioritized: false, out _) is { } job)
+                    return job;
+            }
+            return null;
+        }
+
+        internal static void Prioritize(GuIndependentSite site, Pawn pawn)
+        {
+            ReleaseIdleWorker(site);
+            Job job = PlanAt(site, pawn, prioritized: true, out string reason);
+            if (job == null || !pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc))
+                Messages.Message(reason ?? "The colonist could not reserve the underground hauling work.",
+                    MessageTypeDefOf.RejectInput, false);
+        }
+
+        private static Job PlanAt(GuIndependentSite site, Pawn pawn, bool prioritized, out string reason)
+        {
+            reason = "The colonist must be available, have Underground hauling enabled in Work, and have empty hands.";
+            if (!Eligible(pawn) || pawn.carryTracker.CarriedThing != null || Registry.OperationInProgress) return null;
+            var haul = HaulingFor(site);
+            reason = "Underground hauling is paused at this passage.";
+            if (!haul.Enabled) return null;
+            reason = "A colonist is already assigned or carrying out an underground hauling trip.";
+            if ((haul.Worker != pawn && (!haul.Automatic || haul.Worker != null))
+                || Registry.HaulingSiteFor(pawn) is { } other && other != site) return null;
+
             int tick = Find.TickManager.TicksGame;
-            if (tick < haul.NextCheckTick) return null;
-            haul.NextCheckTick = tick + CheckInterval;
-
+            if (!prioritized && tick < haul.NextCheckTick) return null;
             Thing cargo = haul.Cargo;
             if (cargo != null && site.Endpoints.Exists(end => end.IsSurface && end.Resolve(site) == pawn.Map))
-                return TryStorage(pawn, pawn.Map, pawn.Position, cargo, out IntVec3 cell, out _)
-                    ? JobMaker.MakeJob(GuPassageHaulDefOf.GU_PassageHaulStore, cargo, cell) : null;
-            if (!TryRoute(site, out var surface, out var below)) return null;
+            {
+                haul.NextCheckTick = tick + CheckInterval;
+                reason = "No accessible surface storage has room for the packed cargo.";
+                if (!TryStorage(pawn, pawn.Map, pawn.Position, cargo, out IntVec3 cell, out _)) return null;
+                reason = null;
+                return JobMaker.MakeJob(GuPassageHaulDefOf.GU_PassageHaulStore, cargo, cell);
+            }
+            reason = "The passage or its landing cell is unavailable.";
+            if (!TryRoute(site, out var surface, out var below))
+            {
+                haul.NextCheckTick = tick + CheckInterval;
+                return null;
+            }
 
             bool onSurface = pawn.Map == surface.Anchor.Map;
+            if (!onSurface && (pawn.Map != below.Anchor.Map || haul.Worker != pawn && !prioritized)) return null;
             var from = onSurface ? surface : below;
             var to = onSurface ? below : surface;
             if (!PassageReady(pawn, from, to) || !pawn.CanReserveAndReach(from.Anchor, PathEndMode.Touch, pawn.NormalMaxDanger()))
                 return null;
 
-            if (cargo == null && TryPickup(site, pawn, below.Anchor, surface.Anchor, out var source, out int count))
+            // One route-level cargo check per interval while the route is idle. The native source and destination
+            // checks run again at crossing, packing and delivery. A force order can check the current state immediately.
+            haul.NextCheckTick = tick + CheckInterval;
+            if (cargo == null && TryPickup(site, pawn, below.Anchor, surface.Anchor, out var source, out int count, out reason))
             {
                 if (!onSurface)
                 {
-                    var pack = JobMaker.MakeJob(GuPassageHaulDefOf.GU_PassageHaulPack, source);
+                    var pack = JobMaker.MakeJob(GuPassageHaulDefOf.GU_PassageHaulPack, source, from.Anchor);
                     pack.count = count;
+                    reason = null;
                     return pack;
                 }
             }
-            else if (onSurface) return null;
+            else if (onSurface || haul.Worker != pawn) return null;
 
+            reason = null;
             return JobMaker.MakeJob(GuPassageHaulDefOf.GU_PassageHaulTravel, from.Anchor);
         }
 
+        internal static bool CanStartLeg(Pawn pawn, Building_GuPocketProbeEndpoint endpoint)
+        {
+            if (!Eligible(pawn) || Registry.OperationInProgress) return false;
+            if (endpoint == null) return ActiveSite(pawn) != null; // an older packing job has no endpoint target
+            if (!GuPocketProbeComponent.TryGetIndependentEndpoint(endpoint, out var site, out _) || !Supports(site))
+                return false;
+            var haul = HaulingFor(site);
+            return haul.Enabled && (haul.Worker == pawn || haul.Automatic && haul.Worker == null
+                && Registry.HaulingSiteFor(pawn) == null);
+        }
+
+        internal static void ClaimLeg(Pawn pawn, Building_GuPocketProbeEndpoint endpoint)
+        {
+            if (endpoint != null && CanStartLeg(pawn, endpoint)
+                && GuPocketProbeComponent.TryGetIndependentEndpoint(endpoint, out var site, out _))
+                site.Hauling.Worker = pawn;
+        }
+
         private static bool TryPickup(GuIndependentSite site, Pawn pawn, Building_GuPocketProbeEndpoint below,
-            Building_GuPocketProbeEndpoint surface, out Thing source, out int count)
+            Building_GuPocketProbeEndpoint surface, out Thing source, out int count, out string reason)
         {
             Map map = below.Map;
             bool local = pawn.Map == map;
-            foreach (ThingDef def in site.Kind.haulingCargo)
+            var kinds = site.Kind.haulingCargo;
+            int start = site.Hauling?.NextCargo ?? 0;
+            reason = "No eligible underground cargo is reachable, allowed and unreserved outside cavern storage.";
+            for (int k = 0; k < kinds.Count; k++)
             {
+                ThingDef def = kinds[((start % kinds.Count) + kinds.Count + k) % kinds.Count];
                 foreach (Thing item in map.listerThings.ThingsOfDef(def))
                 {
                     if (!item.Spawned || item.Fogged() || item.IsForbidden(pawn.Faction) || item.IsBurning()
@@ -153,9 +286,11 @@ namespace ProjectGu.Underground
                             || !ReachableFromArrival(pawn, map, below.Position, item, PathEndMode.ClosestTouch))
                         continue;
 
+                    reason = "No reachable, unreserved surface storage accepts the eligible cargo and has room.";
                     if (!TryStorage(pawn, surface.Map, surface.Position, item, out _, out int room)) break;
                     source = item;
                     count = Math.Min(load, room);
+                    reason = null;
                     return true;
                 }
             }
@@ -214,7 +349,7 @@ namespace ProjectGu.Underground
             var from = outbound ? surface : below;
             var to = outbound ? below : surface;
             if (from.Anchor != origin || !PassageReady(pawn, from, to)
-                || (outbound && (site.Hauling.Cargo != null || !TryPickup(site, pawn, below.Anchor, surface.Anchor, out _, out _))))
+                || (outbound && (site.Hauling.Cargo != null || !TryPickup(site, pawn, below.Anchor, surface.Anchor, out _, out _, out _))))
                 return false;
 
             registry.OperationInProgress = true;
@@ -251,6 +386,9 @@ namespace ProjectGu.Underground
             if (hands.TryTransferToContainer(carried, inventory, carried.stackCount, out Thing packed, false) <= 0)
                 return false;
             site.Hauling.Packed = packed;
+            // Rotate first claim to the next cargo kind after this one.
+            var kinds = site.Kind.haulingCargo;
+            site.Hauling.NextCargo = (kinds.IndexOf(packed.def) + 1) % kinds.Count;
             return true;
         }
 
@@ -264,7 +402,10 @@ namespace ProjectGu.Underground
                 || map.haulDestinationManager.SlotGroupAt(cell)?.Settings.AllowedToAccept(cargo) != true) return false;
 
             int count = Math.Min(cargo.stackCount, StorageRoom(map, cell, cargo, pawn, localPath: false, checkReservation: false));
-            return count > 0 && pawn.inventory.GetDirectlyHeldThings().TryDrop(cargo, cell, map, ThingPlaceMode.Direct, count, out _);
+            if (count <= 0 || !pawn.inventory.GetDirectlyHeldThings().TryDrop(cargo, cell, map, ThingPlaceMode.Direct, count, out _))
+                return false;
+            ReleaseIdleWorker(site);
+            return true;
         }
     }
 }

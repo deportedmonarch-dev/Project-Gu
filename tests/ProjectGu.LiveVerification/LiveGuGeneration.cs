@@ -119,7 +119,7 @@ public sealed partial class LiveLifecycleChecks
     private static void CheckGenerationBlocked(Func<Thing> generate)
     {
         try { generate(); }
-        catch (InvalidOperationException ex) when (ex.Message == GenerationRefusal) { return; }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith(GenerationRefusal, StringComparison.Ordinal)) { return; }
         throw new InvalidOperationException("The native factory did not reject a direct Gu construction attempt.");
     }
 

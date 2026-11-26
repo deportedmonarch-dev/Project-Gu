@@ -82,6 +82,13 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         else if (GenCommandLine.CommandLineArgPassed("gualpha1stored")) Run(VerifyAlpha1Stored, "stored");
         else if (GenCommandLine.CommandLineArgPassed("gualpha2visual")) StartAlpha2Visual();
         else if (GenCommandLine.CommandLineArgPassed("gualpha2final")) Run(VerifyAlpha2Final, "final");
+        else if (GenCommandLine.CommandLineArgPassed("gualpha5bownersave")) Run(VerifyOwnerLogisticsSave, "logistics");
+        else if (GenCommandLine.CommandLineArgPassed("gualpha5blogisticsreload")) Run(VerifyAlpha5BLogisticsReload, "reload");
+        else if (GenCommandLine.CommandLineArgPassed("gualpha5blogistics")) Run(VerifyAlpha5BLogistics, "logistics");
+        else if (GenCommandLine.CommandLineArgPassed("gualpha5bvisual")) StartAlpha5BVisual();
+        else if (GenCommandLine.CommandLineArgPassed("gualpha5blegacy")) Run(VerifyAlpha5BLegacy, "legacy5a");
+        else if (GenCommandLine.CommandLineArgPassed("gualpha5breload")) Run(VerifyAlpha5BReload, "reload");
+        else if (Alpha5B) Run(VerifyAlpha5BIntegration, "integration");
         else if (GenCommandLine.CommandLineArgPassed("gualpha5avisual")) StartAlpha5AVisual();
         else if (GenCommandLine.CommandLineArgPassed("gualpha5alegacy")) Run(VerifyAlpha5ALegacy, "legacy");
         else if (GenCommandLine.CommandLineArgPassed("gualpha5afinal")) Run(VerifyAlpha5AFinal, "final");
