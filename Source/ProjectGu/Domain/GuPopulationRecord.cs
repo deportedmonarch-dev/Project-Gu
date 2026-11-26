@@ -44,6 +44,22 @@ namespace ProjectGu.Domain
             return true;
         }
 
+        internal GuCohortPreimage Preimage => new(matureCount, juvenileCount, revision);
+
+        /// <summary>
+        /// Reverses exactly one mature debit, including its revision, and nothing else. Only the registry calls this, inside a
+        /// materialization's callback-free window and before publication, when no save, query or callback can have observed
+        /// the debited state. Any other state means the debit may have been observed, so it stays.
+        /// </summary>
+        internal bool TryRestoreUnpublishedDebit(GuCohortPreimage before)
+        {
+            if (before.Revision == long.MaxValue || before.Mature < 1 || matureCount != before.Mature - 1
+                || juvenileCount != before.Juvenile || revision != before.Revision + 1) return false;
+            matureCount = before.Mature;
+            revision = before.Revision;
+            return true;
+        }
+
         public void AdvanceDaily(int capacity, bool canReproduce, int birthsPerDay)
         {
             capacity = Math.Max(0, capacity);

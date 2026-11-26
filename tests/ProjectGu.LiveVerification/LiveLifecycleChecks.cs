@@ -76,6 +76,10 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         else if (CultivatorLifecycle && GenCommandLine.CommandLineArgPassed("gucultivatorinvalid")) Run(VerifyCultivatorInvalidSave, "invalid");
         else if (GuRegistryLoadTiming.Stage is { } benchmarkStage) Run(MeasureGuRegistryBenchmark, benchmarkStage);
         else if (V1Resave) Run(VerifyV1MigrationResave, "resave");
+        else if (GenCommandLine.CommandLineArgPassed("guslice0legacyreload")) Run(VerifySlice0LegacyReload, "legacyreload");
+        else if (GenCommandLine.CommandLineArgPassed("guslice0legacy")) Run(VerifySlice0Legacy, "legacy");
+        else if (GenCommandLine.CommandLineArgPassed("guslice0final")) Run(VerifySlice0Final, "final");
+        else if (Slice0) Run(VerifySlice0Reload, "reload");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b5baperture")) Run(ReleaseIntegratedCohort, "aperture");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b5breleased")) Run(VerifyIntegratedCohortRelease, "released");
         else if (GenCommandLine.CommandLineArgPassed("guclanprefounding")) Run(VerifyClanPrefounding, "prefounding");

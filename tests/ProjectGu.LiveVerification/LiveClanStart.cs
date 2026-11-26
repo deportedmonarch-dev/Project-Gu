@@ -151,7 +151,7 @@ public sealed partial class LiveLifecycleChecks
         Report($"Start: elder {Describe(elder)}; disciples {string.Join(", ", disciples.Select(Describe))}; workers {string.Join(", ", workers.Select(Describe))}; pit {distance:0.0} cells from the nearest colonist at {pit.Position}; biome {home.Biome.defName}, hilliness {home.TileInfo.hilliness}.");
 
         var plan = AssertPlanned(colonists);
-        if (!Alpha1 && !Alpha2 && !Alpha3 && !RankOne && !GuGeneration)
+        if (!Alpha1 && !Alpha2 && !Alpha3 && !RankOne && !GuGeneration && !Slice0)
         {
             File.WriteAllLines(ClanPlanPath, plan.Select(p => $"{p.Key}={p.Value}"));
             GameDataSaveLoader.SaveGame(PrefoundingSave);
@@ -194,6 +194,11 @@ public sealed partial class LiveLifecycleChecks
         if (GuGeneration)
         {
             ExerciseGuGeneration(disciple, spring);
+            return;
+        }
+        if (Slice0)
+        {
+            ExerciseSlice0(disciple, spring);
             return;
         }
         if (RankOne)

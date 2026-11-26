@@ -69,6 +69,8 @@ namespace ProjectGu
                 || string.IsNullOrWhiteSpace(record.OriginNativeId) || !record.CohortDebitCommitted))
                 || (record.Origin != GuRecord.CohortOrigin && record.CohortDebitCommitted))
                 return "The saved cohort materialization has incomplete provenance or debit evidence.";
+            // Alpha 6 receipts are additive. A record without one keeps the original spring rules above.
+            if (record.CreationEvidence?.ShapeError(record) is { } receiptError) return receiptError;
             if (record.Species is { } species && (record.Rank < species.minRank || record.Rank > species.maxRank))
                 return "The saved rank is outside the species range.";
             // A terminal or retired record is a tombstone. Compaction clears its placement fields.

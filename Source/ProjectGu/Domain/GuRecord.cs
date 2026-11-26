@@ -84,6 +84,7 @@ namespace ProjectGu.Domain
         private string originNativeId;
         private bool cohortDebitCommitted;
         private string uniquenessKey;
+        private GuCreationEvidence creationEvidence;
 
         // Facets
         private GuExistence existence = GuExistence.Living;
@@ -135,6 +136,8 @@ namespace ProjectGu.Domain
         public string OriginNativeId => originNativeId;
         public bool CohortDebitCommitted => cohortDebitCommitted;
         public string UniquenessKey => uniquenessKey;
+        /// <summary>Alpha 6 creation receipt. Null on records created before Alpha 6, which keep the original spring rules.</summary>
+        public GuCreationEvidence CreationEvidence => creationEvidence;
         public GuExistence Existence => existence;
         public GuCondition Condition => condition;
         public GuPlacementKind Placement => placement;
@@ -189,14 +192,32 @@ namespace ProjectGu.Domain
                 stateRevision = 1
             };
 
-        internal static GuRecord PrepareFromCohort(string id, GuSpeciesDef species, GuCohortMaterializationRequest request,
-            int tick, string pawnId)
+        /// <summary>
+        /// A provisional individual for one source materialization. It is not in the registry and has no debit until the
+        /// transaction commits. The origin stays <see cref="CohortOrigin"/>; the receipt names the source kind and trigger.
+        /// </summary>
+        internal static GuRecord PrepareFromSource(string id, GuSpeciesDef species, GuSourceRequest request, int tick, string pawnId)
         {
-            var record = CreateManifested(id, species, CohortOrigin, request.HabitatId, tick, GuCondition.Active,
+            var record = CreateManifested(id, species, CohortOrigin, request.SourceId, tick, GuCondition.Active,
                 GuManifestationKind.Pawn, pawnId);
             record.creationEventKey = request.EventKey;
-            record.originNativeId = request.SourceNativeId;
+            record.originNativeId = request.Credential;
+            record.creationEvidence = new GuCreationEvidence(request);
             return record;
+        }
+
+        /// <summary>The debit committed at the given cohort revision. Part of the callback-free commit window.</summary>
+        internal void CommitSourceDebit(long revisionAfter)
+        {
+            cohortDebitCommitted = true;
+            creationEvidence?.MarkDebited(revisionAfter);
+        }
+
+        /// <summary>Only after the cohort preimage was restored, before publication: the record no longer proves a debit.</summary>
+        internal void RevertUnpublishedDebit()
+        {
+            cohortDebitCommitted = false;
+            creationEvidence?.ClearDebit();
         }
 
         /// <summary>Field-by-field translation of a Schema V1 record (RFC-0004 §12).</summary>
@@ -263,8 +284,6 @@ namespace ProjectGu.Domain
             state.Add(component);
             return true;
         }
-
-        internal void MarkCohortDebitCommitted() => cohortDebitCommitted = true;
 
         internal void Quarantine(string reason)
         {
@@ -435,7 +454,7 @@ namespace ProjectGu.Domain
         }
 
         /// <summary>
-        /// Compacts a terminal or retired record after the retention period (owner decisions §5). Keeps what replay,
+        /// Compacts a terminal or retired record after the retention period (owner decisions §5). Keeps what replay, receipts,
         /// conservation and uniqueness need: identity, species, provenance, event keys, debit, outcome and end tick.
         /// </summary>
         internal bool Compact()
@@ -482,6 +501,7 @@ namespace ProjectGu.Domain
                 ? $"manifested as {manifestation} ({projectionId})"
                 : $"contained in {containerKind} {containerId ?? "(unassigned)"} (anchor {anchorHint})")
             + (creationEventKey == null ? "" : $"\nOrigin habitat: {originId} ({originNativeId}) | Event: {creationEventKey} | Adult debited: {cohortDebitCommitted}")
+            + (creationEvidence == null ? "" : $"\nCreation receipt: {creationEvidence.Describe()}")
             + (IsUnresolved ? $"\nUnresolved: {unresolved}" + (terminalEvidence == GuTerminalEvidence.None ? "" : $", evidence {terminalEvidence}") + $" since {unresolvedSinceTick}. {unresolvedDetail}" : "")
             + (existence == GuExistence.Living ? "" : $"\nEnded: {existence}"
                 + (terminalOutcome == GuTerminalOutcome.None ? "" : $" ({terminalOutcome})") + $" at {endedTick}"
@@ -506,6 +526,7 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref originNativeId, "originNativeId");
             Scribe_Values.Look(ref cohortDebitCommitted, "cohortDebitCommitted");
             Scribe_Values.Look(ref uniquenessKey, "uniquenessKey");
+            Scribe_Deep.Look(ref creationEvidence, "creationEvidence");
             Scribe_Values.Look(ref existence, "existence", GuExistence.Living);
             Scribe_Values.Look(ref condition, "condition", GuCondition.Active);
             Scribe_Values.Look(ref placement, "placement", GuPlacementKind.Manifested);

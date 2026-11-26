@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using ProjectGu.Domain;
 using ProjectGu.Springs;
 using RimWorld;
 using Verse;
@@ -55,7 +56,8 @@ namespace ProjectGu.Jobs
                     var species = lure == null ? null : spring?.LureSpeciesFor(lure.def);
                     var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
                     string reason = "Nothing at this spring answers that lure any more.";
-                    if (species == null || registry == null || !spring.TryEncounterWildGu(species, registry, out var individual, out reason))
+                    if (species == null || registry == null || !spring.TryEncounterWildGu(species, registry, out var individual, out reason,
+                        GuSourceTriggers.SpringLure, lure.def))
                     {
                         Messages.Message(reason ?? "The lure drew nothing.", MessageTypeDefOf.RejectInput, false);
                         EndJobWith(JobCondition.Incompletable);

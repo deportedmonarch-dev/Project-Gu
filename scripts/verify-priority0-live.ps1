@@ -2,7 +2,7 @@ param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
     [string]$InstalledProjectGuPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'Slice0', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Alpha5BLogisticsSave = '',
     [string]$Legacy31Save = '',
@@ -287,7 +287,18 @@ Measure-Phase 'sourcePreflight' {
             throw 'The supplied V1 saves must match the manifest inventory.'
         }
     }
-    $sources = @($historical.Values) + @($V1Saves) + @($CultivatorV2Saves.Values) + @($CultivatorVariantsSource)
+    # Alpha 6 Slice 0 loads copies of the archived Alpha 5A save and the owner's Alpha 5B logistics checkpoint when present.
+    $script:slice0Legacy = @()
+    if ($profiles -contains 'Slice0') {
+        foreach ($candidate in @(@{ Label = 'legacy5a'; Path = 'tests/obj/Alpha5ASaves/alpha5a-feeding.rws' },
+                @{ Label = 'owner5b'; Path = 'tests/obj/Alpha5BOwnerLogistics/owner-logistics-input.rws' })) {
+            $candidatePath = Join-Path $root $candidate.Path
+            if (Test-Path -LiteralPath $candidatePath -PathType Leaf) {
+                $script:slice0Legacy += [pscustomobject]@{ Label = $candidate.Label; Path = (Resolve-Path -LiteralPath $candidatePath).Path }
+            } else { Write-Warning "Slice0: $($candidate.Path) not found; its historical stage is skipped." }
+        }
+    }
+    $sources = @($historical.Values) + @($V1Saves) + @($CultivatorV2Saves.Values) + @($CultivatorVariantsSource) + @($script:slice0Legacy | ForEach-Object { $_.Path })
     foreach ($sourcePath in $sources | Where-Object { $_ }) {
         $path = (Resolve-Path -LiteralPath $sourcePath).Path
         if ($sourceSaves.ContainsKey($path)) { continue }
@@ -638,6 +649,25 @@ Measure-Phase 'planning' {
                 # Rendered inspection opens a game window; run with -Parallel 1 and no other RimWorld instance.
                 Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha5b-midway.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
                 Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha5b -gualpha5bvisual'
+            }
+            continue
+        }
+        if ($name -eq 'Slice0') {
+            # Alpha 6 Slice 0: the shared source transaction on a fresh clan start. Spring search and lure receipts, a test-only
+            # source, a fault matrix with conservation after every step, then two fresh-process reloads.
+            $unit = New-Unit $name $saveData "PASS $name source transaction, fault recovery and two fresh-process reloads. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -guslice0'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -guslice0'
+            Add-Launch $unit 'final' $false $false '-guclanstart -guslice0 -guslice0final'
+            # Historical saves: hash-locked copies, each in its own unit, loaded, resaved and reloaded in fresh processes.
+            foreach ($legacy in $script:slice0Legacy) {
+                $legacyData = Join-Path $testRoot "Slice0-$($legacy.Label)"
+                New-ProfileConfig $legacyData $name
+                New-Item -ItemType Directory -Path (Join-Path $legacyData 'Saves') -Force | Out-Null
+                Copy-CheckedSave $legacy.Path (Join-Path $legacyData 'Saves/autostart.rws')
+                $legacyUnit = New-Unit "Slice0-$($legacy.Label)" $legacyData "PASS Slice0 $($legacy.Label) historical save under the shared transaction. Evidence in $legacyData"
+                Add-Launch $legacyUnit 'legacy' $false $false "-guclanstart -guslice0 -guslice0legacy -guslice0source=$($legacy.Label)"
+                Add-Launch $legacyUnit 'legacyreload' $false $false "-guclanstart -guslice0 -guslice0legacyreload -guslice0source=$($legacy.Label)"
             }
             continue
         }

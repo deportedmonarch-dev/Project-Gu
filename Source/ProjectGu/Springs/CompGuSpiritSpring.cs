@@ -291,8 +291,12 @@ namespace ProjectGu.Springs
             else Messages.Message(reason ?? "The spring could not safely release a Gu.", MessageTypeDefOf.RejectInput, false);
         }
 
-        /// <summary>Draws one mature adult of the species from this spring's cohort through the registry's materialization.</summary>
-        internal bool TryEncounterWildGu(GuSpeciesDef species, GuIndividualRegistry registry, out GuRecord individual, out string reason)
+        /// <summary>
+        /// Draws one mature adult of the species from this spring's cohort through the registry's shared source transaction.
+        /// A lure passes its trigger and the bait Def as the asset scope, recorded on the creation receipt.
+        /// </summary>
+        internal bool TryEncounterWildGu(GuSpeciesDef species, GuIndividualRegistry registry, out GuRecord individual, out string reason,
+            string trigger = GuSourceTriggers.SpringSearch, ThingDef lure = null)
         {
             individual = null;
             var cohort = GuPopulationLedger.Find(populations, species.defName);
@@ -304,11 +308,12 @@ namespace ProjectGu.Springs
                 candidate.InBounds(map) && !candidate.Fogged(map) && candidate.Standable(map)
                 && !map.reservationManager.IsReserved(candidate)
                 && candidate.GetThingList(map).Count == 0, IntVec3.Invalid);
-            string eventKey = $"player-encounter:{HabitatId}:{species.defName}:{cohort.Revision}";
+            string prefix = trigger == GuSourceTriggers.SpringLure ? "player-lure" : "player-encounter";
+            string eventKey = $"{prefix}:{HabitatId}:{species.defName}:{cohort.Revision}";
             reason = "No safe nearby place is available for a wild Gu.";
             if (!cell.IsValid) return false;
             return GuIndividualRegistry.TryPrepareMaterializationRequest(this, species.defName, eventKey, out var request)
-                && registry.TryEncounterWildCohort(this, request, map, cell, out individual, out reason);
+                && registry.TryEncounterWildCohort(this, request, trigger, lure?.defName, map, cell, out individual, out reason);
         }
 
         internal static bool PlayerCanAccessEncounterMap(Map map) => GuPocketProbeComponent.IsLive(map)
