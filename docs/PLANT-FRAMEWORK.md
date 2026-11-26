@@ -67,9 +67,8 @@ These configurations are rejected at load:
 
 ## Compatibility with external seed systems
 
-- **SeedsPlease:** SeedsPlease, SeedsPlease: Lite and its successors have no verified RimWorld 1.7 release as of Alpha 5B. The last SeedsPlease: Lite update found dates from 2023. They are not dependencies.
-- **Detection:** the framework detects them by package ID: known IDs, plus any ID containing `seedsplease`. When one is active, Project GU stops gating sowing so seeds are never consumed twice, and the plant description says the external system manages sowing.
-- **Not tested:** this behaviour has not been exercised with a real external seed mod, because none was available for 1.7.
+- **SeedsPlease:** compatibility with the actual mod, including Lite and successors, remains unverified on RimWorld 1.7.
+- **Detection:** the framework checks known package IDs and IDs containing `seedsplease`. When a match is active, Project GU bypasses its own seed gate and the plant description tells the player the external system manages sowing. External seed eligibility and consumption still need an end-to-end test with the real mod.
 
 ## Old saves
 
