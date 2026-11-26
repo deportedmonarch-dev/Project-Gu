@@ -10,7 +10,11 @@ Alpha 5B fixes the problems the owner's first real session with Alpha 5A exposed
 
 It also adds the [Project GU plant framework](PLANT-FRAMEWORK.md), which brings seed-gated moon orchid cultivation.
 
-The base is Alpha 5A at `d82c723769ab19dd9078ba3dfefd0a20ee8d10ce`. The original Alpha 5B gameplay candidate is `5df38decbc4f0b089267de0d52f66db224ba9b5a` on `feature/alpha5b-playtest-corrections`, with engineering closeout at `fd4204b68025cfd59bbc5ffe375c9861ca137ce4`. The owner passed all tested systems except underground logistics. Final acceptance awaits the logistics retest. Alpha 6 implementation awaits Alpha 5B acceptance and the owner's first-slice decisions.
+## Final owner acceptance
+
+On 2026-11-26 the owner completed the final gameplay retest, confirmed satisfactory behavior, and officially accepted `c86bf6bdc898ce0b06ea0d9cb8db5e5342c8d740` on `feature/alpha5b-playtest-corrections`. Acceptance includes the underground dispatch corrections, independent **UG haul** priorities, and the installer upgrade fix. The owner authorized publication and integration. The [open regression records](#open-regression-records) remain open.
+
+Alpha 5B is based on Alpha 5A at `d82c723769ab19dd9078ba3dfefd0a20ee8d10ce`. Its history includes the original gameplay candidate `5df38decbc4f0b089267de0d52f66db224ba9b5a`, engineering closeout `fd4204b68025cfd59bbc5ffe375c9861ca137ce4`, and surface dispatch follow-up `b37ac75f5b1abb6140e84332f412a0d3e0d464c2`. The final retest closes the underground logistics issue from the earlier owner session.
 
 ## Owner playtest logistics follow-up
 
@@ -271,6 +275,7 @@ To regenerate an equivalent fixture, build and run `-Profile Alpha5A -Parallel 1
 | Alpha 1 passage travel | Campaign `d3239d5238974189ba5f394ea3f78c1a` timed out in `new` while the disciple carried a captured Hope Gu to the surface. The predicate waited 3,000 game ticks. Campaign `11cbfafaf91f4b4caa81c322b6ee4412` passed the rerun. This remains an unexplained intermittent regression risk. If it recurs, record the job and pawn state, elapsed ticks, both endpoints and landing-cell occupancy. |
 | Historical Alpha 5A disabled beer-lure option | The Alpha 6 review's four controlled native probes in `67175b193613416a8c15b59aab4b09a7` offered the disabled option with a qualified actor, a valid route and zero eligible bait. A held beer enabled it in all four. The original trigger is unresolved and the fixture was under-specified. Retain the disabled-option assertion and establish those deterministic preconditions before evaluating the native menu. |
 | Historical Alpha 5A starvation regression | The Alpha 6 review replayed the same checkpoint successfully. Its negative control `395ad20a5439423fb5f172325d6c5b48` added an unrelated native letter and reproduced the global-count failure while both Gu retained one correct terminal event and one starvation notification each. The original late mismatch remains unattributed. Future assertions should verify terminal outcomes and exactly-once notifications by Gu ID across sweeps and reload, with unrelated letters present. |
+| Alpha 5A enabled beer lure and Alpha 5B supply control | The broader logistics campaign reported a missed enabled beer-lure menu and a supply-control failure. Both passed in subsequent runs. The original triggers remain unknown. [Logistics verification](#dispatch-and-work-priorities) |
 
 ### Fixture-only adjustments, not gameplay changes
 
