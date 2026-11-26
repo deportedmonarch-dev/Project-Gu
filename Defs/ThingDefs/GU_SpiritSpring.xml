@@ -79,6 +79,18 @@
           <li><species>GU_MoonlightGu</species><mature>2</mature><juvenile>0</juvenile></li>
           <li><species>GU_LiquorWorm</species><mature>2</mature><juvenile>0</juvenile></li>
         </initialCohorts>
+        <!-- Alpha 5B: luminous Hope Gu drifting around the spring, one per living Hope Gu in the cohort, at most 14.
+             Scenery derived from the cohort: never individuals, never selectable or capturable. -->
+        <ambientSpirits>
+          <li>
+            <species>GU_HopeGu</species>
+            <texPath>ProjectGU/Effects/HopeSpirit</texPath>
+            <color>(0.80, 0.93, 1.0, 0.85)</color>
+            <perIndividual>1</perIndividual>
+            <maxSpirits>14</maxSpirits>
+            <radius>3.6</radius>
+          </li>
+        </ambientSpirits>
       </li>
     </comps>
   </ThingDef>

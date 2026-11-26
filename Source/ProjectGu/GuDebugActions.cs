@@ -23,6 +23,34 @@ namespace ProjectGu
                 Messages.Message("Choose an open cell on a loaded map for the test Gu.", MessageTypeDefOf.RejectInput, false);
         }
 
+        /// <summary>
+        /// Alpha 5B: spawn a registered wild individual of any configured species. Vanilla "Spawn pawn" and "Spawn thing" cannot
+        /// make Gu: a Gu body without a canonical registry record would be an unidentified duplicate, so the projection's
+        /// PostMake refuses it. This tool goes through the registry's own creation path instead; the individual carries the
+        /// development origin, can be captured with an ordinary colonist, refined, stored and fed like any other, and no spring
+        /// population is debited.
+        /// </summary>
+        [DebugAction("Project GU", "Spawn registered wild Gu...", allowedGameStates = AllowedGameStates.PlayingOnMap, displayPriority = 900)]
+        private static System.Collections.Generic.List<DebugActionNode> SpawnRegisteredWildGu()
+        {
+            var nodes = new System.Collections.Generic.List<DebugActionNode>();
+            foreach (var species in DefDatabase<GuSpeciesDef>.AllDefsListForReading.Where(GuIndividualRegistry.IsDevelopmentSpawnable).OrderBy(def => def.label))
+            {
+                var chosen = species;
+                nodes.Add(new DebugActionNode(species.LabelCap, DebugActionType.ToolMap, () =>
+                {
+                    var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+                    var cell = UI.MouseCell();
+                    if (registry?.TrySpawnDevelopmentGu(chosen, Find.CurrentMap, cell, configuredSpecies: true, out var pawn) == true)
+                        Messages.Message($"Spawned a registered wild {chosen.label} [{pawn.GuId?.Substring(0, 8)}] (development origin). "
+                            + "Capture it with a colonist through the right-click menu.", new LookTargets(pawn), MessageTypeDefOf.NeutralEvent, false);
+                    else Messages.Message($"Could not spawn a {chosen.label} here: choose an open, unfogged, standable cell with no pawn on it, "
+                        + "while Gu custody is idle.", MessageTypeDefOf.RejectInput, false);
+                }));
+            }
+            return nodes;
+        }
+
         [DebugAction("Project GU", "Materialize adult Gu from selected spring", actionType = DebugActionType.ToolMap,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         private static void MaterializeTestGu()

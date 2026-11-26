@@ -38,7 +38,7 @@
   <ThingDef ParentName="PlantBaseNonEdible">
     <defName>GU_MoonOrchid</defName>
     <label>moon orchid</label>
-    <description>A blue-violet orchid that grows on primeval qi-rich soil even in darkness. It can be sown in growing zones. Mature flowers can be harvested for their petals without uprooting the plant; the orchid then needs time to regrow before it flowers again.</description>
+    <description>A blue-violet orchid that grows on primeval qi-rich soil even in darkness. It can be sown in growing zones with moon orchid seeds, which are gathered from flowering orchids. Mature flowers can be harvested for their petals without uprooting the plant; the orchid then needs time to regrow before it flowers again.</description>
     <selectable>true</selectable>
     <graphicData>
       <texPath>ProjectGU/MoonOrchid</texPath>
@@ -54,6 +54,8 @@
       <minGrowthTemperature>-10</minGrowthTemperature>
       <minOptimalGrowthTemperature>5</minOptimalGrowthTemperature>
       <fertilityMin>0.7</fertilityMin>
+      <!-- Alpha 5B: sowing takes crop-like work (vanilla default is 10, i.e. instant). Balance value. -->
+      <sowWork>400</sowWork>
       <sowTags><li>Ground</li></sowTags>
       <wildTerrainTags><li>GU_PrimevalQiRich</li></wildTerrainTags>
       <maxMeshCount>1</maxMeshCount>
@@ -76,6 +78,21 @@
         <cavernSupportUnits>3</cavernSupportUnits>
         <growthSoils><li>GU_PrimevalQiRichSoil</li></growthSoils>
         <minimumSpacing>3</minimumSpacing>
+      </li>
+      <!-- Alpha 5B plant framework: seed-gated cultivation, seed gathering and the Gu food relationship.
+           A seed gathering spends the same flowering as a petal harvest (growth back to 0.7, regrow past 0.85). -->
+      <li Class="ProjectGu.Botany.CompProperties_GuPlant">
+        <category>Flower</category>
+        <naturalHabitat>primeval qi-rich soil around spirit springs, even in darkness</naturalHabitat>
+        <cultivable>true</cultivable>
+        <sowingMaterial>GU_MoonOrchidSeeds</sowingMaterial>
+        <sowingMaterialCount>1</sowingMaterialCount>
+        <seedCollection>
+          <yield>2</yield>
+          <work>300</work>
+        </seedCollection>
+        <harvestRoles><li>GuFood</li></harvestRoles>
+        <usesNote>Moon orchid petals are reserved for future Moon Path refinement recipes.</usesNote>
       </li>
     </comps>
   </ThingDef>

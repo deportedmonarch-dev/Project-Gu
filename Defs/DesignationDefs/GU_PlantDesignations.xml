@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Alpha 5B plant framework: gather seeds from a living, flowering Project GU plant without uprooting it. -->
+  <DesignationDef>
+    <defName>GU_GatherSeeds</defName>
+    <texturePath>ProjectGU/Designations/GatherSeeds</texturePath>
+    <targetType>Thing</targetType>
+  </DesignationDef>
+</Defs>

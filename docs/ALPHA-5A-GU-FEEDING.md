@@ -24,7 +24,7 @@ Accepted base: `95725cbb0d5b454c589effbd6b05bf05c4bf5692` (Alpha 4A with the opt
    - **What happens:** the colonist fetches the food from their inventory or the map, carries it to the Gu and offers it for a few seconds.
    - **When food is used:** only when the meal is actually given.
    - **Interruption:** drafting, another order or a lost route keeps every item. The colonist drops what they carried.
-4. **Let the Gu Master tend their own Gu.**
+4. **Let the Gu Master tend their own Gu.** *Superseded in Alpha 5B:* the same switch now feeds in the background from inventory and stockpiles, with no job. See [Alpha 5B](ALPHA-5B-PLAYTEST-CORRECTIONS.md). The Alpha 5A behaviour was:
    - **The policy:** **Feed own Gu automatically** sits at the top of the Gu page. It is on by default and set per cultivator.
    - **What it does:** the Gu Master feeds their own hungry, refined Gu from their inventory or the stockpiles of the map they are on.
    - **When:** only while choosing a new job. It never interrupts a job, a cultivation session, combat, a drafted pawn or a lord duty, and it does nothing with enemies within 25 cells.

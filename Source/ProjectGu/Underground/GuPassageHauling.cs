@@ -22,6 +22,9 @@ namespace ProjectGu.Underground
         internal bool Enabled;
         internal Thing Packed;
         internal int NextCheckTick;
+        /// <summary>Index of the cargo kind that gets first claim on the next trip. It advances after every pack, so one plentiful
+        /// kind (primeval stone) can never starve the others (moon orchid petals).</summary>
+        internal int NextCargo;
 
         internal Thing Cargo => Packed?.holdingOwner != null
             && Packed.holdingOwner == Worker?.inventory?.GetDirectlyHeldThings() ? Packed : null;
@@ -37,6 +40,7 @@ namespace ProjectGu.Underground
             Scribe_Values.Look(ref Enabled, "enabled");
             Scribe_References.Look(ref Packed, "packed");
             Scribe_Values.Look(ref NextCheckTick, "nextCheckTick");
+            Scribe_Values.Look(ref NextCargo, "nextCargo");
         }
     }
 
@@ -140,8 +144,11 @@ namespace ProjectGu.Underground
         {
             Map map = below.Map;
             bool local = pawn.Map == map;
-            foreach (ThingDef def in site.Kind.haulingCargo)
+            var kinds = site.Kind.haulingCargo;
+            int start = site.Hauling?.NextCargo ?? 0;
+            for (int k = 0; k < kinds.Count; k++)
             {
+                ThingDef def = kinds[((start % kinds.Count) + kinds.Count + k) % kinds.Count];
                 foreach (Thing item in map.listerThings.ThingsOfDef(def))
                 {
                     if (!item.Spawned || item.Fogged() || item.IsForbidden(pawn.Faction) || item.IsBurning()
@@ -251,6 +258,9 @@ namespace ProjectGu.Underground
             if (hands.TryTransferToContainer(carried, inventory, carried.stackCount, out Thing packed, false) <= 0)
                 return false;
             site.Hauling.Packed = packed;
+            // Rotate first claim to the next cargo kind after this one.
+            var kinds = site.Kind.haulingCargo;
+            site.Hauling.NextCargo = (kinds.IndexOf(packed.def) + 1) % kinds.Count;
             return true;
         }
 

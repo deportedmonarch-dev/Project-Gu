@@ -21,12 +21,13 @@ namespace ProjectGu.Interface
             float listTop = header.yMax + 4f;
             if (view.CanManage)
             {
-                // Player feeding policy for this cultivator: tend their own hungry, refined Gu when food is at hand.
+                // Player feeding policy for this cultivator: background provisioning of their own hungry, refined Gu.
                 Rect toggle = new Rect(rect.x, listTop, listWidth, 24f);
                 bool autoTend = view.AutoTend;
                 Widgets.CheckboxLabeled(toggle, "Feed own Gu automatically", ref autoTend);
-                TooltipHandler.TipRegion(toggle, "When on, this Gu Master feeds their own hungry, refined Gu from their inventory or this map's stockpiles "
-                    + "while choosing a new job. It never interrupts a running job, combat or a drafted order.");
+                TooltipHandler.TipRegion(toggle, "When on, this Gu Master's own hungry, refined Gu are fed in the background from real food: first what the "
+                    + "Gu Master carries, then unforbidden food in the colony's stockpiles on the same map that they can reach and nobody else has claimed. "
+                    + "The exact items are used up. It needs no job: the Gu Master is never interrupted. Use Feed to feed by hand.");
                 if (autoTend != view.AutoTend)
                 {
                     Sustenance.GuSustenanceComponent.Instance?.SetAutoTend(view.Pawn, autoTend);
@@ -178,6 +179,7 @@ namespace ProjectGu.Interface
                 if (EffectLine(n, entry.Record) is { } effect) ApertureTabStyle.Line(inner, ref iy, effect, ApertureTabStyle.Warning, GameFont.Tiny);
                 if (n.Mode != GuSustenanceMode.Advancing) ApertureTabStyle.Line(inner, ref iy, PausedLine(n.Mode), ApertureTabStyle.Muted, GameFont.Tiny);
                 if (n.InGrace) ApertureTabStyle.Line(inner, ref iy, "Grace period: hunger has not yet begun for this Gu after the feeding system arrived in this save.", ApertureTabStyle.Muted, GameFont.Tiny);
+                if (FeedingHistoryLine(entry.Record) is { } history) ApertureTabStyle.Line(inner, ref iy, history, ApertureTabStyle.Muted, GameFont.Tiny);
                 iy += 2f;
                 foreach (var (option, available) in entry.Foods)
                 {
@@ -195,7 +197,7 @@ namespace ProjectGu.Interface
                 if (View.CanManage && entry.FeedAction is { } feed)
                 {
                     iy += 4f;
-                    if (ApertureTabStyle.ActionButton(new Rect(inner.x, iy, Mathf.Min(inner.width, 300f), 30f), feed.Label, feed.DisabledReason, feed.Tooltip))
+                    if (ApertureTabStyle.ActionButton(new Rect(inner.x, iy, inner.width, 30f), feed.Label, feed.DisabledReason, feed.Tooltip))
                         Run(feed);
                     iy += 34f;
                     if (feed.DisabledReason != null)
@@ -207,6 +209,21 @@ namespace ProjectGu.Interface
             Widgets.DrawBox(box);
             GUI.color = Color.white;
             y = box.yMax + 4f;
+        }
+
+        /// <summary>When and how the Gu last ate, and why automatic feeding could not feed it, if it tried.</summary>
+        private string FeedingHistoryLine(GuRecord record)
+        {
+            var state = record.GetState<GuNourishment>();
+            string line = null;
+            if (state is { LastFedTick: >= 0 })
+                line = $"Last fed {(Find.TickManager.TicksGame - state.LastFedTick).ToStringTicksToPeriod()} ago"
+                    + (state.LastFeedSource.NullOrEmpty() ? "" : state.LastFeedSource.StartsWith("fed by", System.StringComparison.Ordinal) || state.LastFeedSource.StartsWith("automatic feeding job", System.StringComparison.Ordinal)
+                        ? $" ({state.LastFeedSource})" : $" (automatically, from {state.LastFeedSource})") + ".";
+            if (View.AutoTend && Sustenance.GuSustenanceComponent.Instance?.LastProvision.TryGetValue(record.Id, out var last) == true && !last.Fed
+                && last.Reason != null && last.Reason.StartsWith("no ", System.StringComparison.Ordinal))
+                line = (line == null ? "" : line + " ") + $"Automatic feeding found {last.Reason}.";
+            return line;
         }
 
         internal static string LevelLabel(GuNourishmentLevel level) => level switch

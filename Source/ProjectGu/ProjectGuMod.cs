@@ -8,11 +8,13 @@ namespace ProjectGu
     public sealed class ProjectGuSettings : ModSettings
     {
         public bool cosmeticEffects = true;
+        public bool ambientSpirits = true;
 
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Values.Look(ref cosmeticEffects, "cosmeticEffects", true);
+            Scribe_Values.Look(ref ambientSpirits, "ambientSpirits", true);
         }
     }
 
@@ -34,6 +36,8 @@ namespace ProjectGu
             bool before = Settings.cosmeticEffects;
             list.CheckboxLabeled("Gu combat visual effects", ref Settings.cosmeticEffects,
                 "Draw launch, travel and impact effects for Gu abilities. Projectiles, damage, costs and cooldowns are identical either way.");
+            list.CheckboxLabeled("Ambient spirits at spirit springs", ref Settings.ambientSpirits,
+                "Draw the softly glowing Hope Gu that drift around spirit springs. Their number follows the spring's real Hope Gu population; they are scenery only and cannot be selected or captured. Encounters, populations and awakening are identical either way.");
             list.End();
             if (before && !Settings.cosmeticEffects && Current.Game != null)
                 foreach (var map in Find.Maps) map.GetComponent<GuFxMapComponent>()?.Clear();

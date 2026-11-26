@@ -23,6 +23,8 @@ namespace ProjectGu.Springs
         public List<GuCavernFloraTarget> botanicalCavernFlora = new();
         // Extra species cohorts placed in a newly generated spring, once. Hope Gu keep their legacy initialization.
         public List<GuInitialCohort> initialCohorts = new();
+        // Alpha 5B: luminous ambient spirits drawn from this spring's cohorts. Cosmetic only; never individuals.
+        public List<ProjectGu.Presentation.GuAmbientSpirits> ambientSpirits = new();
         public CompProperties_GuSpiritSpring() { compClass = typeof(CompGuSpiritSpring); }
     }
 

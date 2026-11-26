@@ -12,6 +12,8 @@
     <playerTravel>true</playerTravel>
     <haulingCargo>
       <li>GU_PrimevalStone</li>
+      <li>GU_MoonOrchidPetals</li>
+      <li>GU_MoonOrchidSeeds</li>
     </haulingCargo>
   </ProjectGu.Underground.GuPocketSiteDef>
   <MapGeneratorDef>

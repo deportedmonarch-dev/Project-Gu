@@ -52,8 +52,8 @@ namespace ProjectGu.Sustenance
         private int cursor;
         private int legacyInitialized;
 
-        /// <summary>Per-pawn next routine-feeding check (thing ID to tick). Transient; losing it only delays one check.</summary>
-        internal readonly Dictionary<int, int> NextAutoTendCheck = new();
+        /// <summary>The last automatic provisioning attempt per individual, for the interface. Transient: rebuilt within an hour.</summary>
+        internal readonly Dictionary<string, GuProvisionResult> LastProvision = new();
 
         // Measurements for the performance check. Never saved.
         internal long SweepCalls { get; private set; }
@@ -147,6 +147,10 @@ namespace ProjectGu.Sustenance
             var state = GuSustenance.Settle(registry, record, now);
             if (state == null) return;
             if (existing == null && state.FromLegacySave) legacyInitialized++;
+            // Alpha 5B background provisioning: a hungry Gu in its cultivator's own care is fed from real supplies, with no job.
+            if (state.Mode == GuSustenanceMode.Advancing
+                && GuNourishmentRules.LevelOf(props, state.NourishmentTicks, state.StarvingTicks) >= GuNourishmentLevel.Hungry)
+                LastProvision[record.Id] = GuProvisioning.TryProvision(registry, record, state, now);
             var level = GuNourishmentRules.LevelOf(props, state.NourishmentTicks, state.StarvingTicks);
             if (state.Mode == GuSustenanceMode.Advancing && GuNourishmentRules.IsTerminal(props, state.NourishmentTicks, state.StarvingTicks))
             {
@@ -182,11 +186,13 @@ namespace ProjectGu.Sustenance
         {
             string name = $"{record.Species?.LabelCap ?? record.SpeciesDefName} [{ShortId(record.Id)}]";
             string food = DietSummary(record.Species?.SimulatedFeeding);
+            string auto = Instance?.LastProvision.TryGetValue(record.Id, out var last) == true && !last.Fed && last.Reason != null
+                && last.Reason.StartsWith("no ", StringComparison.Ordinal) ? $" Automatic feeding found {last.Reason}." : "";
             string text = level switch
             {
-                GuNourishmentLevel.Hungry => $"{name} is hungry. Feed it {food}.",
-                GuNourishmentLevel.Starving => $"{name} is starving. Feed it {food} soon.",
-                GuNourishmentLevel.Withering => $"{name} is withering from starvation and can no longer act. Feed it {food} before it dies.",
+                GuNourishmentLevel.Hungry => $"{name} is hungry. Feed it {food}.{auto}",
+                GuNourishmentLevel.Starving => $"{name} is starving. Feed it {food} soon.{auto}",
+                GuNourishmentLevel.Withering => $"{name} is withering from starvation and can no longer act. Feed it {food} before it dies.{auto}",
                 _ => null
             };
             if (text == null) return;

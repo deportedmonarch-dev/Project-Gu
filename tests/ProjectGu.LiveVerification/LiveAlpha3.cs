@@ -33,8 +33,10 @@ public sealed partial class LiveLifecycleChecks
         Map cave = disciple.Map;
         Check(!Prefs.DevMode && spring.MatureCountFor(LiquorSpecies) == 2 && spring.MatureCountFor("GU_MoonlightGu") == 2 && !registry.Records.Any(),
             "The new cavern spring holds two mature Liquor Worms beside the Moonlight and Hope Gu cohorts");
-        Check(!springThing.GetGizmos().OfType<Command_Action>().Any(command => command.defaultLabel.Contains("Liquor")),
-            "Liquor Worm is not offered as a plain search");
+        // Alpha 5B: the spring explains the lure with an informational command, but never offers a plain search.
+        Check(!springThing.GetGizmos().OfType<Command_Action>().Any(command => command.defaultLabel == "Search for Liquor Worm")
+            && springThing.GetGizmos().OfType<Command_Action>().Any(command => command.defaultLabel == "Lure Liquor Worm"),
+            "Liquor Worm is not offered as a plain search; the spring explains its lure instead");
         Check(springThing.GetFloatMenuOptions(disciple).Any(option => option.Label.StartsWith("Lure Liquor Worm (requires", StringComparison.Ordinal) && option.Disabled),
             "Without beer the lure is shown but unavailable");
 

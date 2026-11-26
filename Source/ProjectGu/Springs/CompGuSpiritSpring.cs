@@ -48,6 +48,9 @@ namespace ProjectGu.Springs
         public int HopeGuAvailable => DefDatabase<GuSpeciesDef>.GetNamedSilentFail(HopeSpecies) != null
             ? MatureCountFor(HopeSpecies) : 0;
         public int HopeGuJuvenile => GuPopulationLedger.Find(populations, HopeSpecies)?.JuvenileCount ?? 0;
+        public int JuvenileCountFor(string speciesDefName) => populationsReady
+            ? GuPopulationLedger.Find(populations, speciesDefName)?.JuvenileCount ?? 0 : 0;
+        internal List<ProjectGu.Presentation.GuAmbientSpirits> AmbientProfiles => Props.ambientSpirits;
         public int HabitatSupport { get { EnsureHabitatFresh(); return floraSupport; } }
         public int Reserve => reserve;
         public string HabitatId => habitatId;
@@ -214,20 +217,63 @@ namespace ProjectGu.Springs
             if (!populationsReady || parent?.Spawned != true || !PlayerCanAccessEncounterMap(parent.Map)) yield break;
             foreach (GuPopulationRecord cohort in populations)
             {
-                if (cohort?.MatureCount <= 0 || DefDatabase<GuSpeciesDef>.GetNamedSilentFail(cohort.SpeciesDefName) is not { } species
-                    || !species.wildPopulationEnabled || species.capabilityTags?.Contains("development_test") == true
-                    || species.wildProjectionKind == null || !Thing_GuDormantProjection.IsConfigured(species.dormantProjectionDef)) continue;
-                // Lure species are encountered through a colonist's lure job, never a plain search.
-                if (species.UsesLureEncounter) continue;
-
+                if (cohort == null || !EncounterableSpecies(cohort.SpeciesDefName, out var species)) continue;
+                // Lure species are encountered through a colonist's lure job, never a plain search; the spring explains how.
                 string speciesName = species.label;
-                yield return new Command_Action
+                if (species.UsesLureEncounter)
+                {
+                    string lures = string.Join(" or ", species.encounterLures.Select(lure => lure.label));
+                    var lureInfo = new Command_Action
+                    {
+                        defaultLabel = $"Lure {speciesName}",
+                        defaultDesc = $"{species.LabelCap} cannot be found by searching. Select a colonist, then right-click this spring and choose "
+                            + $"\"Lure {speciesName} with ...\". The colonist sets out {lures} and waits; the lure is used up only when a {speciesName} "
+                            + $"from this spring's population appears.\n\nMature {speciesName} here: {cohort.MatureCount}.",
+                        action = () => Messages.Message($"Select a colonist, then right-click the spring to lure a {speciesName} with {lures}.",
+                            new LookTargets(parent), MessageTypeDefOf.NeutralEvent, false)
+                    };
+                    if (cohort.MatureCount <= 0) lureInfo.Disable($"No mature {speciesName} remain at this spring.");
+                    yield return lureInfo;
+                    continue;
+                }
+                var search = new Command_Action
                 {
                     defaultLabel = $"Search for {speciesName}",
-                    defaultDesc = $"Draw one mature {speciesName} from this spring cohort. It remains wild and unrefined until separately captured and refined.",
+                    defaultDesc = $"Draw one mature {speciesName} from this spring's population ({cohort.MatureCount} mature, {cohort.JuvenileCount} juvenile). "
+                        + "It appears as a wild, unrefined Gu near the spring: select a colonist and right-click it to capture it, then refine it.",
                     action = () => EncounterWildGu(species)
                 };
+                if (cohort.MatureCount <= 0)
+                    search.Disable(cohort.JuvenileCount > 0
+                        ? $"No mature {speciesName} remain here; {cohort.JuvenileCount} juvenile(s) are still maturing."
+                        : $"No {speciesName} remain at this spring.");
+                yield return search;
             }
+        }
+
+        /// <summary>A species whose wild individuals a player may encounter from a spring (never developer test species).</summary>
+        private static bool EncounterableSpecies(string defName, out GuSpeciesDef species)
+        {
+            species = DefDatabase<GuSpeciesDef>.GetNamedSilentFail(defName);
+            return species is { wildPopulationEnabled: true } && species.capabilityTags?.Contains("development_test") != true
+                && species.wildProjectionKind != null && Thing_GuDormantProjection.IsConfigured(species.dormantProjectionDef);
+        }
+
+        /// <summary>Inspect lines explaining how each encounterable population here can be met, from the authoritative cohorts.</summary>
+        private string InspectEncounters()
+        {
+            if (!populationsReady || populations.Count == 0) return "";
+            var text = new StringBuilder();
+            foreach (var cohort in populations)
+            {
+                if (cohort == null || !EncounterableSpecies(cohort.SpeciesDefName, out var species)) continue;
+                string how = species.UsesLureEncounter
+                    ? $"lure with {string.Join(" or ", species.encounterLures.Select(lure => lure.label))} (right-click the spring with a colonist)"
+                    : "use Search on the spring, then capture it";
+                string state = cohort.MatureCount > 0 ? $"{cohort.MatureCount} mature" : cohort.JuvenileCount > 0 ? "none mature yet" : "none remain";
+                text.Append($"\n  {species.LabelCap}: {how}; {state}");
+            }
+            return text.Length == 0 ? "" : "\nEncounters:" + text;
         }
 
         private void EncounterWildGu(GuSpeciesDef species)
@@ -372,7 +418,8 @@ namespace ProjectGu.Springs
                 "\nPrimeval stones produced: " + lifetimeProduced + "; next: " + ProductionDue +
                 "\nSpirit flora: " + currentHabitatPatches + " patches (support " + floraSupport + ")" +
                 InspectPopulation() +
-                (floraSupport > 0 ? "\nHabitat supports Hope Gu reproduction" : "\nNo habitat: reproduction suspended");
+                (floraSupport > 0 ? "\nHabitat supports Hope Gu reproduction" : "\nNo habitat: reproduction suspended") +
+                InspectEncounters();
         }
 
         private string InspectPopulation()

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!--
+    Alpha 5B background provisioning: where automatic Gu feeding may take real food from, in order. A future Storage Gu,
+    pantry or logistics connection adds another def with its own ProjectGu.Sustenance.GuProvisionSource worker.
+  -->
+  <ProjectGu.Sustenance.GuProvisionSourceDef>
+    <defName>GU_ProvisionCultivatorInventory</defName>
+    <label>inventory</label>
+    <description>Food the Gu Master carries.</description>
+    <workerClass>ProjectGu.Sustenance.GuProvisionSource_CultivatorInventory</workerClass>
+    <order>0</order>
+  </ProjectGu.Sustenance.GuProvisionSourceDef>
+  <ProjectGu.Sustenance.GuProvisionSourceDef>
+    <defName>GU_ProvisionColonyStockpile</defName>
+    <label>stockpile</label>
+    <description>Unforbidden food in the colony's stockpiles and storage on the Gu Master's map, reachable from them and not claimed by another colonist.</description>
+    <workerClass>ProjectGu.Sustenance.GuProvisionSource_ColonyStockpile</workerClass>
+    <order>10</order>
+  </ProjectGu.Sustenance.GuProvisionSourceDef>
+</Defs>

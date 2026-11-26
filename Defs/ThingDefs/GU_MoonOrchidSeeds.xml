@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Alpha 5B: planting material for moon orchids. Gathered from living, flowering orchids; one is spent per orchid sown. -->
+  <ThingDef ParentName="ResourceBase">
+    <defName>GU_MoonOrchidSeeds</defName>
+    <label>moon orchid seeds</label>
+    <description>Tiny pale seeds shaken from a flowering moon orchid. Moon orchids can only be sown with them: each orchid planted uses one seed. Gathering seeds spends the orchid's flowering in the same way as harvesting its petals, and it regrows afterwards.</description>
+    <graphicData>
+      <texPath>ProjectGU/Items/MoonOrchidSeeds</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+    </graphicData>
+    <soundInteract>Grain_Drop</soundInteract>
+    <soundDrop>Grain_Drop</soundDrop>
+    <stackLimit>75</stackLimit>
+    <statBases>
+      <MarketValue>4</MarketValue>
+      <Mass>0.01</Mass>
+      <MaxHitPoints>30</MaxHitPoints>
+      <Flammability>1.0</Flammability>
+      <DeteriorationRate>2</DeteriorationRate>
+    </statBases>
+    <thingCategories>
+      <li>PlantMatter</li>
+    </thingCategories>
+    <healthAffectsPrice>false</healthAffectsPrice>
+  </ThingDef>
+</Defs>

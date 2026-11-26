@@ -147,7 +147,49 @@ namespace ProjectGu
 
         private static bool CanPlaceDormant(Map map, IntVec3 cell, Pawn source) => map is { Disposed: false }
             && Find.Maps.Contains(map) && cell.InBounds(map) && !cell.Fogged(map) && cell.Standable(map)
-            && cell.GetThingList(map).All(thing => thing == source);
+            && cell.GetThingList(map).All(thing => thing == source || SharesCellWithGu(thing));
+
+        /// <summary>
+        /// Alpha 5B: plants and filth lie under items in vanilla, so a Gu (wild or dormant) may share their cell. Before this a
+        /// wild Gu standing in dense spirit grass could never be captured. Items, buildings and other pawns still block it.
+        /// </summary>
+        internal static bool SharesCellWithGu(Thing thing) =>
+            thing.def.category == ThingCategory.Plant && thing.def.passability == Traversability.Standable || thing.def.category == ThingCategory.Filth;
+
+        /// <summary>
+        /// Where a capture leaves the dormant Gu: the wild Gu's own cell when it is open, otherwise the open neighbouring cell
+        /// nearest the captor. Native adjacency only: the captor stays beside the Gu and nothing is moved. Invalid when none.
+        /// </summary>
+        internal static IntVec3 CaptureDestination(Pawn_GuWildProjection wild, Pawn captor)
+        {
+            if (wild?.Map is not { } map) return IntVec3.Invalid;
+            if (CanPlaceDormant(map, wild.Position, wild)) return wild.Position;
+            IntVec3 best = IntVec3.Invalid;
+            int bestDistance = int.MaxValue;
+            foreach (var offset in GenAdj.AdjacentCells)
+            {
+                var cell = wild.Position + offset;
+                if (!CanPlaceDormant(map, cell, null)) continue;
+                int distance = captor == null ? 0 : cell.DistanceToSquared(captor.Position);
+                if (distance < bestDistance) { best = cell; bestDistance = distance; }
+            }
+            return best;
+        }
+
+        /// <summary>Why this colonist cannot be ordered to capture this wild Gu now, or null when the order is possible.</summary>
+        internal string WildCaptureRefusal(Pawn_GuWildProjection wild, Pawn captor)
+        {
+            if (!CanUseCustody) return "Gu custody is busy right now";
+            if (Resolve(wild) is not { } record) return "this Gu has no registered identity";
+            if (record.Condition != GuCondition.Active || record.Refinement?.CultivatorId != null) return "it is not a wild, unrefined Gu";
+            if (!Thing_GuDormantProjection.IsConfigured(record.Species?.dormantProjectionDef)) return "this species has no dormant form";
+            if (captor == null || !captor.IsColonistPlayerControlled || captor.Downed) return "requires a conscious colonist";
+            if (!wild.Spawned || captor.Map != wild.Map || !IsMapOwned(captor)) return "not on the colonist's map";
+            if (!captor.CanReach(wild, PathEndMode.Touch, captor.NormalMaxDanger())) return "no path";
+            if (!captor.CanReserve(wild)) return "another colonist is already capturing it";
+            if (!CanRetire(wild)) return "it cannot be taken right now";
+            return null;
+        }
 
         private static bool CanRestoreDetached(Pawn pawn) => JobDriver_GuPocketProbeTravel.CanRestoreUnheld(pawn)
             && !Find.WorldPawns.Contains(pawn);

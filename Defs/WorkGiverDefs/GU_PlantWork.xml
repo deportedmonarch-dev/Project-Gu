@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Alpha 5B plant framework: designated seed gathering is plant cutting work, beside native designated harvesting. -->
+  <WorkGiverDef>
+    <defName>GU_GatherSeeds</defName>
+    <label>gather seeds</label>
+    <giverClass>ProjectGu.Botany.WorkGiver_GuGatherSeeds</giverClass>
+    <workType>PlantCutting</workType>
+    <verb>gather seeds from</verb>
+    <gerund>gathering seeds from</gerund>
+    <priorityInType>5</priorityInType>
+    <requiredCapacities>
+      <li>Manipulation</li>
+    </requiredCapacities>
+  </WorkGiverDef>
+</Defs>

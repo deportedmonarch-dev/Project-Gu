@@ -1,7 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Legacy31Save = '',
     [string]$Legacy39Save = '',
@@ -585,6 +585,27 @@ Measure-Phase 'planning' {
                 # Rendered inspection of feeding opens a game window; run with -Parallel 1 and no other RimWorld instance.
                 Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha5a-feeding.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
                 Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha5a -gualpha5avisual'
+            }
+            continue
+        }
+        if ($name -eq 'Alpha5B' -or $name -eq 'Alpha5BVisual') {
+            # Alpha 5B: plant interactions, seed-gated sowing, petal hauling, background provisioning, Hope Gu ambience, capture and the
+            # developer spawn on the Alpha 3 save; a fresh-process reload mid-sowing and mid-haul; then a real save written by the Alpha 5A
+            # build (d82c723), preserved locally in tests/obj/Alpha5ASaves with its SHA-256.
+            $unit = New-Unit $name $saveData "PASS $name gameplay integration, reload and Alpha 5A save compatibility. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'integration' $false $false '-guclanstart -gualpha3 -gualpha5b'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha3 -gualpha5b -gualpha5breload'
+            $legacySaves = Join-Path $root 'tests/obj/Alpha5ASaves'
+            if (Test-Path -LiteralPath (Join-Path $legacySaves 'alpha5a-feeding.rws')) {
+                Add-Action $unit 'Copy' @{ From = (Join-Path $legacySaves 'alpha5a-feeding.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+                Add-Action $unit 'Copy' @{ From = (Join-Path $legacySaves 'alpha5a-ids.json'); To = (Join-Path $saveData 'alpha5a-ids.json') }
+                Add-Launch $unit 'legacy5a' $false $false '-guclanstart -gualpha3 -gualpha5b -gualpha5blegacy'
+            } else { Write-Warning "Alpha 5A save not found in $legacySaves; the legacy5a stage is skipped." }
+            if ($name -eq 'Alpha5BVisual') {
+                # Rendered inspection opens a game window; run with -Parallel 1 and no other RimWorld instance.
+                Add-Action $unit 'Copy' @{ From = (Join-Path $saveData 'Saves/alpha5b-midway.rws'); To = (Join-Path $saveData 'Saves/autostart.rws') }
+                Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha5b -gualpha5bvisual'
             }
             continue
         }

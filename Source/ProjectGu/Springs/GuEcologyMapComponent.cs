@@ -10,6 +10,13 @@ namespace ProjectGu.Springs
         private readonly HashSet<CompGuSpiritSpring> springs = new HashSet<CompGuSpiritSpring>();
         public GuEcologyMapComponent(Map map) : base(map) { }
 
+        /// <summary>Alpha 5B: draws each registered spring's ambient spirits (current map only; see GuSpringAmbience).</summary>
+        public override void MapComponentDraw()
+        {
+            ProjectGu.Presentation.GuSpringAmbience.BeginFrame();
+            foreach (var spring in springs) ProjectGu.Presentation.GuSpringAmbience.Draw(spring);
+        }
+
         internal bool ContainsSpring(CompGuSpiritSpring spring) => springs.Contains(spring);
 
         internal bool HasOtherSpringWithId(CompGuSpiritSpring spring) => springs.Any(other =>
