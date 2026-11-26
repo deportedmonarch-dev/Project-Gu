@@ -375,8 +375,10 @@ public sealed partial class LiveLifecycleChecks
             $"The Moonlight Gu ate {moonMeals} meal(s): exactly {2 * moonMeals} stockpiled petals were used ({stored.stackCount} left)");
         Check((storedBeer.Destroyed ? 0 : storedBeer.stackCount) == 3 - liquorMeals && ls.LastFeedSource == "stockpile" && liquorMeals >= 1,
             $"The Liquor Worm drank {liquorMeals} stockpiled beer(s)");
-        Check(forbidden.stackCount == 4 && loose.stackCount == 6 && AllItemsOn(home, ThingDefOf.Beer) == surfaceBeer,
-            "Forbidden petals, loose petals and the surface's beer (another map) were not touched");
+        int surfaceBeerAfter = AllItemsOn(home, ThingDefOf.Beer);
+        Check(forbidden.stackCount == 4 && loose.stackCount == 6 && surfaceBeerAfter == surfaceBeer,
+            $"Forbidden petals, loose petals and the surface's beer were not touched "
+            + $"(forbidden {forbidden.stackCount}/4, loose {loose.stackCount}/6, surface beer {surfaceBeerAfter}/{surfaceBeer})");
         Check(Snap(moon).Level == GuNourishmentLevel.Sated && Snap(liquor).Level == GuNourishmentLevel.Sated, "Both Gu are sated");
         foreach (var pawn in drafted) pawn.drafter.Drafted = false;
         disciple.jobs.EndCurrentJob(JobCondition.InterruptForced);

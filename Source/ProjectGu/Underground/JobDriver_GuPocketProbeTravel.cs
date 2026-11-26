@@ -10,24 +10,33 @@ namespace ProjectGu.Underground
 {
     public sealed class JobDriver_GuPocketProbeTravel : JobDriver
     {
+        private bool Hauling => job.def == GuPassageHaulDefOf.GU_PassageHaulTravel;
+        private Building_GuPocketProbeEndpoint Endpoint => job.targetA.Thing as Building_GuPocketProbeEndpoint;
+
         public override bool TryMakePreToilReservations(bool errorOnFailed) =>
-            pawn.Reserve(job.targetA, job, 1, -1, null, errorOnFailed);
+            (!Hauling || GuPassageHauling.CanStartLeg(pawn, Endpoint) && pawn.CanReserve(job.targetA))
+            && pawn.Reserve(job.targetA, job, 1, -1, null, errorOnFailed);
+
+        public override void Notify_Starting()
+        {
+            base.Notify_Starting();
+            if (Hauling) GuPassageHauling.ClaimLeg(pawn, Endpoint);
+        }
 
         protected override IEnumerable<Toil> MakeNewToils()
         {
             this.FailOnDespawnedNullOrForbidden(TargetIndex.A);
-            if (job.def == GuPassageHaulDefOf.GU_PassageHaulTravel)
+            if (Hauling)
                 this.FailOn(() => GuPassageHauling.ActiveSite(pawn) == null);
             yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
             Toil travel = new Toil { defaultCompleteMode = ToilCompleteMode.Instant };
             travel.initAction = () =>
             {
-                var endpoint = job.targetA.Thing as Building_GuPocketProbeEndpoint;
-                if (job.def == GuPassageHaulDefOf.GU_PassageHaulTravel)
+                if (Hauling)
                 {
-                    if (!GuPassageHauling.TryTravel(pawn, endpoint)) EndJobWith(JobCondition.Incompletable);
+                    if (!GuPassageHauling.TryTravel(pawn, Endpoint)) EndJobWith(JobCondition.Incompletable);
                 }
-                else if (!TryTravel(pawn, endpoint, out string reason))
+                else if (!TryTravel(pawn, Endpoint, out string reason))
                     Messages.Message(reason, MessageTypeDefOf.RejectInput, false);
             };
             yield return travel;

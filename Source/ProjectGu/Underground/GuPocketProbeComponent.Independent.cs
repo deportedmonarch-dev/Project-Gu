@@ -10,11 +10,36 @@ namespace ProjectGu.Underground
     public sealed partial class GuPocketProbeComponent
     {
         private List<GuIndependentSite> independentSites = new();
+        private Dictionary<Map, List<GuIndependentSite>> haulingSitesBySurface;
 
-        internal void AddIndependentSite(GuPocketSiteDef kind, Building_GuPocketProbeEndpoint entrance) =>
+        internal void AddIndependentSite(GuPocketSiteDef kind, Building_GuPocketProbeEndpoint entrance)
+        {
             independentSites.Add(GuIndependentSite.FirstLevel(kind, entrance.Map, entrance));
+            haulingSitesBySurface = null;
+        }
 
-        internal GuIndependentSite HaulingSiteFor(Pawn pawn) => independentSites.Find(site => site.Hauling?.Worker == pawn);
+        internal GuIndependentSite HaulingSiteFor(Pawn pawn) => pawn == null ? null
+            : independentSites.Find(site => site.Hauling?.Worker == pawn);
+
+        internal IReadOnlyList<GuIndependentSite> HaulingSitesFrom(Map map)
+        {
+            if (haulingSitesBySurface == null)
+            {
+                haulingSitesBySurface = new();
+                foreach (var site in independentSites)
+                {
+                    if (!GuPassageHauling.Supports(site)) continue;
+                    foreach (Map surface in site.Endpoints.Where(end => end.IsSurface && end.Surface != null)
+                        .Select(end => end.Surface).Distinct())
+                    {
+                        if (!haulingSitesBySurface.TryGetValue(surface, out var routes))
+                            haulingSitesBySurface.Add(surface, routes = new());
+                        routes.Add(site);
+                    }
+                }
+            }
+            return haulingSitesBySurface.TryGetValue(map, out var sites) ? sites : Array.Empty<GuIndependentSite>();
+        }
 
         internal static bool TryGetIndependentEndpoint(Building_GuPocketProbeEndpoint anchor,
             out GuIndependentSite site, out GuIndependentEndpoint endpoint)
@@ -144,6 +169,7 @@ namespace ProjectGu.Underground
 
         private void NotifyIndependentMapRemoved(Map removed)
         {
+            haulingSitesBySurface = null;
             foreach (var site in independentSites)
                 foreach (var end in site.Endpoints)
                     if (end.Surface == removed)
