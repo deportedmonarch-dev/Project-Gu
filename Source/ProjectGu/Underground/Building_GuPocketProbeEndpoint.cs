@@ -64,8 +64,8 @@ namespace ProjectGu.Underground
                 {
                     defaultLabel = "Underground hauling",
                     defaultDesc = (hauling.Automatic
-                        ? "Allow any eligible colonist to collect underground cargo using their Hauling work priority. "
-                        : $"Allow {worker} to collect underground cargo using their Hauling work priority. ")
+                        ? "Allow any eligible colonist to collect cargo using their Underground hauling work priority. "
+                        : $"Allow {worker} to collect cargo using their Underground hauling work priority. ")
                         + "Pausing keeps any packed cargo in the colonist's inventory.",
                     isActive = () => hauling.Enabled,
                     toggleAction = () => GuPassageHauling.SetEnabled(hauling, !hauling.Enabled)

@@ -23,7 +23,7 @@
     <defName>GU_PassageHaul</defName>
     <label>haul underground cargo</label>
     <giverClass>ProjectGu.Underground.WorkGiver_GuPassageHaul</giverClass>
-    <workType>Hauling</workType>
+    <workType>GU_UndergroundHauling</workType>
     <priorityInType>16</priorityInType>
     <verb>haul</verb>
     <gerund>hauling</gerund>

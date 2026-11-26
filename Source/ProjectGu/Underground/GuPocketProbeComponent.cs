@@ -38,6 +38,7 @@ namespace ProjectGu.Underground
     public sealed partial class GuPocketProbeComponent : GameComponent
     {
         private List<GuPocketSiteRecord> sites = new();
+        private bool undergroundHaulingPrioritiesInitialized;
         private readonly HashSet<GuPocketSiteRecord> reportedInvalidSites = new();
         [ThreadStatic] private static HashSet<Thing> generationFixtures;
         internal bool OperationInProgress { get; set; }
@@ -51,11 +52,23 @@ namespace ProjectGu.Underground
             sites ??= new List<GuPocketSiteRecord>();
             Scribe_Collections.Look(ref independentSites, "guIndependentUndergroundSitesV1", LookMode.Deep);
             independentSites ??= new();
+            Scribe_Values.Look(ref undergroundHaulingPrioritiesInitialized, "guUndergroundHaulingPrioritiesInitialized");
+        }
+
+        public override void StartedNewGame()
+        {
+            base.StartedNewGame();
+            undergroundHaulingPrioritiesInitialized = true;
         }
 
         public override void LoadedGame()
         {
             base.LoadedGame();
+            if (!undergroundHaulingPrioritiesInitialized)
+            {
+                GuPassageHauling.InitializeSavedWorkPriorities();
+                undergroundHaulingPrioritiesInitialized = true;
+            }
             ReportMissingIndependentLevels();
             foreach (GuPocketSiteRecord site in sites)
                 if (site?.Cavern != null && (!HasLiveSourceSettlement(site.Source) || !IsRegisteredPocket(site, site.Cavern)))

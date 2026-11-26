@@ -1,6 +1,7 @@
 param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
+    [string]$InstalledProjectGuPath = '',
     [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Alpha5BLogisticsSave = '',
@@ -87,6 +88,14 @@ if (!$HarmonyPath) {
 }
 $HarmonyPath = (Resolve-Path -LiteralPath $HarmonyPath).Path
 $harmonyMod = Split-Path (Split-Path (Split-Path $HarmonyPath))
+if ($InstalledProjectGuPath) {
+    $InstalledProjectGuPath = (Resolve-Path -LiteralPath $InstalledProjectGuPath).Path
+    $installedAbout = [xml](Get-Content -LiteralPath (Join-Path $InstalledProjectGuPath 'About/About.xml') -Raw)
+    if ($installedAbout.ModMetaData.packageId -ne 'projectgu.livingcultivation' -or
+        !(Test-Path -LiteralPath (Join-Path $InstalledProjectGuPath '1.7/Assemblies/ProjectGu.dll') -PathType Leaf)) {
+        throw 'InstalledProjectGuPath must name a deployed Project GU 1.7 mod.'
+    }
+}
 $objRoot = [IO.Path]::GetFullPath((Join-Path $root 'tests/obj'))
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -333,7 +342,13 @@ try {
         $test = Join-Path $mods 'ProjectGuPriority0Test'
         $harmony = Join-Path $mods 'Harmony'
         New-Item -ItemType Directory -Path $project,$harmony,(Join-Path $test 'About'),(Join-Path $test 'Assemblies') -Force | Out-Null
-        foreach ($entry in @('About','Defs','Languages','Patches','Textures','1.7')) { Copy-Item -LiteralPath (Join-Path $root $entry) -Destination $project -Recurse }
+        if ($InstalledProjectGuPath) {
+            Get-ChildItem -LiteralPath $InstalledProjectGuPath -Force | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination $project -Recurse -Force
+            }
+        } else {
+            foreach ($entry in @('About','Defs','Languages','Patches','Textures','1.7')) { Copy-Item -LiteralPath (Join-Path $root $entry) -Destination $project -Recurse }
+        }
         foreach ($entry in @('About','1.7','LoadFolders.xml')) { Copy-Item -LiteralPath (Join-Path $harmonyMod $entry) -Destination $harmony -Recurse }
         Copy-Item -LiteralPath (Join-Path $source 'About.xml') -Destination (Join-Path $test 'About')
         Copy-Item -LiteralPath (Join-Path $source 'Defs') -Destination $test -Recurse

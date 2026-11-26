@@ -6,6 +6,7 @@ using ProjectGu.Domain;
 using ProjectGu.Interface;
 using ProjectGu.Presentation;
 using ProjectGu.Springs;
+using ProjectGu.Underground;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -120,6 +121,27 @@ public sealed partial class LiveLifecycleChecks
         tab.SelectedGuId = state.MoonId;
         yield return Frames(10);
         foreach (var wait in Shot("40-gu-page-feeding-history")) yield return wait;
+
+        Map home = Find.Maps.Single(map => map.IsPlayerHome);
+        var haulers = home.mapPawns.FreeColonistsSpawned
+            .Where(pawn => !pawn.WorkTypeIsDisabled(GuPassageHauling.WorkType) && !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Hauling))
+            .Take(2).ToArray();
+        Check(haulers.Length == 2 && PawnTableDefOf.Work.columns.Any(column => column.workType == GuPassageHauling.WorkType)
+            && PawnTableDefOf.Work.columns.Any(column => column.workType == WorkTypeDefOf.Hauling),
+            "The native Work table has separate columns for Underground hauling and ordinary Hauling");
+        Find.PlaySettings.useWorkPriorities = true;
+        haulers[0].workSettings.SetPriority(GuPassageHauling.WorkType, 1);
+        haulers[0].workSettings.SetPriority(WorkTypeDefOf.Hauling, 0);
+        haulers[1].workSettings.SetPriority(GuPassageHauling.WorkType, 0);
+        haulers[1].workSettings.SetPriority(WorkTypeDefOf.Hauling, 2);
+        Find.Selector.ClearSelection();
+        Current.Game.CurrentMap = home;
+        var workButton = DefDatabase<MainButtonDef>.GetNamed("Work");
+        Find.MainTabsRoot.SetCurrentTab(workButton);
+        yield return Frames(20);
+        Check(Find.MainTabsRoot.OpenTab == workButton, "The native Work tab opened with manual priorities");
+        Note($"Work tab: {haulers[0].LabelShort} UG haul 1, Haul off; {haulers[1].LabelShort} UG haul off, Haul 2.");
+        foreach (var wait in Shot("50-work-tab-underground-hauling")) yield return wait;
         Note($"Done at tick {Now}.");
     }
 }

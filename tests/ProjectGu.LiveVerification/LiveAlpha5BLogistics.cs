@@ -26,8 +26,8 @@ public sealed partial class LiveLifecycleChecks
         Current.Game.CurrentMap = cave;
         PrepareLogistics();
         var colonists = PawnsFinder.AllMaps_FreeColonistsSpawned
-            .Where(pawn => !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Hauling)).ToList();
-        foreach (var pawn in colonists) pawn.workSettings.SetPriority(WorkTypeDefOf.Hauling, 0);
+            .Where(pawn => !pawn.WorkTypeIsDisabled(GuPassageHauling.WorkType)).ToList();
+        foreach (var pawn in colonists) pawn.workSettings.SetPriority(GuPassageHauling.WorkType, 0);
         var haulers = colonists.Where(pawn => pawn.Map == home).Take(2).ToArray();
         Check(haulers.Length == 2, "Two surface colonists can haul");
 
@@ -36,7 +36,7 @@ public sealed partial class LiveLifecycleChecks
         foreach (int distance in Enumerable.Range(4, 8))
             stockpile.AddCell(EmptyCargoCell(home, entrance.Position, null, distance));
         var filter = stockpile.GetStoreSettings().filter;
-        foreach (var pawn in haulers) { pawn.drafter.Drafted = false; SetOnlyHaulingWork(pawn); }
+        foreach (var pawn in haulers) { pawn.drafter.Drafted = false; SetOnlyHaulingWork(pawn, GuPassageHauling.WorkType); }
         foreach (var stack in cave.listerThings.ThingsOfDef(StoneDef)) stack.SetForbidden(true, false);
         AssertNoLogisticsDispatch(site, haulers, home, "No eligible cargo");
 
@@ -51,8 +51,23 @@ public sealed partial class LiveLifecycleChecks
         ReportLogisticsSources(home, entrance, exit, site);
 
         AssertNoLogisticsDispatch(site, haulers, home, "Paused passage");
-        foreach (var def in LogisticsKinds) filter.SetAllow(def, false);
+        Find.PlaySettings.useWorkPriorities = true;
+        foreach (var pawn in haulers)
+        {
+            pawn.workSettings.SetPriority(GuPassageHauling.WorkType, 0);
+            pawn.workSettings.SetPriority(WorkTypeDefOf.Hauling, 1);
+        }
         ToggleHauling(entrance, true);
+        AssertNoLogisticsDispatch(site, haulers, home, "Ordinary Hauling enabled and Underground hauling turned off");
+        RightClick(haulers[0], entrance).Single(option => option.Label == AssignHaulerLabel).action();
+        Check(site.Hauling.Worker == haulers[0] && !site.Hauling.Automatic, "Assignment pinned the selected colonist");
+        AssertNoLogisticsDispatch(site, haulers, home, "A named worker with Underground hauling turned off");
+        PrioritizePassage(haulers[0], entrance);
+        Check(!IsPassageWork(haulers[0]), "A priority order requires assignment to the native Underground hauling work type");
+        entrance.GetGizmos().OfType<Command_Action>().Single(command => command.defaultLabel == "Allow any hauler").action();
+        Check(site.Hauling.Automatic && site.Hauling.Worker == null, "Allow any hauler cleared the idle assignment");
+        foreach (var pawn in haulers) SetOnlyHaulingWork(pawn, GuPassageHauling.WorkType);
+        foreach (var def in LogisticsKinds) filter.SetAllow(def, false);
         AssertNoLogisticsDispatch(site, haulers, home, "Destination filters reject all cargo");
         PrioritizePassage(haulers[0], entrance);
         Check(!IsPassageWork(haulers[0]), "A priority order cannot bypass destination filters");
@@ -137,6 +152,9 @@ public sealed partial class LiveLifecycleChecks
         Check(haul.Automatic && haul.Enabled && worker?.ThingID == saved.Worker && worker?.Map == cave
             && haul.Cargo?.ThingID == saved.Cargo && haul.Cargo.holdingOwner == worker.inventory.innerContainer,
             "The automatic trip restored its original worker and physical stack in a fresh process");
+        Check(worker.workSettings.GetPriority(GuPassageHauling.WorkType) == 1
+            && worker.workSettings.GetPriority(WorkTypeDefOf.Hauling) == 0,
+            "The fresh process kept independent underground and ordinary hauling priorities");
         Check(AllItems(StoneDef) == saved.Stone && AllItems(PetalDef) == saved.Petals && AllItems(SeedDef) == saved.Seeds,
             "Fresh-process totals exactly match the save");
         worker.drafter.Drafted = false;
@@ -173,6 +191,14 @@ public sealed partial class LiveLifecycleChecks
     {
         var (home, entrance, exit, site) = LogisticsRoute();
         PrepareLogistics();
+        bool manualPriorities = Find.PlaySettings.useWorkPriorities;
+        Find.PlaySettings.useWorkPriorities = true;
+        var colonists = home.mapPawns.FreeColonistsSpawned.Where(pawn => !pawn.WorkTypeIsDisabled(GuPassageHauling.WorkType)).ToList();
+        Check(colonists.Any(pawn => pawn.workSettings.GetPriority(WorkTypeDefOf.Hauling) > 0)
+            && colonists.All(pawn => pawn.workSettings.GetPriority(GuPassageHauling.WorkType)
+                == pawn.workSettings.GetPriority(WorkTypeDefOf.Hauling)),
+            "An older save initialized Underground hauling from each colonist's exact ordinary Hauling setting");
+        Find.PlaySettings.useWorkPriorities = manualPriorities;
         ReportLogisticsSources(home, entrance, exit, site);
         ThingDef[] kinds = LogisticsKinds;
         int[] expected = kinds.Select(def => StoredOn(home, def) + exit.Map.listerThings.ThingsOfDef(def).Sum(item => item.stackCount)).ToArray();
@@ -236,7 +262,8 @@ public sealed partial class LiveLifecycleChecks
         $"Route enabled={site.Hauling?.Enabled}, automatic={site.Hauling?.Automatic}, next probe={site.Hauling?.NextCheckTick}, "
         + $"worker={site.Hauling?.Worker?.LabelShort}, cargo={site.Hauling?.Cargo}; "
         + string.Join(" | ", pawns.Select(pawn => $"{pawn.LabelShort} {pawn.Map}:{pawn.Position} "
-            + $"work={pawn.workSettings.GetPriority(WorkTypeDefOf.Hauling)} job={pawn.CurJobDef?.defName} drafted={pawn.Drafted}"));
+            + $"underground={pawn.workSettings.GetPriority(GuPassageHauling.WorkType)} ordinary={pawn.workSettings.GetPriority(WorkTypeDefOf.Hauling)} "
+            + $"job={pawn.CurJobDef?.defName} drafted={pawn.Drafted}"));
 
     private static void ReportLogisticsSources(Map home, Building_GuPocketProbeEndpoint entrance,
         Building_GuPocketProbeEndpoint exit, GuIndependentSite site)

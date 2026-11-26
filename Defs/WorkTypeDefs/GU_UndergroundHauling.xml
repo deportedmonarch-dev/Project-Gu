@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <WorkTypeDef>
+    <defName>GU_UndergroundHauling</defName>
+    <label>underground hauling</label>
+    <labelShort>UG haul</labelShort>
+    <pawnLabel>Underground hauler</pawnLabel>
+    <gerundLabel>underground hauling</gerundLabel>
+    <description>Carry resources through open underground passages to surface storage.</description>
+    <verb>Haul underground</verb>
+    <naturalPriority>301</naturalPriority>
+    <alwaysStartActive>true</alwaysStartActive>
+    <workTags>
+      <li>ManualDumb</li>
+      <li>Hauling</li>
+      <li>Commoner</li>
+      <li>AllWork</li>
+    </workTags>
+  </WorkTypeDef>
+</Defs>

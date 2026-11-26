@@ -1,4 +1,5 @@
 using System;
+using HarmonyLib;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -12,6 +13,7 @@ namespace ProjectGu.Underground
         public static JobDef GU_PassageHaulTravel;
         public static JobDef GU_PassageHaulPack;
         public static JobDef GU_PassageHaulStore;
+        public static WorkTypeDef GU_UndergroundHauling;
 
         static GuPassageHaulDefOf() => DefOfHelper.EnsureInitializedInCtor(typeof(GuPassageHaulDefOf));
     }
@@ -58,6 +60,22 @@ namespace ProjectGu.Underground
         private const int EmptyReturnCooldown = 1200;
         private static GuPocketProbeComponent Registry => Current.Game?.GetComponent<GuPocketProbeComponent>();
 
+        internal static WorkTypeDef WorkType => GuPassageHaulDefOf.GU_UndergroundHauling;
+
+        internal static void InitializeSavedWorkPriorities()
+        {
+            // GetPriority returns 3 for every enabled type when the Work tab uses checkboxes.
+            // Copy the backing values so a player who switches back retains their exact old priority.
+            var priorities = AccessTools.Field(typeof(Pawn_WorkSettings), "priorities");
+            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+            {
+                if (pawn.Faction != Faction.OfPlayer || !pawn.RaceProps.Humanlike
+                    || pawn.workSettings?.Initialized != true || pawn.WorkTypeIsDisabled(WorkType)) continue;
+                var saved = (DefMap<WorkTypeDef, int>)priorities.GetValue(pawn.workSettings);
+                pawn.workSettings.SetPriority(WorkType, saved[WorkTypeDefOf.Hauling]);
+            }
+        }
+
         internal static bool Supports(GuIndependentSite site) => site?.Kind?.haulingCargo?.Count > 0;
 
         internal static GuPassageHaul HaulingFor(GuIndependentSite site) =>
@@ -65,7 +83,7 @@ namespace ProjectGu.Underground
 
         internal static bool CanAssign(GuIndependentSite site, Pawn pawn)
         {
-            if (pawn?.IsColonistPlayerControlled != true || pawn.WorkTypeIsDisabled(WorkTypeDefOf.Hauling))
+            if (pawn?.IsColonistPlayerControlled != true || pawn.WorkTypeIsDisabled(WorkType))
                 return false;
             ReleaseIdleWorker(site);
             var other = Registry.HaulingSiteFor(pawn);
@@ -105,7 +123,8 @@ namespace ProjectGu.Underground
         private static bool Eligible(Pawn pawn) => pawn?.Spawned == true && pawn.IsColonistPlayerControlled
             && !pawn.Drafted && !pawn.Downed && pawn.GetLord() == null && pawn.inventory != null && pawn.carryTracker != null
             && pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation)
-            && pawn.workSettings?.WorkIsActive(WorkTypeDefOf.Hauling) == true;
+            && !pawn.WorkTypeIsDisabled(WorkType) && pawn.workSettings?.Initialized == true
+            && pawn.workSettings.WorkIsActive(WorkType);
 
         internal static GuIndependentSite ActiveSite(Pawn pawn)
         {
@@ -174,7 +193,7 @@ namespace ProjectGu.Underground
 
         private static Job PlanAt(GuIndependentSite site, Pawn pawn, bool prioritized, out string reason)
         {
-            reason = "The colonist must be available, have Hauling enabled, and have empty hands.";
+            reason = "The colonist must be available, have Underground hauling enabled in Work, and have empty hands.";
             if (!Eligible(pawn) || pawn.carryTracker.CarriedThing != null || Registry.OperationInProgress) return null;
             var haul = HaulingFor(site);
             reason = "Underground hauling is paused at this passage.";

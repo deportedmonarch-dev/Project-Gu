@@ -273,7 +273,7 @@ public sealed partial class LiveLifecycleChecks
         var surface = site.Endpoints.Single(end => end.IsSurface).Anchor;
         var exit = site.Endpoints.Single(end => !end.IsSurface).Anchor;
         var elders = Clan(GuClanRole.Elder);
-        Pawn hauler = PawnsFinder.AllMaps_FreeColonistsSpawned.ToList().Where(p => p != disciple && !p.WorkTypeIsDisabled(WorkTypeDefOf.Hauling)
+        Pawn hauler = PawnsFinder.AllMaps_FreeColonistsSpawned.ToList().Where(p => p != disciple && !p.WorkTypeIsDisabled(GuPassageHauling.WorkType)
             && !elders.Contains(p)).OrderBy(p => p.Map == home ? 0 : 1).First();
         if (hauler.Map != home) TravelTo(hauler, home);
         StepAway(hauler);
@@ -293,7 +293,7 @@ public sealed partial class LiveLifecycleChecks
         var stoneB = GenSpawn.Spawn(MakeStack(25), EmptyCargoCell(cave, exit.Position, null, 5), cave);
         var petals = SpawnItemAt(cave, PetalDef, 12, EmptyCargoCell(cave, exit.Position, null, 6));
         int stones = AllItems(StoneDef), petalTotal = AllItems(PetalDef);
-        SetOnlyHaulingWork(hauler);
+        SetOnlyHaulingWork(hauler, GuPassageHauling.WorkType);
         Prefs.DevMode = false;
         surface.GetFloatMenuOptions(hauler).Single(option => option.Label == AssignHaulerLabel).action();
         Check(site.Hauling.Worker == hauler && site.Hauling.Enabled, $"{hauler.LabelShort} was assigned to underground hauling without Development Mode");
