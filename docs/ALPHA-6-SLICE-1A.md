@@ -38,3 +38,26 @@ Windows, .NET 10 and RimWorld 1.7.5021 rev1365 with Core and Harmony. The native
 - `Slice0Wildlife` passed the final-payload controls and fresh-process reload in campaign `4e7cd7c8cd574ed18035b81415528369`. Sixteen registered Gu, including Black Boar Gu, left the native wildlife weight, density, full gate and matched-seed replenishment unchanged.
 - `GuGeneration` passed with five protected Gu kinds in campaign `d1c730bd47d542cb9b2e2207e16a4842`. `Alpha5A` passed feeding, mid-job reload, starvation and a legacy-save upgrade in campaign `d06cd55901104609aaf6b5d9dbd1b6f8`.
 - `Alpha5B` passed fresh, integration, reload and Alpha 5A save stages on the final payload in campaign `7fcf60f894d54e518f554428d9dd1e31`. The regression exercised spring search and lures, awakening, custody, background sustenance, and underground travel and hauling.
+
+## Owner acceptance
+
+**Accepted with deferred manual checks. No blocking defects.** The owner completed gameplay testing of `67c1a30e12def485002911390f6a476a92211ec8` on RimWorld 1.7.5021 rev1365. The automated verification above remains separate evidence.
+
+### Owner-confirmed mechanics
+
+- Natural Black Boar Gu manifestation, environmental search availability, the existing-locality restriction, and independent wild wandering.
+- Successful capture, physical inventory pickup, refinement, and storage of the refined Gu in the aperture.
+- Recognition of raw pork and pig corpses, with correct ration descriptions.
+- Continued Gu existence after save/load.
+
+### Deferred manual checks
+
+- Successful deliberate discovery and evasive pursuit.
+- Inventory drop, repeated pickup, and aperture withdrawal.
+- Actual pork and carcass consumption, wild boar corpse recognition, and automatic provisioning.
+- Natural population recovery and biome restrictions.
+- Exact identity and state comparison after reload.
+
+### Gameplay feedback
+
+**GP-001 · Capture difficulty.** The owner found capture easy and observed no noticeable evasion. This is a nonblocking balance observation. Further capture tuning awaits separate authorization.
