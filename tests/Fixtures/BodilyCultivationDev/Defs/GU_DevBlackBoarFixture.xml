@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!--
+    Development-only stand-in that grants Black Boar cultivation until the real GU_BlackBoarGu species (Alpha 6 ecology
+    branch) is integrated. Integration adds GU_BlackBoarCultivation to that species' abilities and retires this file.
+    Reuses the developer test projections; exempt from feeding so it isolates the cultivation mechanics.
+  -->
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_DevBlackBoarStandIn</defName>
+    <label>Black Boar stand-in (developer only)</label>
+    <description>Developer-only stand-in for Black Boar Gu that grants Black Boar cultivation.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <wildProjectionKind>GU_DevTestWildGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DevTestDormantGu</dormantProjectionDef>
+    <pathTags><li>strength</li></pathTags>
+    <capabilityTags><li>development_test</li></capabilityTags>
+    <role>Strength Path</role>
+    <abilities><li>GU_BlackBoarCultivation</li></abilities>
+    <feeding>
+      <status>Exempt</status>
+      <note>Development fixture; exempt from simulated feeding.</note>
+    </feeding>
+  </ProjectGu.Domain.GuSpeciesDef>
+</Defs>

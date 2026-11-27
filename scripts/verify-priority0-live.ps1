@@ -2,7 +2,7 @@ param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
     [string]$InstalledProjectGuPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'Slice0', 'Slice0Wildlife', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'Bodily', 'Slice0', 'Slice0Wildlife', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Alpha5BLogisticsSave = '',
     [string]$Legacy31Save = '',
@@ -363,6 +363,8 @@ try {
         foreach ($entry in @('About','1.7','LoadFolders.xml')) { Copy-Item -LiteralPath (Join-Path $harmonyMod $entry) -Destination $harmony -Recurse }
         Copy-Item -LiteralPath (Join-Path $source 'About.xml') -Destination (Join-Path $test 'About')
         Copy-Item -LiteralPath (Join-Path $source 'Defs') -Destination $test -Recurse
+        # Isolated bodily cultivation stand-in species until the Black Boar ecology branch is integrated.
+        Copy-Item -LiteralPath (Join-Path $root 'tests/Fixtures/BodilyCultivationDev/Defs/GU_DevBlackBoarFixture.xml') -Destination (Join-Path $test 'Defs')
         Copy-Item -LiteralPath (Join-Path $source 'bin/Release/net10.0/ProjectGu.Verification.dll') -Destination (Join-Path $test 'Assemblies')
     }
 }
@@ -577,6 +579,16 @@ Measure-Phase 'planning' {
             Add-Launch $unit 'final' $false $false '-guclanstart -gualpha3 -gualpha3final'
             # Rendered inspection opens a game window; run with -Parallel 1 and no other RimWorld instance.
             if ($name -eq 'Alpha3Visual') { Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha3visual' }
+            continue
+        }
+        if ($name -eq 'Bodily') {
+            # S0/S1: Black Boar bodily cultivation on the Alpha 3 save with the isolated stand-in species; the "new" stage is the
+            # Alpha 3 Liquor Worm and Moonblade fixture. Saves mid-pulse, then two fresh-process reloads.
+            $unit = New-Unit $name $saveData "PASS $name bodily cultivation, mid-pulse reload, full development and final reload. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3'
+            Add-Launch $unit 'bodily' $false $false '-guclanstart -gualpha3 -gubodily'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha3 -gubodily -gubodilyreload'
+            Add-Launch $unit 'final' $false $false '-guclanstart -gualpha3 -gubodily -gubodilyfinal'
             continue
         }
         if ($name -eq 'Alpha4A' -or $name -eq 'Alpha4AVisual') {

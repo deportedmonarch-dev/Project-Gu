@@ -102,10 +102,11 @@ namespace ProjectGu.Interface
             if (ability.IsChannel)
             {
                 var props = ability.channel;
-                yield return ("Activation cost", $"{ability.essenceCost:0.##} primeval essence when a new session begins; resuming is free");
+                var worker = props.Worker(ability);
+                yield return ("Activation cost", worker.ActivationText);
                 yield return ("Channel", $"{props.pulseCount} pulses, one every {props.pulseIntervalTicks.ToStringTicksToPeriod()} "
                     + $"({(props.pulseCount * props.pulseIntervalTicks).ToStringTicksToPeriod()} in all)");
-                yield return ("Per pulse", $"up to {props.amountPerPulse:0.##} essence refined");
+                yield return ("Per pulse", worker.PerPulseText);
                 yield return ("Recovery", $"{ability.cooldownTicks.ToStringTicksToPeriod()} after a new session begins");
                 yield break;
             }

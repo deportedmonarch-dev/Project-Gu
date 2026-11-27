@@ -61,7 +61,9 @@ namespace ProjectGu.Interface
             y += 8f;
             DrawActivityAndActions(c, ref y, view);
             y += 8f;
-            DrawRefinementChannels(c, ref y, view);
+            DrawCultivationChannels(c, ref y, view);
+            y += 8f;
+            DrawBodilyAttributes(c, ref y, view.Pawn);
             if (Prefs.DevMode) DrawDevPreview(c, ref y);
             cultivationContentHeight = Mathf.Max(y + 8f, column.height);
             Widgets.EndScrollView();
@@ -155,42 +157,50 @@ namespace ProjectGu.Interface
                 ApertureTabStyle.Line(c, ref y, "Nourishing: " + nourish.DisabledReason + ".", ApertureTabStyle.Faint, GameFont.Tiny);
         }
 
-        private void DrawRefinementChannels(Rect c, ref float y, ApertureView view)
+        private void DrawCultivationChannels(Rect c, ref float y, ApertureView view)
         {
             if (!view.CanManage) return;
             var ledger = GuCombatLedger.Instance;
             if (view.ChannelActions.Count == 0)
             {
-                ApertureTabStyle.Line(c, ref y, "Essence refinement: no refined essence-refining Gu is stored in this aperture.", ApertureTabStyle.Faint, GameFont.Tiny);
+                ApertureTabStyle.Line(c, ref y, "Cultivation techniques: no refined cultivation Gu is stored in this aperture.", ApertureTabStyle.Faint, GameFont.Tiny);
                 return;
             }
             foreach (var action in view.ChannelActions)
             {
                 var record = action.GuId != null ? Current.Game?.GetComponent<GuIndividualRegistry>()?.Resolve(action.GuId) : null;
-                GuAbilityDef ability = null;
-                if (record?.Species?.abilities != null)
-                    foreach (var candidate in record.Species.abilities) if (candidate?.category == GuAbilityCategory.Cultivation) ability = candidate;
-                if (ability == null) continue;
+                GuAbilityDef ability = action.Ability;
+                if (ability?.channel == null || record == null) continue;
+                var props = ability.channel;
+                var worker = props.Worker(ability);
 
                 ApertureTabStyle.Line(c, ref y, ability.LabelCap, ApertureTabStyle.Heading, GameFont.Medium);
-                string from = StageLabel(view);
-                string to = view.RankDef?.Stage(view.Stage + 1)?.label ?? ((RankOneStage)Math.Min(view.Stage + 1, 3)).ToString();
-                ApertureTabStyle.Line(c, ref y, view.AtPeak
-                    ? "Raises essence quality within Rank 1. At Peak there is no higher Rank 1 quality to refine into."
-                    : $"Raises essence quality within Rank 1: turns {from}-quality essence into the same volume of {to}-quality essence. "
-                      + "It does not advance your stage, but refined essence nourishes the walls more efficiently.", ApertureTabStyle.Body, GameFont.Small);
+                if (worker.RefinesEssence)
+                {
+                    string from = StageLabel(view);
+                    string to = view.RankDef?.Stage(view.Stage + 1)?.label ?? ((RankOneStage)Math.Min(view.Stage + 1, 3)).ToString();
+                    ApertureTabStyle.Line(c, ref y, view.AtPeak
+                        ? "Raises essence quality within Rank 1. At Peak there is no higher Rank 1 quality to refine into."
+                        : $"Raises essence quality within Rank 1: turns {from}-quality essence into the same volume of {to}-quality essence. "
+                          + "It does not advance your stage, but refined essence nourishes the walls more efficiently.", ApertureTabStyle.Body, GameFont.Small);
+                }
+                else if (props is GuChannelProperties_BodilyCultivation bodily && bodily.attainment != null)
+                {
+                    var held = Hediff_GuBodilyAttainment.Of(view.Pawn, bodily.attainment);
+                    ApertureTabStyle.Line(c, ref y, $"Tempers the body toward {bodily.attainment.label}: permanent, kept even if the Gu is lost. "
+                        + $"Currently {held?.Progress ?? 0f:P0} developed.", ApertureTabStyle.Body, GameFont.Small);
+                }
 
                 var session = ledger?.ChannelFor(action.GuId);
                 int cooldown = ledger?.CooldownRemaining(action.GuId, Find.TickManager.TicksGame) ?? 0;
-                var props = ability.channel;
                 string state;
-                if (session is { Active: true }) state = $"Refining: {session.PulsesDone}/{session.PulseCount} pulses, {session.Converted:0.##} essence refined this session.";
+                if (session is { Active: true }) state = $"Channeling: {session.PulsesDone}/{session.PulseCount} pulses, {worker.ProgressText(view.Pawn, session)}.";
                 else if (session is { Complete: false }) state = $"Suspended at {session.PulsesDone}/{session.PulseCount} pulses. Resuming is free and ignores the recovery time.";
-                else state = $"Each session: {ability.essenceCost:0.#} essence to begin, {props.pulseCount} pulses of up to {props.amountPerPulse:0.##} essence, "
-                    + $"one every {props.pulseIntervalTicks.ToStringTicksToPeriod()}.";
+                else state = $"Each session: {worker.ActivationText}; {props.pulseCount} pulses, one every {props.pulseIntervalTicks.ToStringTicksToPeriod()}, "
+                    + $"each {worker.PerPulseText}.";
                 ApertureTabStyle.Line(c, ref y, state, ApertureTabStyle.Muted, GameFont.Tiny);
                 if (cooldown > 0 && session is not { Complete: false })
-                    ApertureTabStyle.Line(c, ref y, $"The {record.Species.label} is recovering: {cooldown.ToStringTicksToPeriod()} until a new session.", ApertureTabStyle.Warning, GameFont.Tiny);
+                    ApertureTabStyle.Line(c, ref y, $"The {record.Species?.label} is recovering: {cooldown.ToStringTicksToPeriod()} until a new session.", ApertureTabStyle.Warning, GameFont.Tiny);
 
                 bool running = session is { Active: true };
                 string reason = running ? "the session is already running" : action.DisabledReason;
@@ -199,6 +209,45 @@ namespace ProjectGu.Interface
                     Run(action);
                 y += 38f;
             }
+        }
+
+        /// <summary>
+        /// Permanent bodily attainments read straight from the pawn's own hediffs, so they show whether or not the Gu that
+        /// developed them is still held. Values are the native stat modifiers at the current development.
+        /// </summary>
+        private static void DrawBodilyAttributes(Rect c, ref float y, Pawn pawn)
+        {
+            ApertureTabStyle.Line(c, ref y, "Bodily attributes", ApertureTabStyle.Heading, GameFont.Medium);
+            bool any = false;
+            foreach (var attainment in Hediff_GuBodilyAttainment.AllOf(pawn))
+            {
+                any = true;
+                ApertureTabStyle.Line(c, ref y, $"{attainment.def.LabelCap}: {(attainment.FullyDeveloped ? "fully developed" : attainment.Progress.ToString("P0") + " developed")}",
+                    ApertureTabStyle.Body);
+                ApertureTabStyle.Bar(new Rect(c.x, y, c.width, 10f), attainment.Progress, ApertureTabStyle.Accent);
+                y += 14f;
+                var effects = BodilyEffects(attainment);
+                if (effects.Length > 0) ApertureTabStyle.Line(c, ref y, effects, ApertureTabStyle.Muted, GameFont.Tiny);
+            }
+            if (!any) ApertureTabStyle.Line(c, ref y, "No bodily strength has been cultivated.", ApertureTabStyle.Faint, GameFont.Tiny);
+        }
+
+        private static string BodilyEffects(Hediff_GuBodilyAttainment attainment)
+        {
+            var stage = attainment.CurStage;
+            if (stage == null) return "";
+            var parts = new List<string>();
+            float severity = attainment.Severity;
+            if (stage.statFactors != null)
+                foreach (var modifier in stage.statFactors)
+                {
+                    float factor = HediffStatsUtility.GetStatFactorForSeverity(modifier.stat, stage, attainment.pawn, severity);
+                    parts.Add($"{modifier.stat.LabelCap} {(factor - 1f) * 100f:+0.#;-0.#;0}%");
+                }
+            if (stage.statOffsets != null)
+                foreach (var modifier in stage.statOffsets)
+                    parts.Add($"{modifier.stat.LabelCap} {modifier.stat.ValueToString(HediffStatsUtility.GetStatOffsetForSeverity(modifier.stat, stage, attainment.pawn, severity), ToStringNumberSense.Offset)}");
+            return string.Join(", ", parts);
         }
 
         private void DrawDevPreview(Rect c, ref float y)

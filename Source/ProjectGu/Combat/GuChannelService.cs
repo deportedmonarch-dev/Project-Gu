@@ -7,8 +7,8 @@ namespace ProjectGu.Combat
 {
     /// <summary>
     /// Self-use channel abilities. Same authorization as targeted abilities: the exact refined Gu must be in its own
-    /// cultivator's live aperture. A new session commits once when its job starts: one essence debit, cooldown start and
-    /// session record. Each later pulse is applied by the worker against the authoritative state. Interruption keeps every
+    /// cultivator's live aperture. A new session commits once when its job starts: the activation cost (if any), cooldown start
+    /// and session record. Each later pulse is applied by the worker against the authoritative state. Interruption keeps every
     /// completed pulse and suspends the session; its owner may resume the remaining pulses without paying or waiting for
     /// the cooldown, as long as the session's binding (for Liquor Worm, the cultivator's stage) still holds.
     /// </summary>
@@ -44,10 +44,11 @@ namespace ProjectGu.Combat
             var existing = ledger.ChannelFor(record.Id);
             reason = $"{ability.LabelCap} is already in use.";
             if (existing is { Active: true }) return false;
-            if (!worker.CanChannel(aperture, out reason)) return false;
-            grant = new GuAbilityGrant(caster, aperture, record, ability);
+            var context = new GuAbilityGrant(caster, aperture, record, ability);
+            if (!worker.CanChannel(context, out reason)) return false;
+            grant = context;
             if (existing is { Complete: false } && existing.Ability == ability && existing.CasterId == caster.GetUniqueLoadID()
-                && existing.ApertureId == aperture.ApertureId && existing.Binding == worker.BindingFor(aperture))
+                && existing.ApertureId == aperture.ApertureId && existing.Binding == worker.BindingFor(context))
             {
                 resumable = existing;
                 reason = null;
@@ -58,7 +59,7 @@ namespace ProjectGu.Combat
             reason = $"{ability.LabelCap} is recovering ({remaining.ToStringSecondsFromTicks()}).";
             if (remaining > 0) return false;
             reason = $"Not enough primeval essence ({aperture.Essence:0.0} of {ability.essenceCost:0.0}).";
-            if (!aperture.CanSpendEssence(ability.essenceCost)) return false;
+            if (ability.essenceCost > 0f && !aperture.CanSpendEssence(ability.essenceCost)) return false;
             reason = null;
             return true;
         }
@@ -102,7 +103,7 @@ namespace ProjectGu.Combat
             }
 
             reason = "Primeval essence could not be committed.";
-            if (!grant.Aperture.TrySpendEssence(ability.essenceCost)) return false;
+            if (ability.essenceCost > 0f && !grant.Aperture.TrySpendEssence(ability.essenceCost)) return false;
             session = new GuChannelSession
             {
                 SessionId = Guid.NewGuid().ToString("N"),
@@ -110,7 +111,7 @@ namespace ProjectGu.Combat
                 Ability = ability,
                 CasterId = caster.GetUniqueLoadID(),
                 ApertureId = grant.Aperture.ApertureId,
-                Binding = ability.channel.Worker(ability).BindingFor(grant.Aperture),
+                Binding = ability.channel.Worker(ability).BindingFor(grant),
                 EssencePaid = ability.essenceCost,
                 StartedTick = Find.TickManager.TicksGame,
                 Active = true
@@ -121,20 +122,20 @@ namespace ProjectGu.Combat
         }
 
         /// <summary>Revalidates the exact Gu, caster and aperture of an active session. Called every channel tick.</summary>
-        internal static bool StillAuthorized(Pawn caster, GuChannelSession session, out Hediff_Aperture aperture, out string reason)
+        internal static bool StillAuthorized(Pawn caster, GuChannelSession session, out GuAbilityGrant grant, out string reason)
         {
-            aperture = null;
+            grant = default;
             reason = "The Gu Master can no longer channel.";
             var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
             if (registry == null || session == null || caster.Drafted) return false;
             if (!registry.TryGetAbilityCaster(caster, out _, out _)) return false;
             reason = "The Gu left the Gu Master's aperture or no longer recognizes them.";
-            if (!registry.IsAbilityGrantedBy(session.GuId, caster, out _, out var live) || live.ApertureId != session.ApertureId)
+            if (!registry.IsAbilityGrantedBy(session.GuId, caster, out var record, out var live) || live.ApertureId != session.ApertureId)
             {
                 if (registry.Resolve(session.GuId) is { } starving && registry.StarvationImpairment(starving) is { } impairment) reason = impairment + ".";
                 return false;
             }
-            aperture = live;
+            grant = new GuAbilityGrant(caster, live, record, session.Ability);
             reason = null;
             return true;
         }

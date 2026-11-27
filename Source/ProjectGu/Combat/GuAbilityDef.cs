@@ -18,7 +18,7 @@ namespace ProjectGu.Combat
     {
         public Type workerClass = typeof(GuAbilityWorker_Projectile);
 
-        /// <summary>Primeval essence debited once, at launch commitment.</summary>
+        /// <summary>Primeval essence debited once, at launch commitment. A channel debits it once per new session; zero is allowed for channels that charge per pulse.</summary>
         public float essenceCost = 1f;
         /// <summary>Ticks after a committed launch before the same Gu individual can be used again.</summary>
         public int cooldownTicks;
@@ -78,8 +78,9 @@ namespace ProjectGu.Combat
             foreach (string error in base.ConfigErrors()) yield return error;
             if (workerClass == null || !typeof(GuAbilityWorker).IsAssignableFrom(workerClass) || workerClass.IsAbstract)
                 yield return $"{defName}: workerClass must be a concrete ProjectGu.Combat.GuAbilityWorker";
-            if (!float.IsFinite(essenceCost) || essenceCost <= 0f || essenceCost > 1000f)
-                yield return $"{defName}: essenceCost must be finite, positive and at most 1000";
+            // A channel may charge only per pulse (bodily cultivation), so its activation cost may be zero.
+            if (!float.IsFinite(essenceCost) || essenceCost < 0f || (essenceCost == 0f && channel == null) || essenceCost > 1000f)
+                yield return $"{defName}: essenceCost must be finite, at most 1000, and positive unless the ability is a channel";
             if (cooldownTicks is < 0 or > 600_000) yield return $"{defName}: cooldownTicks must be between 0 and 600000";
             if (warmupTicks is < 0 or > 6000) yield return $"{defName}: warmupTicks must be between 0 and 6000";
             if (!float.IsFinite(range) || range < 1f || range > 60f) yield return $"{defName}: range must be between 1 and 60";

@@ -71,7 +71,7 @@ namespace ProjectGu.Combat
                 return;
             }
             session.Active = true;
-            if (!GuChannelService.StillAuthorized(pawn, session, out var aperture, out string reason))
+            if (!GuChannelService.StillAuthorized(pawn, session, out var grant, out string reason))
             {
                 Cancel(session.Ability, reason, spent: true);
                 return;
@@ -81,8 +81,16 @@ namespace ProjectGu.Combat
             var props = session.Ability.channel;
             if (++session.TicksIntoPulse < props.pulseIntervalTicks) return;
             session.TicksIntoPulse = 0;
-            var result = props.Worker(session.Ability).ApplyPulse(aperture, session, out reason);
-            if (result == GuPulseResult.Applied) session.PulsesDone++;
+            var worker = props.Worker(session.Ability);
+            var result = worker.ApplyPulse(grant, session, out reason);
+            if (result is GuPulseResult.Applied or GuPulseResult.Finished) session.PulsesDone++;
+            if (result == GuPulseResult.Suspended)
+            {
+                // Nothing was applied or paid; the session stays resumable once the condition clears.
+                Message($"{session.Ability.LabelCap} paused: {reason} {worker.KeptOnStop}", MessageTypeDefOf.NeutralEvent);
+                EndJobWith(JobCondition.Incompletable);
+                return;
+            }
             if (result == GuPulseResult.Stopped)
             {
                 // Nothing more can apply under this binding; the session ends with its completed pulses kept.
@@ -91,10 +99,10 @@ namespace ProjectGu.Combat
                 EndJobWith(JobCondition.Incompletable);
                 return;
             }
-            if (!session.Complete) return;
+            // Finished: the pulse applied and nothing further can (for example, full bodily development).
+            if (result == GuPulseResult.Applied && !session.Complete) return;
             GuCombatLedger.Instance.EndChannel(session);
-            Message($"{pawn.LabelShort} finished {session.Ability.label}: {session.Converted:0.##} essence refined to the next quality.",
-                MessageTypeDefOf.PositiveEvent);
+            Message(worker.CompletionText(pawn, session), MessageTypeDefOf.PositiveEvent);
             EndJobWith(JobCondition.Succeeded);
         }
 
@@ -119,7 +127,7 @@ namespace ProjectGu.Combat
         private void Cancel(GuAbilityDef ability, string reason, bool spent)
         {
             Message($"{ability?.LabelCap ?? "The Gu ability"} stopped: {reason}"
-                + (spent ? " Completed refinement is kept; choose it again to resume." : " No primeval essence was spent."),
+                + (spent ? " " + (ability?.channel?.Worker(ability).KeptOnStop ?? "Completed pulses are kept.") : " No primeval essence was spent."),
                 MessageTypeDefOf.RejectInput);
             EndJobWith(JobCondition.Incompletable);
         }

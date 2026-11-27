@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!--
+    Permanent bodily attainments. One HediffDef per strength; severity 0-1 is development and only grows.
+    Every stage carries the fully developed modifiers with multiplyStatChangesBySeverity, so the bonus grows continuously
+    with development and the native stat explanation shows it. Stage labels only name the condition in the Health tab.
+    Values are provisional, pending owner balance review (docs/GU-BODILY-CULTIVATION.md).
+  -->
+  <HediffDef Name="GU_BodilyStrengthBase" Abstract="True">
+    <hediffClass>ProjectGu.Combat.Hediff_GuBodilyAttainment</hediffClass>
+    <defaultLabelColor>(0.85, 0.7, 0.5)</defaultLabelColor>
+    <isBad>false</isBad>
+    <tendable>false</tendable>
+    <everCurableByItem>false</everCurableByItem>
+    <keepOnBodyPartRestoration>true</keepOnBodyPartRestoration>
+    <makesAlert>false</makesAlert>
+    <initialSeverity>0.001</initialSeverity>
+    <minSeverity>0</minSeverity>
+    <maxSeverity>1</maxSeverity>
+  </HediffDef>
+
+  <HediffDef ParentName="GU_BodilyStrengthBase">
+    <defName>GU_BodilyStrength_BlackBoar</defName>
+    <label>Black Boar strength</label>
+    <description>The strength of one black boar, tempered into this body through Black Boar Gu cultivation. It is a permanent bodily attainment: it remains if the Gu is lost, and ordinary medicine does not remove it.</description>
+    <stages>
+      <li>
+        <label>stirring</label>
+        <multiplyStatChangesBySeverity>true</multiplyStatChangesBySeverity>
+        <statFactors>
+          <MeleeDamageFactor>1.4</MeleeDamageFactor>
+          <CarryingCapacity>1.5</CarryingCapacity>
+          <MiningSpeed>1.2</MiningSpeed>
+          <ConstructionSpeed>1.15</ConstructionSpeed>
+        </statFactors>
+      </li>
+      <li>
+        <minSeverity>0.25</minSeverity>
+        <label>developing</label>
+        <multiplyStatChangesBySeverity>true</multiplyStatChangesBySeverity>
+        <statFactors>
+          <MeleeDamageFactor>1.4</MeleeDamageFactor>
+          <CarryingCapacity>1.5</CarryingCapacity>
+          <MiningSpeed>1.2</MiningSpeed>
+          <ConstructionSpeed>1.15</ConstructionSpeed>
+        </statFactors>
+      </li>
+      <li>
+        <minSeverity>0.5</minSeverity>
+        <label>hardening</label>
+        <multiplyStatChangesBySeverity>true</multiplyStatChangesBySeverity>
+        <statFactors>
+          <MeleeDamageFactor>1.4</MeleeDamageFactor>
+          <CarryingCapacity>1.5</CarryingCapacity>
+          <MiningSpeed>1.2</MiningSpeed>
+          <ConstructionSpeed>1.15</ConstructionSpeed>
+        </statFactors>
+      </li>
+      <li>
+        <minSeverity>0.75</minSeverity>
+        <label>formidable</label>
+        <multiplyStatChangesBySeverity>true</multiplyStatChangesBySeverity>
+        <statFactors>
+          <MeleeDamageFactor>1.4</MeleeDamageFactor>
+          <CarryingCapacity>1.5</CarryingCapacity>
+          <MiningSpeed>1.2</MiningSpeed>
+          <ConstructionSpeed>1.15</ConstructionSpeed>
+        </statFactors>
+      </li>
+      <li>
+        <minSeverity>0.9999</minSeverity>
+        <label>fully developed</label>
+        <multiplyStatChangesBySeverity>true</multiplyStatChangesBySeverity>
+        <statFactors>
+          <MeleeDamageFactor>1.4</MeleeDamageFactor>
+          <CarryingCapacity>1.5</CarryingCapacity>
+          <MiningSpeed>1.2</MiningSpeed>
+          <ConstructionSpeed>1.15</ConstructionSpeed>
+        </statFactors>
+      </li>
+    </stages>
+  </HediffDef>
+</Defs>

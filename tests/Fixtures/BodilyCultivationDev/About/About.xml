@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Project GU bodily cultivation development fixture</name>
+  <author>Project GU</author>
+  <packageId>projectgu.bodilycultivationdev</packageId>
+  <supportedVersions><li>1.7</li></supportedVersions>
+  <description>Development only. Adds a stand-in species that grants Black Boar cultivation until the Black Boar Gu species from the Alpha 6 ecology branch is integrated. Remove it after integration.</description>
+  <modDependencies>
+    <li>
+      <packageId>projectgu.livingcultivation</packageId>
+      <displayName>Project GU</displayName>
+    </li>
+  </modDependencies>
+  <loadAfter><li>projectgu.livingcultivation</li></loadAfter>
+</ModMetaData>
