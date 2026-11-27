@@ -54,6 +54,8 @@ Rendered inspection and a natural 15-session White Boar playthrough remain for m
 
 ## Owner playtest
 
+The owner completed and accepted White Boar gameplay testing at baseline `e11b7d6` on RimWorld 1.7.5021 rev1365 within the scope tested. The steps below are the original playtest guide. The owner did not report case-by-case results.
+
 1. In an eligible forest settlement, explore with a colonist or right-click reachable natural ground and choose **Search for wild Gu**. Capture a White Boar, pick it up, enforce its will and store it in a Gu Master's aperture.
 2. Feed it once its nourishment runs low. Use the Cultivation page to start **White Boar cultivation**, draft mid-session, then undraft and resume it. Compare essence and progress before the first pulse and after it.
 3. On a pawn with Black Boar strength, check that **Bodily attributes** lists both strengths with their own progress and bonuses. Save, quit to desktop and reopen. Withdraw White Boar and verify that both entries and bonuses remain.
