@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ProjectGu.Combat.GuAbilityDef ParentName="GU_BoarCultivation">
+    <defName>GU_WhiteBoarCultivation</defName>
+    <label>White Boar cultivation</label>
+    <description>The Gu Master sits and lets the White Boar Gu temper their body with the strength of a white boar. Each pulse spends primeval essence and permanently develops their White Boar strength. Stopping keeps all development, and the session can be resumed without waiting.</description>
+    <iconPath>ProjectGU/UI/Abilities/WhiteBoarCultivation</iconPath>
+    <effectNotes>
+      <li>Permanently develops White Boar strength: up to +40% melee damage, +50% carrying capacity, +20% mining speed and +15% construction speed at full development.</li>
+      <li>The bonus grows with every successful pulse; full development takes about 15 days of regular sessions.</li>
+      <li>Development belongs to the body. Withdrawing, transferring or losing the Gu keeps it.</li>
+    </effectNotes>
+    <limitations>
+      <li>One White Boar strength per body. Once fully developed, no White Boar Gu can add more.</li>
+      <li>Each pulse needs primeval essence; with too little, the session pauses and can be resumed later.</li>
+      <li>Requires an undrafted, conscious Gu Master. Drafting, another order, incapacitation or withdrawing the Gu suspends the session.</li>
+    </limitations>
+    <channel Class="ProjectGu.Combat.GuChannelProperties_BodilyCultivation">
+      <attainment>GU_BodilyStrength_WhiteBoar</attainment>
+    </channel>
+  </ProjectGu.Combat.GuAbilityDef>
+</Defs>

@@ -22,8 +22,8 @@ namespace ProjectGu
             Prefix(typeof(IncidentWorker_AnimalInsanityMass), nameof(IncidentWorker_AnimalInsanityMass.AnimalUsable), nameof(ExcludePawn));
             Prefix(typeof(Pawn_AgeTracker), nameof(Pawn_AgeTracker.AgeTickInterval), nameof(FreezeAge));
             Prefix(typeof(JobGiver_Mate), "TryGiveJob", nameof(ExcludePawn));
-            Prefix(typeof(JobGiver_ExitMap), "TryGiveJob", nameof(KeepBlackBoarOnMap));
-            Prefix(typeof(JobDriver_Flee), "ExitMap", nameof(KeepFleeingBlackBoarOnMap));
+            Prefix(typeof(JobGiver_ExitMap), "TryGiveJob", nameof(KeepSurfaceGuOnMap));
+            Prefix(typeof(JobDriver_Flee), "ExitMap", nameof(KeepFleeingSurfaceGuOnMap));
             Prefix(typeof(Pawn_TrainingTracker), nameof(Pawn_TrainingTracker.CanAssignToTrain), nameof(RefuseTraining),
                 new[] { typeof(TrainableDef), typeof(ThingDef), typeof(bool).MakeByRefType(), typeof(Pawn) });
             Postfix(typeof(IncidentWorker_SelfTame), "Candidates", nameof(FilterSelfTame));
@@ -49,8 +49,8 @@ namespace ProjectGu
         private static bool ExcludePawn(Pawn __0) => __0 is not Pawn_GuWildProjection;
         private static bool ExcludeThing(Thing t) => t is not Pawn_GuWildProjection;
         private static bool FreezeAge(Pawn ___pawn) => ___pawn is not Pawn_GuWildProjection;
-        private static bool KeepBlackBoarOnMap(Pawn __0) => __0 is not Pawn_GuWildProjection { IsBlackBoar: true };
-        private static bool KeepFleeingBlackBoarOnMap(JobDriver_Flee __instance) => KeepBlackBoarOnMap(__instance.pawn);
+        private static bool KeepSurfaceGuOnMap(Pawn __0) => __0 is not Pawn_GuWildProjection { UsesSurfaceEncounter: true };
+        private static bool KeepFleeingSurfaceGuOnMap(JobDriver_Flee __instance) => KeepSurfaceGuOnMap(__instance.pawn);
 
         private static bool RefuseTraining(ThingDef pawnDef, ref bool visible, ref AcceptanceReport __result)
         {

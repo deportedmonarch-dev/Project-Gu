@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="GU_WildProjectionRace">
+    <defName>GU_WildWhiteBoarGu</defName>
+    <label>wild White Boar Gu</label>
+    <description>A pale, ground-crawling insect. It scuttles away when pursued and cannot fly.</description>
+    <statBases>
+      <MoveSpeed>4.0</MoveSpeed>
+    </statBases>
+    <tools Inherit="False">
+      <li>
+        <label>mandibles</label>
+        <capacities><li>Bite</li></capacities>
+        <power>5</power>
+        <cooldownTime>2</cooldownTime>
+        <linkedBodyPartsGroup>Mouth</linkedBodyPartsGroup>
+      </li>
+    </tools>
+    <race>
+      <body>BeetleLike</body>
+      <canFlyIntoMap>false</canFlyIntoMap>
+      <canLeaveMapFlying>false</canLeaveMapFlying>
+    </race>
+  </ThingDef>
+  <PawnKindDef ParentName="GU_WildProjectionKind">
+    <defName>GU_WildWhiteBoarGu</defName>
+    <label>wild White Boar Gu</label>
+    <race>GU_WildWhiteBoarGu</race>
+    <combatPower>1</combatPower>
+    <lifeStages>
+      <li>
+        <bodyGraphicData>
+          <texPath>ProjectGU/Gu/WhiteBoarGu/Wild</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.70</drawSize>
+        </bodyGraphicData>
+        <dessicatedBodyGraphicData>
+          <texPath>ProjectGU/Gu/WhiteBoarGu/Dessicated</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.70</drawSize>
+        </dessicatedBodyGraphicData>
+      </li>
+    </lifeStages>
+  </PawnKindDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>GU_DormantWhiteBoarGu</defName>
+    <label>dormant White Boar Gu</label>
+    <description>A captured White Boar Gu. It remains unrefined until a Gu Master subdues its will.</description>
+    <thingClass>ProjectGu.Thing_GuDormantProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps><li Class="ProjectGu.CompProperties_GuManifestation" /></comps>
+    <stackLimit>1</stackLimit>
+    <tickerType>Never</tickerType>
+    <alwaysHaulable>true</alwaysHaulable>
+    <thingCategories><li>GU_DormantGu</li></thingCategories>
+    <tradeability>None</tradeability>
+    <graphicData>
+      <texPath>ProjectGU/Gu/WhiteBoarGu/Dormant</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>0.72</drawSize>
+    </graphicData>
+    <statBases>
+      <Mass>0.15</Mass>
+    </statBases>
+  </ThingDef>
+</Defs>

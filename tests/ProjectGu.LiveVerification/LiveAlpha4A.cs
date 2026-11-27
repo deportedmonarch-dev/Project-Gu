@@ -232,14 +232,16 @@ public sealed partial class LiveLifecycleChecks
         var aperture = Apertures(disciple).Single();
         var third = registry.Resolve(state.ThirdId);
         Map map = disciple.Map;
-        Check(registry.Records.Count() == 3 && registry.ApertureOccupants(aperture).Select(record => record.Id).ToHashSet().SetEquals(new[] { state.LiquorId, state.MoonId })
+        int cavernRecords = registry.Records.Count(record => record.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind);
+        Check(cavernRecords == 3 && registry.ApertureOccupants(aperture).Select(record => record.Id).ToHashSet().SetEquals(new[] { state.LiquorId, state.MoonId })
             && third?.RefinementProcess?.ProcessId == state.ProcessId && third.RefinementProcess.CompletedWorkTicks == state.CompletedWorkTicks
             && Math.Abs(third.RefinementProcess.EssenceSpent - state.EssenceSpent) < 0.0001 && third.CustodyRevision == state.ThirdRevision,
-            $"Reload kept exactly three Gu: two stored and the third mid-refinement with its exact progress (records {registry.Records.Count()}, "
+            $"Reload kept exactly three cavern Gu: two stored and the third mid-refinement with its exact progress (records {cavernRecords}, "
             + $"occupants {string.Join(",", registry.ApertureOccupants(aperture).Select(record => record.Id))}, process {third?.RefinementProcess?.ProcessId}, "
             + $"work {third?.RefinementProcess?.CompletedWorkTicks}/{state.CompletedWorkTicks}, spent {third?.RefinementProcess?.EssenceSpent:R}/{state.EssenceSpent:R}, "
             + $"revision {third?.CustodyRevision}/{state.ThirdRevision})");
-        Check(ActuallyProjectedGu().Count() == 1 && registry.ProjectionOf(third) is Thing_GuDormantProjection held
+        Check(ActuallyProjectedGu().Count(thing => registry.FindRecord(thing.GuTag()?.GuId)?.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind) == 1
+            && registry.ProjectionOf(third) is Thing_GuDormantProjection held
             && held.holdingOwner == disciple.inventory.GetDirectlyHeldThings(),
             "Each Gu has exactly one placement: two in the aperture, one carried, no duplicate projection");
         Check(disciple.jobs.curDriver is JobDriver_GuRefineMortalGu driver && driver.ProcessId == state.ProcessId, "The will-enforcement job was restored");

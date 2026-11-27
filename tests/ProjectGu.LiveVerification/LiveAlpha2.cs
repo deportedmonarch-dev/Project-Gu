@@ -80,13 +80,14 @@ public sealed partial class LiveLifecycleChecks
         DebugSettings.enableStoryteller = false;
         var registry = IndividualRegistry;
         Map cave = disciple.Map;
-        Check(!Prefs.DevMode && spring.MatureCountFor(MoonSpecies) == 2 && spring.HopeGuAvailable == 2 && !registry.Records.Any(),
+        var springRecords = registry.Records.Where(record => record.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind);
+        Check(!Prefs.DevMode && spring.MatureCountFor(MoonSpecies) == 2 && spring.HopeGuAvailable == 2 && !springRecords.Any(),
             "The new cavern spring holds two mature Moonlight Gu beside the Hope Gu cohort, with no individual Gu yet");
 
         // 1. Acquire: the ordinary spring command, capture and pickup.
         var search = springThing.GetGizmos().OfType<Command_Action>().Single(command => command.defaultLabel == "Search for Moonlight Gu");
         search.action();
-        var record = registry.Records.Single();
+        var record = springRecords.Single();
         var wild = (Pawn_GuWildProjection)registry.ProjectionOf(record);
         Check(record.SpeciesDefName == MoonSpecies && wild.kindDef.defName == "GU_WildMoonlightGu" && wild.Map == cave
             && record.CohortDebitCommitted && spring.MatureCountFor(MoonSpecies) == 1 && spring.HopeGuAvailable == 2 && record.Refinement == null,
@@ -114,7 +115,8 @@ public sealed partial class LiveLifecycleChecks
             "Refinement bonded the Gu to the disciple; a refined Gu still grants nothing outside the aperture");
         RunAlpha1ApertureOption(disciple, "Store ", record.Id);
         var occupants = registry.ApertureOccupants(aperture).ToList();
-        var projected = ActuallyProjectedGu().ToList();
+        var projected = ActuallyProjectedGu()
+            .Where(thing => registry.FindRecord(thing.GuTag()?.GuId)?.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind).ToList();
         Check(occupants.Count == 1 && occupants[0] == record && dormant.Destroyed && projected.Count == 0,
             $"The refined Moonlight Gu is stored in the disciple's aperture with no physical projection (occupants {occupants.Count}, "
             + $"dormant destroyed {dormant.Destroyed}, projected: {string.Join(", ", projected.Select(thing => $"{thing.def.defName} {thing.GetUniqueLoadID()} spawned={thing.Spawned} destroyed={thing.Destroyed} gu={thing.GuTag()?.GuId}"))})");
@@ -372,7 +374,8 @@ public sealed partial class LiveLifecycleChecks
         var aperture = Apertures(disciple).Single();
         var record = stored ? IndividualRegistry.Resolve(state.GuId) : IndividualRegistry.FindRecord(state.GuId);
         Check(aperture.ApertureId == state.ApertureId && record is { IsActionable: true } && record.SpeciesDefName == MoonSpecies
-            && IndividualRegistry.Records.Count == 1 && record.CohortDebitCommitted,
+            && IndividualRegistry.Records.Count(entry => entry.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind) == 1
+            && record.CohortDebitCommitted,
             "Reload kept the disciple's aperture and the single Moonlight Gu identity");
         if (stored) Check(IndividualRegistry.ApertureOccupants(aperture).Single() == record, "The Gu is still in the disciple's aperture");
         return (state, disciple, aperture, record);

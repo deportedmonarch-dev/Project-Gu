@@ -86,6 +86,8 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         else if (GenCommandLine.CommandLineArgPassed("guslice3b5breleased")) Run(VerifyIntegratedCohortRelease, "released");
         else if (GenCommandLine.CommandLineArgPassed("guclanprefounding")) Run(VerifyClanPrefounding, "prefounding");
         else if (GenCommandLine.CommandLineArgPassed("gualpha1stored")) Run(VerifyAlpha1Stored, "stored");
+        else if (GenCommandLine.CommandLineArgPassed("guwhiteboarreload")) Run(VerifyWhiteBoarReload, "white-reload");
+        else if (GenCommandLine.CommandLineArgPassed("guwhiteboar")) Run(ExerciseWhiteBoar, "white");
         else if (GenCommandLine.CommandLineArgPassed("gubodilyfinal")) Run(VerifyBodilyFinal, "final");
         else if (GenCommandLine.CommandLineArgPassed("gubodilyreload")) Run(VerifyBodilyReload, "reload");
         else if (GenCommandLine.CommandLineArgPassed("gubodily")) Run(ExerciseBodily, "bodily");

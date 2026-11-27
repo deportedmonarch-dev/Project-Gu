@@ -22,7 +22,7 @@ public sealed partial class LiveLifecycleChecks
         int Replacement, int Ordinal, int Meals);
 
     private static List<GuRecord> SurfaceGu() => IndividualRegistry.Records
-        .Where(record => record.CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind).ToList();
+        .Where(record => record.SpeciesDefName == "GU_BlackBoarGu" && record.CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind).ToList();
 
     private static void ExerciseSlice1A(Pawn elder, Pawn mortal, Map home, Map cave)
     {
@@ -31,9 +31,9 @@ public sealed partial class LiveLifecycleChecks
         Current.Game.CurrentMap = home;
         Check(!Prefs.DevMode && Apertures(mortal).Count == 0 && home.Biome.defName == "TemperateForest",
             "The surface fixture starts in temperate forest with a mortal and a Gu Master, with Development Mode off");
-        Check(GuSurfaceEcology.Instance.LocalityAt(cave) == null, "The established spring cavern has no surface population");
-        TickUntil(() => GuSurfaceEcology.Instance.LocalityAt(home) != null, 250);
-        var habitat = GuSurfaceEcology.Instance.LocalityAt(home);
+        Check(GuSurfaceEcology.Instance.LocalityAt(cave, "GU_BlackBoarGu") == null, "The established spring cavern has no surface population");
+        TickUntil(() => GuSurfaceEcology.Instance.LocalityAt(home, "GU_BlackBoarGu") != null, 250);
+        var habitat = GuSurfaceEcology.Instance.LocalityAt(home, "GU_BlackBoarGu");
         int initial = habitat.Cohort.MatureCount + SurfaceGu().Count(record => record.IsLiving);
         Check(initial is >= 0 and <= 3 && habitat.Cohort.JuvenileCount == 0, $"Initial forest occupancy is {initial} of 0–3 adults");
         if (initial == 0)
@@ -143,7 +143,7 @@ public sealed partial class LiveLifecycleChecks
     {
         var saved = JsonSerializer.Deserialize<SurfaceState>(File.ReadAllText(SurfaceStatePath));
         var home = Find.Maps.Single(map => map.IsPlayerHome);
-        var habitat = GuSurfaceEcology.Instance.LocalityAt(home);
+        var habitat = GuSurfaceEcology.Instance.LocalityAt(home, "GU_BlackBoarGu");
         var elder = home.mapPawns.FreeColonistsSpawned.Single(pawn => pawn.ThingID == saved.Cultivator);
         var record = IndividualRegistry.Resolve(saved.Gu);
         var resident = IndividualRegistry.Resolve(saved.Resident);
@@ -243,7 +243,7 @@ public sealed partial class LiveLifecycleChecks
         }
 
         PositionBeside(mortal, wild);
-        var species = DefDatabase<GuSpeciesDef>.GetNamed(GuSurfaceEcology.BlackBoar);
+        var species = DefDatabase<GuSpeciesDef>.GetNamed("GU_BlackBoarGu");
         var target = AccessTools.Field(typeof(Pawn_GuWildProjection), "curiosityTarget");
         var revision = habitat.Cohort.Revision;
         float normalChance = species.wildCuriosityChancePerHour;
@@ -275,8 +275,8 @@ public sealed partial class LiveLifecycleChecks
         scout.DeSpawn();
         GenSpawn.Spawn(scout, map.Center, map);
         TickUntil(() => false, 2600);
-        Check(GuSurfaceEcology.Instance.LocalityAt(map) == null && !GuSurfaceEcology.SearchGround(map, scout.Position)
-            && !map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any()
+        Check(GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") == null && !GuSurfaceEcology.SearchGround(map, scout.Position)
+            && !map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu")
             && GuSurfaceEcology.Suitability(BiomeDef.Named("Tundra")) == 0, "Desert rejects initialization, ambient encounters and searching. Tundra is also hard-ineligible");
 
         // Change the disposable tile's fixture biome, then generate a fresh forest map at the same locality.
@@ -290,13 +290,13 @@ public sealed partial class LiveLifecycleChecks
         scout.DeSpawn();
         GenSpawn.Spawn(scout, map.Center, map);
         scout.jobs.EndCurrentJob(JobCondition.InterruptForced);
-        TickUntil(() => GuSurfaceEcology.Instance.LocalityAt(map) != null, 250);
-        var habitat = GuSurfaceEcology.Instance.LocalityAt(map);
+        TickUntil(() => GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") != null, 250);
+        var habitat = GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu");
         if (habitat.Cohort.MatureCount == 0)
         {
             CheckReplacementRoll(habitat);
             habitat.ReplacementTicks = 250;
-            TickUntil(() => habitat.Cohort.MatureCount > 0 || map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(), 500);
+            TickUntil(() => habitat.Cohort.MatureCount > 0 || map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu"), 500);
         }
         var nearby = GenRadial.RadialCellsAround(scout.Position, 6, true).First(cell =>
             GuSurfaceEcology.SearchGround(map, cell) && scout.CanReach(cell, PathEndMode.Touch, Danger.Some));
@@ -304,8 +304,8 @@ public sealed partial class LiveLifecycleChecks
             nearby.ToVector3Shifted(), map)).FirstOrDefault(option => option.Label == "Search for wild Gu");
         Check(search != null, "An ordinary terrain right-click exposes Search for wild Gu");
         search.action();
-        TickUntil(() => map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(), 2500, "The terrain search can materialize a native resident");
-        var before = map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Single();
+        TickUntil(() => map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu"), 2500, "The terrain search can materialize a native resident");
+        var before = map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Single(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu");
         var record = IndividualRegistry.Resolve(before);
         Check(record.CreationEvidence.Trigger == "surface-search", "The deliberate job committed its own surface discovery receipt");
         long revision = habitat.Cohort.Revision;
@@ -323,7 +323,7 @@ public sealed partial class LiveLifecycleChecks
         GenSpawn.Spawn(scout, map.Center, map);
         TickUntil(() => IndividualRegistry.ProjectionOf(record) is Pawn_GuWildProjection { Spawned: true }, 5200,
             "The regenerated map discovered the same resident through production staging");
-        Check(IndividualRegistry.ProjectionOf(record) != before && habitat == GuSurfaceEcology.Instance.LocalityAt(map)
+        Check(IndividualRegistry.ProjectionOf(record) != before && habitat == GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu")
             && habitat.Cohort.MatureCount == count && habitat.Cohort.Revision == revision && record.CohortDebitCommitted,
             "Map replacement preserved the ID and charged no second debit");
         var returned = (Pawn_GuWildProjection)IndividualRegistry.ProjectionOf(record);

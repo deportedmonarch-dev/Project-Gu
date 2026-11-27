@@ -27,9 +27,16 @@ internal static class GuFeedingChecks
 
     private static Dictionary<string, XElement> VerifySpeciesPolicies(string root)
     {
-        var defs = XDocument.Load(Path.Combine(root, "Defs/GuSpeciesDefs/GU_GuSpecies.xml")).Descendants("ProjectGu.Domain.GuSpeciesDef")
+        var nodes = XDocument.Load(Path.Combine(root, "Defs/GuSpeciesDefs/GU_GuSpecies.xml")).Descendants("ProjectGu.Domain.GuSpeciesDef").ToList();
+        var parents = nodes.Where(node => (bool?)node.Attribute("Abstract") == true)
+            .ToDictionary(node => (string)node.Attribute("Name")!);
+        var defs = nodes.Where(node => (bool?)node.Attribute("Abstract") != true)
             .ToDictionary(node => (string)node.Element("defName")!);
-        XElement Feeding(string defName) => defs[defName].Element("feeding")!;
+        XElement Feeding(string defName)
+        {
+            var def = defs[defName];
+            return def.Element("feeding") ?? parents[(string)def.Attribute("ParentName")!].Element("feeding")!;
+        }
 
         var moon = Feeding("GU_MoonlightGu");
         var petals = moon.Element("foods")!.Elements("li").Single();
@@ -49,6 +56,8 @@ internal static class GuFeedingChecks
         var dev = Feeding("GU_DevTestSpringGu");
         Check((string)dev.Element("status")! == "Exempt" && dev.Element("foods") == null && !string.IsNullOrEmpty((string)dev.Element("note")),
             "The developer species is explicitly exempt, with the exemption declared");
+        Check(XNode.DeepEquals(Feeding("GU_BlackBoarGu"), Feeding("GU_WhiteBoarGu")),
+            "The two Boar Gu share feeding and starvation rules");
         foreach (string name in new[] { "GU_MoonlightGu", "GU_LiquorWorm" })
         {
             var f = Feeding(name);

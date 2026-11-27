@@ -19,10 +19,7 @@
     <maxSeverity>1</maxSeverity>
   </HediffDef>
 
-  <HediffDef ParentName="GU_BodilyStrengthBase">
-    <defName>GU_BodilyStrength_BlackBoar</defName>
-    <label>Black Boar strength</label>
-    <description>The strength of one black boar, tempered into this body through Black Boar Gu cultivation. It is a permanent bodily attainment: it remains if the Gu is lost, and ordinary medicine does not remove it.</description>
+  <HediffDef ParentName="GU_BodilyStrengthBase" Name="GU_BoarStrength" Abstract="True">
     <stages>
       <li>
         <label>stirring</label>
@@ -79,5 +76,17 @@
         </statFactors>
       </li>
     </stages>
+  </HediffDef>
+
+  <HediffDef ParentName="GU_BoarStrength">
+    <defName>GU_BodilyStrength_BlackBoar</defName>
+    <label>Black Boar strength</label>
+    <description>The strength of one black boar, tempered into this body through Black Boar Gu cultivation. It is a permanent bodily attainment: it remains if the Gu is lost, and ordinary medicine does not remove it.</description>
+  </HediffDef>
+
+  <HediffDef ParentName="GU_BoarStrength">
+    <defName>GU_BodilyStrength_WhiteBoar</defName>
+    <label>White Boar strength</label>
+    <description>The strength of one white boar, tempered into this body through White Boar Gu cultivation. It is a permanent bodily attainment: it remains if the Gu is lost, and ordinary medicine does not remove it.</description>
   </HediffDef>
 </Defs>

@@ -47,7 +47,7 @@ Liquor Worm and Moonblade behave as before. Their Defs are unchanged. The Liquor
 
 **Interface.** The Cultivation page lists Black Boar cultivation beside Liquor Worm refinement, with the current development. A new **Bodily attributes** block reads every attainment straight from the pawn's hediffs, whether or not the Gu is still held. It shows each attainment's development bar and its current bonuses.
 
-**Data-driven reuse.** White Boar is planned as one HediffDef (parent `GU_BodilyStrengthBase`) plus one `GuAbilityDef` that names it in `channel.attainment`, with its species listing the ability. It needs no code.
+**Data-driven reuse.** White Boar declares its own HediffDef and ability through the shared Boar Def parents. The existing channel worker, health persistence and Bodily attributes block use the configured attainment directly. [Slice 1B-1](ALPHA-6-SLICE-1B-1.md)
 
 ## Independent review and integration
 

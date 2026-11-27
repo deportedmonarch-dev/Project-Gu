@@ -54,7 +54,7 @@ public sealed partial class LiveLifecycleChecks
         Current.Game.CurrentMap = home;
         var guKinds = DefDatabase<PawnKindDef>.AllDefs.Where(Pawn_GuWildProjection.IsGuKind).ToList();
         var species = DefDatabase<GuSpeciesDef>.AllDefs.Where(GuIndividualRegistry.IsDevelopmentSpawnable).OrderBy(def => def.defName).ToList();
-        Check(guKinds.Count >= 5 && species.Any(def => def.defName == GuSurfaceEcology.BlackBoar),
+        Check(guKinds.Count >= 5 && species.Any(def => def.defName == "GU_BlackBoarGu"),
             $"Loaded {guKinds.Count} Gu projection kinds including the spawnable Black Boar Gu");
         Check(guKinds.All(kind => kind.ecoSystemWeight == 0f && Pawn_GuWildProjection.HasNativeGenerationExclusions(kind)),
             "Every Gu projection kind declares zero ecosystem weight and the native generation exclusions");

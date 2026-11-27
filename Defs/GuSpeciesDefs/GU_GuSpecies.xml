@@ -102,20 +102,16 @@
       <terminalAfterStarvingDays>10</terminalAfterStarvingDays>
     </feeding>
   </ProjectGu.Domain.GuSpeciesDef>
-  <ProjectGu.Domain.GuSpeciesDef>
-    <defName>GU_BlackBoarGu</defName>
-    <label>Black Boar Gu</label>
+  <ProjectGu.Domain.GuSpeciesDef Name="GU_SurfaceBoarSpecies" Abstract="True">
     <description>A natural rank-one Strength Path Gu found in surface forests. Its reference value is 600 primeval stones.</description>
     <minRank>1</minRank>
     <maxRank>1</maxRank>
     <wildPopulationEnabled>true</wildPopulationEnabled>
-    <wildProjectionKind>GU_WildBlackBoarGu</wildProjectionKind>
-    <dormantProjectionDef>GU_DormantBlackBoarGu</dormantProjectionDef>
+    <surfaceForestPopulation>true</surfaceForestPopulation>
     <wildCuriosityChancePerHour>0.001</wildCuriosityChancePerHour>
     <pathTags><li>strength</li></pathTags>
     <habitatTags><li>surface</li><li>forest</li></habitatTags>
     <role>Strength Path</role>
-    <abilities><li>GU_BlackBoarCultivation</li></abilities>
     <feeding>
       <status>Simulated</status>
       <note>Feeds on 100 units of raw pork or one whole pig or wild boar corpse every five days.</note>
@@ -145,6 +141,20 @@
       <impairAfterStarvingDays>2</impairAfterStarvingDays>
       <terminalAfterStarvingDays>10</terminalAfterStarvingDays>
     </feeding>
+  </ProjectGu.Domain.GuSpeciesDef>
+  <ProjectGu.Domain.GuSpeciesDef ParentName="GU_SurfaceBoarSpecies">
+    <defName>GU_BlackBoarGu</defName>
+    <label>Black Boar Gu</label>
+    <wildProjectionKind>GU_WildBlackBoarGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DormantBlackBoarGu</dormantProjectionDef>
+    <abilities><li>GU_BlackBoarCultivation</li></abilities>
+  </ProjectGu.Domain.GuSpeciesDef>
+  <ProjectGu.Domain.GuSpeciesDef ParentName="GU_SurfaceBoarSpecies">
+    <defName>GU_WhiteBoarGu</defName>
+    <label>White Boar Gu</label>
+    <wildProjectionKind>GU_WildWhiteBoarGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DormantWhiteBoarGu</dormantProjectionDef>
+    <abilities><li>GU_WhiteBoarCultivation</li></abilities>
   </ProjectGu.Domain.GuSpeciesDef>
   <!-- Development fixture for cohort and individual persistence. -->
   <ProjectGu.Domain.GuSpeciesDef>

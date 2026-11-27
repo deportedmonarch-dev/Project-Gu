@@ -15,7 +15,7 @@ namespace ProjectGu.Jobs
         public override void Notify_Starting()
         {
             base.Notify_Starting();
-            if (pursuitDeadline < 0 && job.targetA.Thing is Pawn_GuWildProjection { IsBlackBoar: true })
+            if (pursuitDeadline < 0 && job.targetA.Thing is Pawn_GuWildProjection { UsesSurfaceEncounter: true })
                 pursuitDeadline = Find.TickManager.TicksGame + 1200;
         }
 
@@ -36,11 +36,11 @@ namespace ProjectGu.Jobs
             var pursuit = Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
             pursuit.AddPreTickIntervalAction(_ =>
             {
-                if (job.targetA.Thing is not Pawn_GuWildProjection { IsBlackBoar: true } wild) return;
+                if (job.targetA.Thing is not Pawn_GuWildProjection { UsesSurfaceEncounter: true } wild) return;
                 if (pursuitDeadline < 0) pursuitDeadline = Find.TickManager.TicksGame + 1200;
                 if (Find.TickManager.TicksGame >= pursuitDeadline)
                 {
-                    Messages.Message($"{pawn.LabelShort} gave up pursuing the Black Boar Gu.", pawn, MessageTypeDefOf.NeutralEvent, false);
+                    Messages.Message($"{pawn.LabelShort} gave up pursuing {wild.LabelShort}.", pawn, MessageTypeDefOf.NeutralEvent, false);
                     EndJobWith(JobCondition.Incompletable);
                     return;
                 }

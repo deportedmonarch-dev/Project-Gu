@@ -18,7 +18,8 @@ namespace ProjectGu
         private Pawn curiosityTarget;
         private int curiosityUntil;
         private int nextEvadeTick;
-        internal bool IsBlackBoar => def?.defName == "GU_WildBlackBoarGu";
+        private GuSpeciesDef Species => Current.Game?.GetComponent<GuIndividualRegistry>()?.Resolve(this)?.Species;
+        internal bool UsesSurfaceEncounter => Species?.surfaceForestPopulation == true;
 
         public string GuId => this.GuTag()?.GuId;
         public int GuRevision => this.GuTag()?.GuRevision ?? 0;
@@ -97,19 +98,20 @@ namespace ProjectGu
         {
             if (releaseSuppressed) return;
             base.TickInterval(delta);
-            if (IsBlackBoar && Spawned && Faction == null && !Downed && !InMentalState && this.IsHashIntervalTick(250, delta))
-                ObserveCuriosity();
+            if (Spawned && Faction == null && !Downed && !InMentalState && this.IsHashIntervalTick(250, delta)
+                && Species is { surfaceForestPopulation: true } species)
+                ObserveCuriosity(species);
         }
 
         private bool CuriousAbout(Pawn pawn) => pawn != null && pawn == curiosityTarget && Find.TickManager.TicksGame < curiosityUntil;
 
-        private void ObserveCuriosity()
+        private void ObserveCuriosity(GuSpeciesDef species)
         {
             int now = Find.TickManager.TicksGame;
             if (curiosityTarget != null && (!CuriousAbout(curiosityTarget) || !curiosityTarget.Spawned || curiosityTarget.Map != Map))
                 curiosityTarget = null;
             if (curiosityTarget == null && this.IsHashIntervalTick(2500, 250)
-                && DefDatabase<GuSpeciesDef>.GetNamedSilentFail(GuSurfaceEcology.BlackBoar) is { wildCuriosityChancePerHour: > 0f } species
+                && species.wildCuriosityChancePerHour > 0f
                 && Rand.Chance(species.wildCuriosityChancePerHour))
             {
                 foreach (var pawn in Map.mapPawns.FreeColonistsSpawned)
@@ -118,7 +120,7 @@ namespace ProjectGu
                         || !this.CanReach(pawn, PathEndMode.Touch, Danger.Some)) continue;
                     curiosityTarget = pawn;
                     curiosityUntil = now + 10000;
-                    Messages.Message($"A wild Black Boar Gu is lingering near {pawn.LabelShort}.", this, MessageTypeDefOf.NeutralEvent, false);
+                    Messages.Message($"A wild {species.label} is lingering near {pawn.LabelShort}.", this, MessageTypeDefOf.NeutralEvent, false);
                     break;
                 }
             }
@@ -140,7 +142,7 @@ namespace ProjectGu
         internal void EvadeCapture(Pawn captor)
         {
             int now = Find.TickManager.TicksGame;
-            if (!IsBlackBoar || releaseSuppressed || !Spawned || captor.Map != Map || Downed || InMentalState
+            if (releaseSuppressed || !Spawned || captor.Map != Map || Downed || InMentalState
                 || CuriousAbout(captor) || now < nextEvadeTick || Position.DistanceToSquared(captor.Position) > 49
                 || CurJob?.def == JobDefOf.Flee || !jobs.IsCurrentJobPlayerInterruptible()) return;
             nextEvadeTick = now + Rand.RangeInclusive(90, 210);

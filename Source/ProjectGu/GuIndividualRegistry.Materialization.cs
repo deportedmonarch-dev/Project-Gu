@@ -118,7 +118,7 @@ namespace ProjectGu
         }
 
         internal bool SurfaceEvidenceIntact(string sourceId, GuPopulationRecord cohort) =>
-            ScopeEvidenceRefusal(GuSurfaceEcology.SourceKind, sourceId, GuSurfaceEcology.BlackBoar, cohort) == null;
+            ScopeEvidenceRefusal(GuSurfaceEcology.SourceKind, sourceId, cohort.SpeciesDefName, cohort) == null;
 
         /// <summary>
         /// After both the registry and the source owners have loaded, reports every receipt scope whose live cohort disagrees with

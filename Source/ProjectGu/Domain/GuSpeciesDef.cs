@@ -23,6 +23,8 @@ namespace ProjectGu.Domain
         public int minRank = 1;
         public int maxRank = 1;
         public bool wildPopulationEnabled;
+        // Opts into the shared surface forest habitat, recovery and ground encounter behavior.
+        public bool surfaceForestPopulation;
         public PawnKindDef wildProjectionKind;
         public ThingDef dormantProjectionDef;
         public float wildCuriosityChancePerHour;
@@ -85,6 +87,8 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: maxRank must be between minRank and 9";
             if (refinementBaseWorkTicks is < 1 or > 600_000)
                 yield return $"{defName}: refinementBaseWorkTicks must be between 1 and 600000";
+            if (surfaceForestPopulation && (!wildPopulationEnabled || minRank != 1 || wildProjectionKind == null || dormantProjectionDef == null))
+                yield return $"{defName}: surface forest populations need enabled Rank 1 wild and dormant projections";
             if (!float.IsFinite(wildCuriosityChancePerHour) || wildCuriosityChancePerHour is < 0f or > 1f)
                 yield return $"{defName}: wildCuriosityChancePerHour must be between 0 and 1";
             if (!float.IsFinite(refinementEssenceCost) || refinementEssenceCost <= 0f)

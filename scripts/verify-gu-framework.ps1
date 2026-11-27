@@ -5,8 +5,8 @@ $sourcePath = Join-Path $root 'Source\ProjectGu\Domain\GuSpeciesDef.cs'
 if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw 'Missing GuSpeciesDef source.' }
 if (-not (Test-Path -LiteralPath $defsPath -PathType Leaf)) { throw 'Missing Gu species XML.' }
 [xml]$xml = Get-Content -LiteralPath $defsPath -Raw
-$defs = @($xml.Defs.SelectNodes('ProjectGu.Domain.GuSpeciesDef'))
-if (@($xml.Defs.ChildNodes | Where-Object { $_.NodeType -eq 'Element' -and $_.Name -ne 'ProjectGu.Domain.GuSpeciesDef' }).Count -gt 0) { throw 'All Gu species declarations must use the fully qualified C# Def type.' }
+$defs = @($xml.Defs.SelectNodes('ProjectGu.Domain.GuSpeciesDef[not(@Abstract="True")]'))
+if (@($xml.Defs.ChildNodes | Where-Object { $_.NodeType -eq 'Element' -and $_.LocalName -ne 'ProjectGu.Domain.GuSpeciesDef' }).Count -gt 0) { throw 'All Gu species declarations must use the fully qualified C# Def type.' }
 if ($defs.Count -lt 2) { throw 'Need two distinct species definitions for framework tests.' }
 $seen = @{}
 foreach ($def in $defs) {
@@ -14,7 +14,13 @@ foreach ($def in $defs) {
     if ([string]::IsNullOrWhiteSpace($name)) { throw 'Gu species has no defName.' }
     if ($seen.ContainsKey($name)) { throw "Duplicate Gu species: $name" }
     $seen[$name] = $true
-    $min = [int]$def.minRank; $max = [int]$def.maxRank
+    $parent = $null
+    if ($def.ParentName) {
+        $parent = $xml.Defs.SelectSingleNode("ProjectGu.Domain.GuSpeciesDef[@Name='$($def.ParentName)' and @Abstract='True']")
+        if ($null -eq $parent) { throw "Missing abstract Gu species parent for $name" }
+    }
+    $min = if ($def.minRank) { [int]$def.minRank } else { [int]$parent.minRank }
+    $max = if ($def.maxRank) { [int]$def.maxRank } else { [int]$parent.maxRank }
     if ($min -lt 1 -or $max -gt 9 -or $max -lt $min) { throw "Invalid Gu rank bounds: $name" }
     foreach ($field in @('pathTags','habitatTags','capabilityTags')) {
         $node = $def.SelectSingleNode($field)
