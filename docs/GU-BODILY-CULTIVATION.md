@@ -63,7 +63,11 @@ The review found no architectural blockers. The registered Gu authorizes a chann
 - The first fresh process recovered the same Gu and receipt, aperture occupants and custody revision, active job, partial pulse, essence stock, cooldown and severity. It completed the first ten pulses and exercised the last pulse after advancing the fixture to one step short of full development. The second fresh process confirmed both Black Boar identities, retained development, full stats, the duplicate cap and persistence after native cure, death and resurrection.
 - **Slice1A**, **Alpha2** (Moonblade), **Alpha3** (Liquor Worm), **Alpha4A** (Aperture interface), **Slice3B5B** (cohort and aperture custody), **Slice0Wildlife** and **GuGeneration** passed in campaign `75744f3b133940e299a5523e54e461e6`. That campaign's Bodily run exposed a mixed-quality fixture setup error, corrected before the passing rerun.
 - **Alpha5B** passed `new`, `integration` and `reload` in campaign `275738620b064a9cb48c1cf09737caa1`. Its spring ambience fixture now counts non-surface records and both kinds of cavern projection so a surface discovery cannot trip the spring assertion. The optional historical Alpha 5A stage was skipped. All three campaigns staged the same 101 production files by SHA-256.
-- Rendered inspection, a full 15-session playthrough and owner gameplay acceptance are pending.
+### Owner acceptance of integrated Black Boar
+
+The owner accepted integrated Black Boar Gu at baseline `cf79ee1` within the scope of the completed gameplay session. No blocking defects were reported. The owner found the cultivation activity appropriate and advancement well communicated. The Bodily attributes interface is suitable for future additions provided it lists each attainment independently with its effects directly underneath. Refinement presentation improvements are deferred.
+
+The gameplay session is separate from the automated campaigns above. Manual completion of all 15 sessions and manual execution of the fresh-process and medical cases were not confirmed. Balance beyond the observed session remains open.
 
 ## Remaining limitations
 
@@ -124,4 +128,4 @@ Enable Harmony, Core and Project GU. Use a Gu Master at an eligible forest settl
 2. In **Aperture**, choose **Enforce will over**, then **Store** when refinement ends. Withdraw one Gu first if both slots are occupied.
 3. On the **Cultivation** page, start **Black Boar cultivation**. Look for **Black Boar strength** in **Health**, the progress and bonuses in **Bodily attributes**, and the strength in a native stat explanation.
 4. Draft mid-session, then undraft and resume. Save partway through another pulse and reopen the save from a fresh launch. Withdraw the Gu and check that the health condition and bonuses stay.
-5. With the same Gu, 150 pulses fill the attainment across 15 daily sessions. At full development any Black Boar Gu should refuse further pulses. The provisional bonuses, cadence and presentation still need owner gameplay acceptance.
+5. With the same Gu, 150 pulses fill the attainment across 15 daily sessions. At full development any Black Boar Gu should refuse further pulses.
