@@ -292,11 +292,10 @@ namespace ProjectGu.Springs
         }
 
         /// <summary>
-        /// Draws one mature adult of the species from this spring's cohort through the registry's shared source transaction.
-        /// A lure passes its trigger and the bait Def as the asset scope, recorded on the creation receipt.
+        /// A player's search: draws one mature adult of the species from this spring's cohort through the registry's shared
+        /// source transaction. Lure-only species are refused by the spring's source authorization, whatever the caller.
         /// </summary>
-        internal bool TryEncounterWildGu(GuSpeciesDef species, GuIndividualRegistry registry, out GuRecord individual, out string reason,
-            string trigger = GuSourceTriggers.SpringSearch, ThingDef lure = null)
+        internal bool TryEncounterWildGu(GuSpeciesDef species, GuIndividualRegistry registry, out GuRecord individual, out string reason)
         {
             individual = null;
             var cohort = GuPopulationLedger.Find(populations, species.defName);
@@ -304,17 +303,43 @@ namespace ProjectGu.Springs
             if (!populationsReady || cohort == null || cohort.MatureCount <= 0) return false;
 
             Map map = parent.Map;
-            IntVec3 cell = GenRadial.RadialCellsAround(parent.Position, 6f, true).FirstOrDefault(candidate =>
-                candidate.InBounds(map) && !candidate.Fogged(map) && candidate.Standable(map)
-                && !map.reservationManager.IsReserved(candidate)
-                && candidate.GetThingList(map).Count == 0, IntVec3.Invalid);
-            string prefix = trigger == GuSourceTriggers.SpringLure ? "player-lure" : "player-encounter";
-            string eventKey = $"{prefix}:{HabitatId}:{species.defName}:{cohort.Revision}";
+            IntVec3 cell = EncounterCell(map);
+            string eventKey = $"player-encounter:{HabitatId}:{species.defName}:{cohort.Revision}";
             reason = "No safe nearby place is available for a wild Gu.";
             if (!cell.IsValid) return false;
             return GuIndividualRegistry.TryPrepareMaterializationRequest(this, species.defName, eventKey, out var request)
-                && registry.TryEncounterWildCohort(this, request, trigger, lure?.defName, map, cell, out individual, out reason);
+                && registry.TryEncounterWildCohort(this, request, map, cell, out individual, out reason);
         }
+
+        /// <summary>
+        /// A colonist's lure (Alpha 6 Slice 0). The event key is the durable lure intent: this spring, the species, the actor and
+        /// the native lure job, so a repeated final toil replays the same creation and never draws or spends twice. The exact bait
+        /// stack in the actor's hands is the transaction's asset: revalidated after native callbacks and spent once by the
+        /// registry after the debit commits.
+        /// </summary>
+        internal bool TryLureWildGu(GuSpeciesDef species, GuIndividualRegistry registry, Pawn actor, Verse.AI.Job job, Thing bait,
+            out GuRecord individual, out string reason)
+        {
+            individual = null;
+            reason = "The lure needs a colonist with the bait in hand.";
+            if (species == null || registry == null || actor == null || job == null || bait == null || !populationsReady) return false;
+            reason = $"No {species.label} population lives at this spring.";
+            if (GuPopulationLedger.Find(populations, species.defName) == null) return false;
+            Map map = parent.Map;
+            string eventKey = LureEventKey(species, actor, job);
+            // A replay needs no cell; a new creation is refused by the registry's own placement check when none is free.
+            return GuIndividualRegistry.TryPrepareMaterializationRequest(this, species.defName, eventKey, out var request)
+                && registry.TryEncounterWildCohort(this, request, GuSourceTriggers.SpringLure, new GuHeldLureAsset(this, actor, job, bait),
+                    map, EncounterCell(map), out individual, out reason);
+        }
+
+        internal string LureEventKey(GuSpeciesDef species, Pawn actor, Verse.AI.Job job) =>
+            $"player-lure:{HabitatId}:{species.defName}:{actor.GetUniqueLoadID()}:{job.GetUniqueLoadID()}";
+
+        private IntVec3 EncounterCell(Map map) => GenRadial.RadialCellsAround(parent.Position, 6f, true).FirstOrDefault(candidate =>
+            candidate.InBounds(map) && !candidate.Fogged(map) && candidate.Standable(map)
+            && !map.reservationManager.IsReserved(candidate)
+            && candidate.GetThingList(map).Count == 0, IntVec3.Invalid);
 
         internal static bool PlayerCanAccessEncounterMap(Map map) => GuPocketProbeComponent.IsLive(map)
             && (map.IsPlayerHome || Current.Game?.GetComponent<GuPocketProbeComponent>()?.HasPlayerEncounterRoute(map) == true);

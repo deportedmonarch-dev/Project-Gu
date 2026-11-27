@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
+using ProjectGu.Domain;
 using Verse;
 
 namespace ProjectGu.Springs
 {
     /// <summary>Map-local, transient subscriber list. Never serialized; comps re-register on spawn/load.</summary>
-    public sealed class GuEcologyMapComponent : MapComponent
+    public sealed class GuEcologyMapComponent : MapComponent, IGuPopulationSourceDirectory
     {
         private readonly HashSet<CompGuSpiritSpring> springs = new HashSet<CompGuSpiritSpring>();
         public GuEcologyMapComponent(Map map) : base(map) { }
@@ -16,6 +17,10 @@ namespace ProjectGu.Springs
             ProjectGu.Presentation.GuSpringAmbience.BeginFrame();
             foreach (var spring in springs) ProjectGu.Presentation.GuSpringAmbience.Draw(spring);
         }
+
+        /// <summary>Alpha 6: the registry resolves a spring source through the component that registers the spring (RFC-0007).</summary>
+        void IGuPopulationSourceDirectory.CollectSources(string ownerKind, string sourceId, List<IGuPopulationSource> into) =>
+            GuIndividualRegistry.CollectSpringSources(springs, ownerKind, sourceId, into);
 
         internal bool ContainsSpring(CompGuSpiritSpring spring) => springs.Contains(spring);
 

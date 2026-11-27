@@ -1,0 +1,77 @@
+diff --git a/scripts/verify-priority0-live.ps1 b/scripts/verify-priority0-live.ps1
+index 51fc202..63d19b0 100644
+--- a/scripts/verify-priority0-live.ps1
++++ b/scripts/verify-priority0-live.ps1
+@@ -2,7 +2,7 @@ param(
+     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
+     [string]$HarmonyPath = '',
+     [string]$InstalledProjectGuPath = '',
+-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'Slice0', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
++    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'Slice0', 'Slice0Repro', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+     [switch]$Rendered,
+     [string]$Alpha5BLogisticsSave = '',
+     [string]$Legacy31Save = '',
+@@ -671,6 +671,13 @@ Measure-Phase 'planning' {
+             }
+             continue
+         }
++        if ($name -eq 'Slice0Repro') {
++            # Review reproduction against candidate a4d40a5: observes each finding and reports DEMONSTRATED or NOT DEMONSTRATED.
++            $unit = New-Unit $name $saveData "PASS $name review reproduction. Evidence in $saveData"
++            Add-Launch $unit 'new' $true $false '-guclanstart -guslice0 -guslice0repro'
++            Add-Launch $unit 'reload' $false $false '-guclanstart -guslice0 -guslice0repro'
++            continue
++        }
+         if ($name -eq 'GuGeneration') {
+             $unit = New-Unit $name $saveData "PASS $name native animal pools, direct factory refusal and fresh-process reload. Evidence in $saveData"
+             Add-Launch $unit 'new' $true $false '-guclanstart -gugeneration'
+diff --git a/tests/ProjectGu.LiveVerification/LiveClanStart.cs b/tests/ProjectGu.LiveVerification/LiveClanStart.cs
+index c003ea3..77410ae 100644
+--- a/tests/ProjectGu.LiveVerification/LiveClanStart.cs
++++ b/tests/ProjectGu.LiveVerification/LiveClanStart.cs
+@@ -198,7 +198,8 @@ public sealed partial class LiveLifecycleChecks
+         }
+         if (Slice0)
+         {
+-            ExerciseSlice0(disciple, spring);
++            if (Slice0Repro) ExerciseSlice0Repro(disciple, spring);
++            else ExerciseSlice0(disciple, spring);
+             return;
+         }
+         if (RankOne)
+diff --git a/tests/ProjectGu.LiveVerification/LiveLifecycleChecks.cs b/tests/ProjectGu.LiveVerification/LiveLifecycleChecks.cs
+index 3658c18..e4388d0 100644
+--- a/tests/ProjectGu.LiveVerification/LiveLifecycleChecks.cs
++++ b/tests/ProjectGu.LiveVerification/LiveLifecycleChecks.cs
+@@ -79,6 +79,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
+         else if (GenCommandLine.CommandLineArgPassed("guslice0legacyreload")) Run(VerifySlice0LegacyReload, "legacyreload");
+         else if (GenCommandLine.CommandLineArgPassed("guslice0legacy")) Run(VerifySlice0Legacy, "legacy");
+         else if (GenCommandLine.CommandLineArgPassed("guslice0final")) Run(VerifySlice0Final, "final");
++        else if (Slice0Repro) Run(VerifySlice0ReproReload, "reload");
+         else if (Slice0) Run(VerifySlice0Reload, "reload");
+         else if (GenCommandLine.CommandLineArgPassed("guslice3b5baperture")) Run(ReleaseIntegratedCohort, "aperture");
+         else if (GenCommandLine.CommandLineArgPassed("guslice3b5breleased")) Run(VerifyIntegratedCohortRelease, "released");
+diff --git a/tests/ProjectGu.LiveVerification/LiveSlice0.cs b/tests/ProjectGu.LiveVerification/LiveSlice0.cs
+index e4a8850..651b49f 100644
+--- a/tests/ProjectGu.LiveVerification/LiveSlice0.cs
++++ b/tests/ProjectGu.LiveVerification/LiveSlice0.cs
+@@ -46,13 +46,17 @@ public sealed class GuSlice0Source : IExposable, IGuPopulationSource
+ 
+     public string OwnerKind => Kind;
+     public string SourceId => id;
+-    public string CurrentCredential => BoundMap != null ? credential : null;
++    internal static Action<GuSlice0Source> onCredentialRead;
++    internal bool revoked;
++    internal bool anyRank;
++    public string CurrentCredential { get { onCredentialRead?.Invoke(this); return BoundMap != null ? credential : null; } }
+     public bool HasUniqueIdentity => GuSlice0Sources.Instance?.sources.Count(source => source.id == id) == 1;
+     public bool RequiresDevelopmentMode(string trigger) => true;
+     public GuPopulationRecord CohortFor(string speciesDefName) => GuPopulationLedger.Find(cohorts, speciesDefName);
+ 
+     public string RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, string assetScope) =>
+-        stage != GuCohortStage.Mature || rank != species.minRank ? "The test source issues only mature wild-rank Gu."
++        revoked ? "The test source withdrew its authorization."
++        : stage != GuCohortStage.Mature || (!anyRank && rank != species.minRank) ? "The test source issues only mature wild-rank Gu."
+         : trigger == ProbeTrigger ? assetScope == null ? null : "A probe draw carries no asset."
+         : trigger == BaitTrigger ? assetScope == BaitScope ? null : "The test bait trigger requires its declared bait."
+         : "The test source does not authorize that trigger.";

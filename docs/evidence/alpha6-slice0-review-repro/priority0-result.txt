@@ -1,0 +1,30 @@
+StartedNewGame: pending=True done=False letters=0 tick=0 elderApertures=0 registryReady=True
+Start: elder Xilver (62); disciples Finn (17), Garner (25); workers Bull (54), Cait (44), Bright (48); pit 8.0 cells from the nearest colonist at (135, 0, 147); biome TropicalRainforest, hilliness Flat.
+Planned aptitudes: Bull MortalWorker 32, Cait MortalWorker 26, Bright MortalWorker 0, Finn Disciple 31, Garner Disciple 36, Xilver Elder 61.
+Founding: elder Xilver awakened at B-grade (61), essence 30.5/61; one letter.
+Ordinary travel and awakening: Finn descended in 135 ticks and opened a D-grade aperture (31). Hope Gu 3+0 -> 2+0.
+REPRO High-1 preflight re-entry: DEMONSTRATED - credential-read re-entry fired=True; nested=Committed; outer=Committed (Materialized Gu 153072210c8c4378a4844c0c5574b8e2.); records claiming the key=2; total debits=2
+REPRO High-2 detached source: DEMONSTRATED - outcome=Committed (Materialized Gu 372a3296d82f45f4b5c1555d225d1ffd.); unsaved detached row mature 3->2; registered row 2; canonical Gu=372a3296d82f45f4b5c1555d225d1ffd
+REPRO High-2 species mismatch: DEMONSTRATED - outcome=Committed (Materialized Gu 82d55875630f4a56bdb8e74345dbd951.); Hope row 2->1; record species GU_DevTestSpringGu
+REPRO High-2 issuance revoked in SpawnSetup: DEMONSTRATED - outcome=Committed (Materialized Gu dee09486b62d48288a5eff7d63b30b01.); revoked=True; row 2->1
+REPRO High-4 equal-revision substituted row: DEMONSTRATED - receipt RevisionAfter=1; substituted pre-debit stock 3 at revision 1; next draw=Committed (Materialized Gu b5bb157cef2f4d17b97f44db4d5a095f.); issued 2 individuals from 3 units with 3 still in stock=2
+REPRO High-4 higher-revision substituted row: DEMONSTRATED - receipt RevisionAfter=1; substituted pre-debit stock 3 at revision 6; next draw=Committed (Materialized Gu c9ed1f5d4b5845188ecdf1b662e0f96e.); issued 2 individuals from 3 units with 3 still in stock=2
+REPRO High-4 duplicate debit claim (in process): DEMONSTRATED - two receipts claim debit revision 1 of one scope; next draw=Committed (Materialized Gu 448b94bb9db5462e894503bd6519d846.); neither claim quarantined
+REPRO High-5 debited recovery with diagnostic failure: DEMONSTRATED - exception escaped=InvalidOperationException: Injected identity lookup failure during rogue logging; outcome=Refused; record debited=True, actionable=True, unresolved=None, bound=False; row 3->2
+REPRO High-5 undebited quarantine without a durable claim: DEMONSTRATED - record-assignment fault fired=True; outcome=Quarantined (Provisional Pawn cleanup could not be verified. The event was quarantined without a cohort debit.); escaped=; durable claims after quarantine=0; the quarantined key then Committed (Materialized Gu 1dd294e41d494814ba9c7faca0ef8bce.)
+REPRO Medium-2 rank disagreement: DEMONSTRATED - outcome=Committed (Materialized Gu 2f3785fdd04e4d05abe53aac271d22a8.); record rank 1, receipt rank 2
+REPRO Low stale lastProjection: DEMONSTRATED - recovery hints 13->18 after five rolled-back creations; hints to discarded Pawns=5
+REPRO High-3 direct SpringSearch for Liquor Worm: DEMONSTRATED - search committed=True (Materialized Gu 258a34a4304040439f571d982955cd81.); cohort 8->7; receipt trigger spring-search, bait none
+REPRO High-3 interrupted bait settlement: DEMONSTRATED - SplitOff fault fired=True; Liquor Worms 1->2; cohort 7->6; beer held 2->2
+REPRO High-3 repeated final toil: DEMONSTRATED - one lure job; first final toil Liquor Worms 2->3; re-executed final toil ->4; cohort 6->4; beer 2->0
+REPRO High-3 bait moved during staging: DEMONSTRATED - bait moved to Bull during SpawnSetup=True; Liquor Worms 4->5; the moved beer was then consumed from the other holder (other holds 0)
+Slice 0 review reproduction stage new: 15 of 15 scenarios demonstrated.
+PASS new
+LoadedGame: pending=False done=True letters=1 tick=2107 elderApertures=1 registryReady=True
+REPRO High-1 after fresh load: DEMONSTRATED - 2 records claim repro-f1-shared-key; quarantined=True,True: Multiple individuals claim this creation event.
+REPRO High-4 duplicate debit claim after fresh load: DEMONSTRATED - claims quarantined=False,False; next draw on the scope=Committed (Materialized Gu e957de3a955249dba331570693f85222.)
+REPRO High-5 debited record after fresh load: debited=True, unresolved=ProjectionMissing, actionable=False (the fresh load repairs the in-process actionable state)
+REPRO Medium-2 rank disagreement after fresh load: DEMONSTRATED - record rank 1, receipt rank 2, quarantined=False
+REPRO Medium-1 historical replay ignores the supplied anchor: DEMONSTRATED - original anchor replays=True; replacement anchor Thing_GU_SpiritSpring52261 (old Thing_GU_SpiritSpring46600) with the same habitat ID replays=True (This event already materialized Gu fcc7e58471554fd8a7f376f537a6c181.)
+Slice 0 review reproduction stage reload: 4 of 4 scenarios demonstrated.
+PASS reload

@@ -55,17 +55,19 @@ namespace ProjectGu.Jobs
                     var spring = Spring;
                     var species = lure == null ? null : spring?.LureSpeciesFor(lure.def);
                     var registry = Current.Game?.GetComponent<GuIndividualRegistry>();
+                    string lureLabel = lure?.LabelNoCount;
                     string reason = "Nothing at this spring answers that lure any more.";
-                    if (species == null || registry == null || !spring.TryEncounterWildGu(species, registry, out var individual, out reason,
-                        GuSourceTriggers.SpringLure, lure.def))
+                    // Alpha 6 Slice 0: the spring and registry own the whole lure transaction, keyed to this actor and job, and
+                    // spend exactly this bait once after the Gu is committed. A repeated final toil replays it.
+                    if (species == null || registry == null || !spring.TryLureWildGu(species, registry, pawn, job, lure, out var individual, out reason))
                     {
                         Messages.Message(reason ?? "The lure drew nothing.", MessageTypeDefOf.RejectInput, false);
                         EndJobWith(JobCondition.Incompletable);
                         return;
                     }
-                    string lureLabel = lure.LabelNoCount;
-                    (lure.stackCount > 1 ? lure.SplitOff(1) : lure).Destroy();
-                    Messages.Message($"Drawn by the {lureLabel}, a wild {species.label} crawled out beside the spring. Right-click it with a colonist to capture it.",
+                    string unspent = individual.CreationEvidence?.Settlement == GuAssetSettlement.Interrupted
+                        ? $" The {lureLabel} could not be used up." : "";
+                    Messages.Message($"Drawn by the {lureLabel}, a wild {species.label} crawled out beside the spring. Right-click it with a colonist to capture it.{unspent}",
                         new LookTargets(registry.ProjectionOf(individual)), MessageTypeDefOf.PositiveEvent, false);
                     EndJobWith(JobCondition.Succeeded);
                 }

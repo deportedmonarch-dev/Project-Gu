@@ -196,21 +196,22 @@ namespace ProjectGu.Domain
         /// A provisional individual for one source materialization. It is not in the registry and has no debit until the
         /// transaction commits. The origin stays <see cref="CohortOrigin"/>; the receipt names the source kind and trigger.
         /// </summary>
-        internal static GuRecord PrepareFromSource(string id, GuSpeciesDef species, GuSourceRequest request, int tick, string pawnId)
+        internal static GuRecord PrepareFromSource(string id, GuSpeciesDef species, GuSourceRequest request, int tick, string pawnId,
+            string assetId = null)
         {
             var record = CreateManifested(id, species, CohortOrigin, request.SourceId, tick, GuCondition.Active,
                 GuManifestationKind.Pawn, pawnId);
             record.creationEventKey = request.EventKey;
             record.originNativeId = request.Credential;
-            record.creationEvidence = new GuCreationEvidence(request);
+            record.creationEvidence = new GuCreationEvidence(request, assetId);
             return record;
         }
 
         /// <summary>The debit committed at the given cohort revision. Part of the callback-free commit window.</summary>
-        internal void CommitSourceDebit(long revisionAfter)
+        internal void CommitSourceDebit(long revisionAfter, GuAssetSettlement settlement = GuAssetSettlement.None)
         {
             cohortDebitCommitted = true;
-            creationEvidence?.MarkDebited(revisionAfter);
+            creationEvidence?.MarkDebited(revisionAfter, settlement);
         }
 
         /// <summary>Only after the cohort preimage was restored, before publication: the record no longer proves a debit.</summary>

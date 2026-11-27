@@ -7,7 +7,7 @@ using RimWorld;
 using Verse;
 
 /// <summary>Test-only population sources for Alpha 6 Slice 0. Saved with the game so fresh processes see the same cohorts.</summary>
-public sealed class GuSlice0Sources : GameComponent
+public sealed class GuSlice0Sources : GameComponent, IGuPopulationSourceDirectory
 {
     internal List<GuSlice0Source> sources = new();
 
@@ -15,11 +15,35 @@ public sealed class GuSlice0Sources : GameComponent
 
     internal static GuSlice0Sources Instance => Current.Game?.GetComponent<GuSlice0Sources>();
 
+    /// <summary>The owning component: only sources it holds (and saves) can be resolved by the registry.</summary>
+    void IGuPopulationSourceDirectory.CollectSources(string ownerKind, string sourceId, List<IGuPopulationSource> into)
+    {
+        if (ownerKind != GuSlice0Source.Kind) return;
+        foreach (var source in sources)
+            if (source.id == sourceId) into.Add(source);
+    }
+
     public override void ExposeData()
     {
         base.ExposeData();
         Scribe_Collections.Look(ref sources, "guSlice0TestSources", LookMode.Deep);
         sources ??= new();
+    }
+}
+
+/// <summary>A test-only exact asset for the fixture's bait trigger. Its eligibility and settlement are controlled by the test.</summary>
+internal sealed class GuSlice0Token : IGuSourceAsset
+{
+    internal string refusal;
+    internal int settled;
+    public string Scope { get; init; } = GuSlice0Source.BaitScope;
+    public string AssetId { get; init; } = "slice0-token:" + Guid.NewGuid().ToString("N");
+    public string Refusal() => refusal;
+    public string SettlementRefusal() => null;
+    public bool TrySettle()
+    {
+        settled++;
+        return true;
     }
 }
 
@@ -39,6 +63,12 @@ public sealed class GuSlice0Source : IExposable, IGuPopulationSource
     internal IntVec3 anchor = IntVec3.Invalid;
     internal List<GuPopulationRecord> cohorts = new();
     private string credential = NewCredential();
+    // Test controls (transient): a callback on every credential read, withdrawn authorization, a permissive rank policy,
+    // and a mislabeled cohort lookup that returns another species' row.
+    internal static Action<GuSlice0Source> onCredentialRead;
+    internal bool revoked;
+    internal bool anyRank;
+    internal string mislabelAs;
 
     private static string NewCredential() => "slice0-instance:" + Guid.NewGuid().ToString("N");
     internal void ReplaceNativeInstance() => credential = NewCredential();
@@ -46,15 +76,24 @@ public sealed class GuSlice0Source : IExposable, IGuPopulationSource
 
     public string OwnerKind => Kind;
     public string SourceId => id;
-    public string CurrentCredential => BoundMap != null ? credential : null;
+    public object Binding => this;
+    public string CurrentCredential
+    {
+        get
+        {
+            onCredentialRead?.Invoke(this);
+            return BoundMap != null ? credential : null;
+        }
+    }
     public bool HasUniqueIdentity => GuSlice0Sources.Instance?.sources.Count(source => source.id == id) == 1;
     public bool RequiresDevelopmentMode(string trigger) => true;
-    public GuPopulationRecord CohortFor(string speciesDefName) => GuPopulationLedger.Find(cohorts, speciesDefName);
+    public GuPopulationRecord CohortFor(string speciesDefName) => GuPopulationLedger.Find(cohorts, mislabelAs ?? speciesDefName);
 
-    public string RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, string assetScope) =>
-        stage != GuCohortStage.Mature || rank != species.minRank ? "The test source issues only mature wild-rank Gu."
-        : trigger == ProbeTrigger ? assetScope == null ? null : "A probe draw carries no asset."
-        : trigger == BaitTrigger ? assetScope == BaitScope ? null : "The test bait trigger requires its declared bait."
+    string IGuPopulationSource.RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, IGuSourceAsset asset) =>
+        revoked ? "The test source withdrew its authorization."
+        : stage != GuCohortStage.Mature || (!anyRank && rank != species.minRank) ? "The test source issues only mature wild-rank Gu."
+        : trigger == ProbeTrigger ? asset == null ? null : "A probe draw carries no asset."
+        : trigger == BaitTrigger ? asset?.Scope == BaitScope ? null : "The test bait trigger requires its declared bait."
         : "The test source does not authorize that trigger.";
 
     public string PlacementRefusal => "Choose an open cell near the test source anchor on its bound map.";
@@ -112,8 +151,11 @@ public sealed partial class LiveLifecycleChecks
         DebugSettings.enableStoryteller = false;
         Check(registry.Records.Count == 0, "The fresh clan has no canonical Gu before Slice 0 begins");
 
-        // Spring openings after the Hope Gu awakening (a legitimate direct sink with no record).
+        // Spring openings after the Hope Gu awakening (a legitimate direct sink with no record). The Liquor Worm row is raised
+        // before any receipt debit, while it carries no debit evidence, so the production lure matrix has stock.
         var springSource = GuIndividualRegistry.ForSpring(spring);
+        Check(springSource.CohortFor("GU_LiquorWorm").EvidenceVersion == 0, "The spring's Liquor Worm row has no receipt evidence before Slice 0");
+        AccessTools.Field(typeof(GuPopulationRecord), "matureCount").SetValue(springSource.CohortFor("GU_LiquorWorm"), 12);
         var openings = new List<Slice0Opening>
         {
             new(springSource.OwnerKind, spring.HabitatId, "GU_MoonlightGu", springSource.CohortFor("GU_MoonlightGu").TotalCount),
@@ -130,8 +172,8 @@ public sealed partial class LiveLifecycleChecks
         Check(moonReceipt is { OwnerKind: "spring", Trigger: GuSourceTriggers.SpringSearch, AssetScope: null, Stage: GuCohortStage.Mature }
             && moonReceipt.RevisionBefore == moonBefore && moonReceipt.RevisionAfter == moonBefore + 1 && moonGu.Origin == GuRecord.CohortOrigin
             && moonGu.OriginId == spring.HabitatId && moonGu.OriginNativeId == spring.parent.GetUniqueLoadID() && moonGu.CohortDebitCommitted
-            && moonGu.CreationEventKey == $"player-encounter:{spring.HabitatId}:{moon.defName}:{moonBefore}",
-            "The spring search receipt names the legacy spring source, its anchor credential, trigger and debit revision");
+            && moonGu.CreationEventKey == $"player-encounter:{spring.HabitatId}:{moon.defName}:{moonBefore}" && moonGu.Rank == moonReceipt.Rank,
+            "The spring search receipt names the legacy spring source, its anchor credential, trigger, debit revision and the record's rank");
         var springSearch = new GuSourceRequest(moonGu.CreationEventKey, "spring", spring.HabitatId, spring.parent.GetUniqueLoadID(),
             moon.defName, moon.minRank, GuCohortStage.Mature, GuSourceTriggers.SpringSearch, null, moonBefore);
         var legacySearch = new GuCohortMaterializationRequest(springSearch.EventKey, spring.HabitatId, springSearch.Credential, moon.defName, moonBefore);
@@ -140,28 +182,31 @@ public sealed partial class LiveLifecycleChecks
             "The stale spring search request replays the same Gu with no second debit");
         Check(registry.TryMaterializeFromSource(springSource, springSearch with { Trigger = GuSourceTriggers.SpringLure, AssetScope = "Beer" },
                 cave, IntVec3.Invalid, out _, out reason) == GuSourceOutcome.Conflict
-            && !registry.TryEncounterWildCohort(spring, legacySearch, GuSourceTriggers.SpringLure, "Beer", cave, IntVec3.Invalid, out _, out _),
+            && !registry.TryEncounterWildCohort(spring, legacySearch, GuSourceTriggers.SpringLure, null, cave, IntVec3.Invalid, out _, out _),
             $"The spring search key reused as a lure is a payload conflict. {reason}");
 
-        long liquorBefore = springSource.CohortFor(liquor.defName).Revision;
-        Check(!spring.TryEncounterWildGu(liquor, registry, out _, out _, GuSourceTriggers.SpringLure, ThingDefOf.WoodLog)
-            && springSource.CohortFor(liquor.defName).Revision == liquorBefore, "A lure the species does not answer is refused without a debit");
-        var beer = DefDatabase<ThingDef>.GetNamed("Beer");
-        Check(spring.TryEncounterWildGu(liquor, registry, out var liquorGu, out reason, GuSourceTriggers.SpringLure, beer),
-            $"A beer lure committed through the shared transaction. {reason}");
-        Check(liquorGu.CreationEvidence is { Trigger: GuSourceTriggers.SpringLure, AssetScope: "Beer" }
-            && liquorGu.CreationEventKey == $"player-lure:{spring.HabitatId}:{liquor.defName}:{liquorBefore}",
-            "The lure receipt records its trigger and bait scope under its own event key");
-        var springLure = new GuSourceRequest(liquorGu.CreationEventKey, "spring", spring.HabitatId, spring.parent.GetUniqueLoadID(),
-            liquor.defName, liquor.minRank, GuCohortStage.Mature, GuSourceTriggers.SpringLure, "Beer", liquorBefore);
-        Check(registry.TryMaterializeFromSource(springSource, springLure, cave, IntVec3.Invalid, out var liquorReplay, out _) == GuSourceOutcome.Replayed
-            && liquorReplay == liquorGu
-            && registry.TryMaterializeFromSource(springSource, springLure with { AssetScope = "Wine" }, cave, IntVec3.Invalid, out _, out _) == GuSourceOutcome.Conflict
-            && registry.TryMaterializeFromSource(springSource, springLure with { Trigger = GuSourceTriggers.SpringSearch, AssetScope = null },
-                cave, IntVec3.Invalid, out _, out _) == GuSourceOutcome.Conflict,
-            "The lure replays, and a different bait or trigger under its key is a conflict");
+        // Liquor Worm is lure-only at the source authority, whatever the caller (review High 3).
+        var liquorRow = springSource.CohortFor(liquor.defName);
+        long liquorBefore = liquorRow.Revision;
+        int liquorMature = liquorRow.MatureCount;
+        Check(!spring.TryEncounterWildGu(liquor, registry, out _, out reason) && reason.Contains("answers only a lure")
+            && liquorRow.Revision == liquorBefore && liquorRow.MatureCount == liquorMature,
+            $"A direct spring search for the lure-only Liquor Worm is refused at the source boundary without a debit. {reason}");
+        IntVec3 springCell = GenRadial.RadialCellsAround(spring.parent.Position, 6f, true).First(candidate => IsEmptyInventoryCell(cave, candidate)
+            && !cave.reservationManager.IsReserved(candidate));
+        var directSearch = new GuSourceRequest("slice0-direct-liquor-search", "spring", spring.HabitatId, spring.parent.GetUniqueLoadID(),
+            liquor.defName, liquor.minRank, GuCohortStage.Mature, GuSourceTriggers.SpringSearch, null, liquorBefore);
+        string lureReason = null;
+        Check(registry.TryMaterializeFromSource(springSource, directSearch, cave, springCell, out _, out reason) == GuSourceOutcome.Refused
+            && registry.TryMaterializeFromSource(springSource, directSearch with { EventKey = "slice0-direct-liquor-lure", Trigger = GuSourceTriggers.SpringLure,
+                AssetScope = "Beer" }, cave, springCell, out _, out lureReason) == GuSourceOutcome.Refused
+            && liquorRow.Revision == liquorBefore && !registry.Records.Any(record => record.SpeciesDefName == liquor.defName),
+            $"Direct registry requests for Liquor Worm, a search and a lure with no bait in hand, are refused. {reason} / {lureReason}");
+        Prefs.DevMode = true;
+
+        var (springLure, liquorGu) = ExerciseSlice0Lure(disciple, spring, openings);
         CheckSlice0Conservation(openings, "spring encounters");
-        Report($"Spring adapter: search and lure committed Moonlight Gu {moonGu.Id} and Liquor Worm {liquorGu.Id} with receipts, replayed, and rejected conflicting payloads.");
+        Report($"Spring adapter: search and production lure committed Moonlight Gu {moonGu.Id} and Liquor Worm {liquorGu.Id} with receipts, replayed, rejected conflicting payloads and refused unauthorized Liquor Worm requests.");
 
         // ---- Test-only source -------------------------------------------------------------------------------------------
         Prefs.DevMode = true;
@@ -185,8 +230,8 @@ public sealed partial class LiveLifecycleChecks
         }
         IntVec3 Cell() => GenRadial.RadialCellsAround(anchor, 11.5f, false).First(candidate => IsEmptyInventoryCell(cave, candidate)
             && !cave.reservationManager.IsReserved(candidate) && candidate.DistanceToSquared(anchor) <= 132);
-        GuSourceOutcome Run(GuSourceRequest request, out GuRecord individual, out string why, IGuPopulationSource from = null) =>
-            registry.TryMaterializeFromSource(from ?? source, request, cave, Cell(), out individual, out why);
+        GuSourceOutcome Run(GuSourceRequest request, out GuRecord individual, out string why, IGuPopulationSource from = null, IGuSourceAsset asset = null) =>
+            registry.TryMaterializeFromSource(from ?? source, request, cave, Cell(), out individual, out why, asset);
         int GuPawns() => PawnsFinder.All_AliveOrDead.OfType<Pawn_GuWildProjection>().Count();
         void Unchanged(int mature, long revision, int records, string what) =>
             Check(dev.MatureCount == mature && dev.Revision == revision && registry.Records.Count == records,
@@ -254,9 +299,15 @@ public sealed partial class LiveLifecycleChecks
 
             // d. A receipt with an asset scope, then payload conflicts.
             var baited = Prepare("slice0-baited", trigger: GuSlice0Source.BaitTrigger, scope: GuSlice0Source.BaitScope);
-            Check(Run(baited, out var baitedGu, out reason) == GuSourceOutcome.Committed
-                && baitedGu.CreationEvidence is { Trigger: GuSlice0Source.BaitTrigger, AssetScope: GuSlice0Source.BaitScope },
-                $"An asset-scoped draw committed. {reason}");
+            var token = new GuSlice0Token();
+            Check(Run(baited, out _, out _) == GuSourceOutcome.Refused && Run(baited, out _, out _, asset: new GuSlice0Token { Scope = "Wine" }) == GuSourceOutcome.Refused,
+                "An asset-scoped request needs an exact asset of its declared scope");
+            Check(Run(baited, out var baitedGu, out reason, asset: token) == GuSourceOutcome.Committed
+                && baitedGu.CreationEvidence is { Trigger: GuSlice0Source.BaitTrigger, AssetScope: GuSlice0Source.BaitScope, Settlement: GuAssetSettlement.Settled }
+                && baitedGu.CreationEvidence.AssetId == token.AssetId && token.settled == 1,
+                $"An asset-scoped draw committed and settled its exact asset once. {reason}");
+            Check(Run(baited, out var baitedReplay, out _, asset: token) == GuSourceOutcome.Replayed && baitedReplay == baitedGu && token.settled == 1,
+                "Replaying the settled draw with its asset spends nothing again");
             baitedClaim = new(baited, baitedGu.Id, registry.ProjectionOf(baitedGu).GetUniqueLoadID(), 2);
             Check(Run(primary with { Trigger = GuSlice0Source.BaitTrigger, AssetScope = GuSlice0Source.BaitScope }, out _, out _) == GuSourceOutcome.Conflict
                 && Run(primary with { SpeciesDefName = HopeSpecies }, out _, out _) == GuSourceOutcome.Conflict
@@ -423,6 +474,7 @@ public sealed partial class LiveLifecycleChecks
             GuSlice0Sources.Instance.sources.Remove(clone);
             CheckRegeneratedSourceBlocked(source, HopeSpecies, "slice0-regenerated", cave, Cell());
             CheckSlice0Conservation(openings, "stage new");
+            ExerciseSlice0Corrections(registry, cave, anchor, openings);
         }
         finally
         {
@@ -431,11 +483,12 @@ public sealed partial class LiveLifecycleChecks
             afterReleaseSpawn = duringReleaseIdentityCheck = null;
         }
 
+        StartSlice0PendingLure(disciple, spring);
         int individuals = registry.Records.Count(record => record.CohortDebitCommitted && record.IsLiving);
         var state = new Slice0State(cave.GetUniqueLoadID(), source.id, other.id, openings, primaryClaim, baitedClaim, unresolvedClaim,
             publishedClaim, actorClaim, actorB, quarantined, quarantinedId, hopeClaim,
             new(springSearch, moonGu.Id, registry.ProjectionOf(moonGu).GetUniqueLoadID(), moonBefore + 1),
-            new(springLure, liquorGu.Id, registry.ProjectionOf(liquorGu).GetUniqueLoadID(), liquorBefore + 1),
+            new(springLure, liquorGu.Id, registry.ProjectionOf(liquorGu).GetUniqueLoadID(), liquorGu.CreationEvidence.RevisionAfter),
             dev.Revision, source.CohortFor(HopeSpecies).Revision, source.CohortFor(HopeSpecies).MatureCount, individuals);
         File.WriteAllText(Slice0StatePath, JsonSerializer.Serialize(state));
         AssertNoErrors("slice0-new");
@@ -488,7 +541,9 @@ public sealed partial class LiveLifecycleChecks
     {
         var state = JsonSerializer.Deserialize<Slice0State>(File.ReadAllText(Slice0StatePath));
         var sources = GuSlice0Sources.Instance.sources;
-        Check(sources.Count == 2, $"Both saved test sources loaded ({sources.Count})");
+        Check(sources.Any(entry => entry.id == state.SourceId) && sources.Any(entry => entry.id == state.SecondSourceId)
+            && sources.Select(entry => entry.id).Distinct().Count() == sources.Count,
+            $"Both primary test sources and every correction source loaded with distinct identities ({sources.Count})");
         var source = sources.Single(entry => entry.id == state.SourceId);
         var other = sources.Single(entry => entry.id == state.SecondSourceId);
         Map cave = Find.Maps.Single(map => map.GetUniqueLoadID() == state.CaveId);
@@ -531,10 +586,12 @@ public sealed partial class LiveLifecycleChecks
             $"A duplicated source identity after load is blocked by the uniqueness check. {reason}");
         GuSlice0Sources.Instance.sources.Remove(clone);
         CheckSlice0Conservation(state.Openings, "reload");
+        VerifySlice0CorrectionsReload(cave, state.Openings);
         File.WriteAllText(Slice0StatePath, JsonSerializer.Serialize(state with
         {
             PostReload = new(reacquired, hope2.Id, registry.ProjectionOf(hope2).GetUniqueLoadID(), hope2.CreationEvidence.RevisionAfter),
-            Individuals = state.Individuals + 1
+            // The post-reload Hope draw and the resumed Liquor Worm lure both committed in this process.
+            Individuals = registry.Records.Count(record => record.CohortDebitCommitted && record.IsLiving)
         }));
         AssertNoErrors("slice0-reload");
         GameDataSaveLoader.SaveGame(SaveName);
@@ -555,6 +612,7 @@ public sealed partial class LiveLifecycleChecks
             && source.CohortFor(HopeSpecies).MatureCount == 0,
             "The commit made after the first reload persisted and replays with its stale credential");
         CheckSlice0Conservation(state.Openings, "final");
+        VerifySlice0CorrectionsFinal(cave, state);
         AssertNoErrors("slice0-final");
         Report("Second fresh-process reload preserved the post-reload commit, every receipt and exact conservation.");
     }

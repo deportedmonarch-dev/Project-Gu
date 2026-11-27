@@ -70,6 +70,9 @@ namespace ProjectGu
             CompGuManifestation.LoadBuffer.Clear();
             MigrateLegacyRecords(loaded);
             RebuildBindings(loaded);
+            // Both authorities are loaded here (maps finish loading before game components' LoadedGame): reconcile receipts with
+            // each live source's own debit evidence. Read-only; a frozen scope refuses new issue.
+            ReconcileSourceEvidence();
             Current.Game?.GetComponent<GuWorldComponent>()?.GuRegistryCompleted(this);
         }
 
@@ -288,7 +291,13 @@ namespace ProjectGu
         {
             if (tag == null || !rogues.Add(tag)) return;
             tag.Rogue = true;
-            Log.Warning($"[Project GU] Rogue Gu projection {tag.parent?.GetUniqueLoadID()}, Gu {tag.GuId ?? "(missing ID)"}, revision {tag.GuRevision}. {reason}");
+            // Diagnostics only: the rogue state is already recorded, and a failing native identity lookup or log sink must not
+            // interrupt the caller (recovery publishes its managed outcome before reaching here).
+            string nativeId;
+            try { nativeId = tag.parent?.GetUniqueLoadID(); }
+            catch (Exception exception) { nativeId = $"(identity unavailable: {exception.GetType().Name})"; }
+            try { Log.Warning($"[Project GU] Rogue Gu projection {nativeId}, Gu {tag.GuId ?? "(missing ID)"}, revision {tag.GuRevision}. {reason}"); }
+            catch { }
         }
 
         private static Dictionary<string, Pawn> PawnsByLoadId() => PawnsFinder.All_AliveOrDead.Where(pawn => pawn != null).Distinct()

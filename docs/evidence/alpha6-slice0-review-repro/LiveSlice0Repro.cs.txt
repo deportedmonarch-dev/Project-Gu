@@ -1,0 +1,419 @@
+using System.Text.Json;
+using HarmonyLib;
+using ProjectGu;
+using ProjectGu.Domain;
+using ProjectGu.Jobs;
+using ProjectGu.Springs;
+using RimWorld;
+using Verse;
+using Verse.AI;
+
+/// <summary>
+/// Reproduction of the independent Codex review of Alpha 6 Slice 0 against candidate a4d40a5. Each scenario is observed and
+/// reported as DEMONSTRATED or NOT DEMONSTRATED; the stage only fails when a scenario's own setup fails. Built only in the
+/// review-reproduction worktree. The corrected fixture asserts the opposite outcomes.
+/// </summary>
+public sealed class GuSlice0ReproMislabeled : IGuPopulationSource
+{
+    internal GuSlice0Source registered;
+    internal GuPopulationRecord wrongRow;
+    public string OwnerKind => registered.OwnerKind;
+    public string SourceId => registered.SourceId;
+    public string CurrentCredential => registered.CurrentCredential;
+    public bool HasUniqueIdentity => registered.HasUniqueIdentity;
+    public bool RequiresDevelopmentMode(string trigger) => true;
+    public GuPopulationRecord CohortFor(string speciesDefName) => wrongRow;
+    public string RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, string assetScope) =>
+        registered.RefuseIssue(species, rank, stage, trigger, assetScope);
+    public bool PlacementReady(Map map, IntVec3 cell, string trigger) => registered.PlacementReady(map, cell, trigger);
+    public string PlacementRefusal => registered.PlacementRefusal;
+}
+
+public sealed partial class LiveLifecycleChecks
+{
+    private static bool Slice0Repro => GenCommandLine.CommandLineArgPassed("guslice0repro");
+    private static string ReproStatePath => Path.Combine(GenFilePaths.SaveDataFolderPath, "gu-slice0-repro.json");
+    private static Func<Thing, Exception> reproIdentityFault;
+    private static Func<Thing, Exception> reproSplitFault;
+    private static bool holdJobEnd;
+
+    private static bool ReproHoldJobEnd() => !holdJobEnd;
+    private static readonly List<string> reproLines = new();
+
+    private record ReproState(string F1Key, List<string> F1Records, string F4DupScope, List<string> F4DupRecords, string F4DupSource,
+        string F5Debited, string M2Record, string MoonId, string SpringId, string OldAnchorId, string MapId);
+
+    private static void ReproIdentityPrefix(Thing __instance)
+    {
+        if (reproIdentityFault?.Invoke(__instance) is { } fault) throw fault;
+    }
+
+    private static void ReproSplitPrefix(Thing __instance)
+    {
+        if (reproSplitFault?.Invoke(__instance) is { } fault) throw fault;
+    }
+
+    private static void Observe(string finding, bool demonstrated, string detail)
+    {
+        string line = $"REPRO {finding}: {(demonstrated ? "DEMONSTRATED" : "NOT DEMONSTRATED")} - {detail}";
+        reproLines.Add(line);
+        Report(line);
+    }
+
+    private static Harmony PatchRepro()
+    {
+        var harmony = PatchSlice0Faults();
+        harmony.Patch(AccessTools.DeclaredMethod(typeof(Thing), nameof(Thing.GetUniqueLoadID)),
+            prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ReproIdentityPrefix)));
+        harmony.Patch(AccessTools.DeclaredMethod(typeof(Thing), nameof(Thing.SplitOff)),
+            prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ReproSplitPrefix)));
+        harmony.Patch(AccessTools.DeclaredMethod(typeof(JobDriver), nameof(JobDriver.EndJobWith)),
+            prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(ReproHoldJobEnd)));
+        return harmony;
+    }
+
+    private static GuSlice0Source ReproSource(string tag, Map map, IntVec3 anchor, params (string Species, int Mature)[] cohorts)
+    {
+        var source = new GuSlice0Source { id = $"repro-{tag}-{Guid.NewGuid():N}", mapId = map.GetUniqueLoadID(), anchor = anchor };
+        foreach (var (species, mature) in cohorts) source.cohorts.Add(new GuPopulationRecord(species, mature, 0, -1));
+        GuSlice0Sources.Instance.sources.Add(source);
+        return source;
+    }
+
+    private static List<GuRecord> RecordsFor(string key) => IndividualRegistry.Records.Where(record => record.CreationEventKey == key).ToList();
+
+    private static void SetField(object target, string name, object value) => AccessTools.Field(target.GetType(), name).SetValue(target, value);
+
+    // ---- Stage new ----------------------------------------------------------------------------------------------------
+
+    private static void ExerciseSlice0Repro(Pawn disciple, CompGuSpiritSpring spring)
+    {
+        var registry = IndividualRegistry;
+        Map cave = disciple.Map;
+        DisableFixtureAutosave();
+        DebugSettings.enableStoryteller = false;
+        IntVec3 anchor = spring.parent.Position;
+        IntVec3 Cell() => GenRadial.RadialCellsAround(anchor, 11.5f, false).First(candidate => IsEmptyInventoryCell(cave, candidate)
+            && !cave.reservationManager.IsReserved(candidate) && candidate.DistanceToSquared(anchor) <= 132);
+        GuSourceRequest Prepare(IGuPopulationSource source, string key, string species = DevSpecies)
+        {
+            Check(GuIndividualRegistry.TryPrepareSourceRequest(source, species, GuSlice0Source.ProbeTrigger, null, key, out var prepared), $"Prepared {key}");
+            return prepared;
+        }
+        GuSourceOutcome Run(IGuPopulationSource source, GuSourceRequest request, out GuRecord individual, out string why) =>
+            registry.TryMaterializeFromSource(source, request, cave, Cell(), out individual, out why);
+
+        Prefs.DevMode = true;
+        var harmony = PatchRepro();
+        var state = new ReproState(null, null, null, null, null, null, null, null, spring.HabitatId, spring.parent.GetUniqueLoadID(), cave.GetUniqueLoadID());
+        try
+        {
+            // ---- High 1: re-entry during preflight, same event key against a second stocked source -------------------------
+            var a = ReproSource("f1-a", cave, anchor, (DevSpecies, 2));
+            var b = ReproSource("f1-b", cave, anchor, (DevSpecies, 2));
+            string key = "repro-f1-shared-key";
+            var outer = Prepare(a, key);
+            var nestedRequest = Prepare(b, key);
+            GuSourceOutcome nested = GuSourceOutcome.Refused;
+            bool fired = false;
+            GuSlice0Source.onCredentialRead = source =>
+            {
+                if (source != a || fired) return;
+                fired = true;
+                IntVec3 outerCell = Cell();
+                IntVec3 nestedCell = GenRadial.RadialCellsAround(anchor, 11.5f, false).First(candidate => candidate != outerCell && IsEmptyInventoryCell(cave, candidate)
+                    && !cave.reservationManager.IsReserved(candidate) && candidate.DistanceToSquared(anchor) <= 132);
+                nested = registry.TryMaterializeFromSource(b, nestedRequest, cave, nestedCell, out _, out _);
+            };
+            IntVec3 fixedOuter = Cell();
+            var outerOutcome = registry.TryMaterializeFromSource(a, outer, cave, fixedOuter, out var outerRecord, out string reason);
+            GuSlice0Source.onCredentialRead = null;
+            var claims = RecordsFor(key);
+            int debits = (2 - a.CohortFor(DevSpecies).MatureCount) + (2 - b.CohortFor(DevSpecies).MatureCount);
+            Observe("High-1 preflight re-entry", fired && nested == GuSourceOutcome.Committed && outerOutcome == GuSourceOutcome.Committed && claims.Count == 2 && debits == 2,
+                $"credential-read re-entry fired={fired}; nested={nested}; outer={outerOutcome} ({reason}); records claiming the key={claims.Count}; total debits={debits}");
+            state = state with { F1Key = key, F1Records = claims.Select(record => record.Id).ToList() };
+
+            // ---- High 2a: detached source instance with a legitimate identifier ------------------------------------------
+            var registered = ReproSource("f2-registered", cave, anchor, (DevSpecies, 2));
+            var detached = new GuSlice0Source { id = registered.id, mapId = registered.mapId, anchor = anchor };
+            detached.cohorts.Add(new GuPopulationRecord(DevSpecies, 3, 0, -1));
+            var detachedOutcome = Run(detached, Prepare(detached, "repro-f2-detached"), out var detachedRecord, out reason);
+            Observe("High-2 detached source", detachedOutcome == GuSourceOutcome.Committed && detached.CohortFor(DevSpecies).MatureCount == 2
+                    && registered.CohortFor(DevSpecies).MatureCount == 2 && detachedRecord?.OriginId == registered.id,
+                $"outcome={detachedOutcome} ({reason}); unsaved detached row mature 3->{detached.CohortFor(DevSpecies).MatureCount}; registered row {registered.CohortFor(DevSpecies).MatureCount}; canonical Gu={detachedRecord?.Id}");
+
+            // ---- High 2b: row of another species returned by the adapter --------------------------------------------------
+            var mixed = ReproSource("f2-species", cave, anchor, (DevSpecies, 2), (HopeSpecies, 2));
+            var mislabeled = new GuSlice0ReproMislabeled { registered = mixed, wrongRow = mixed.CohortFor(HopeSpecies) };
+            var speciesOutcome = Run(mislabeled, Prepare(mixed, "repro-f2-species"), out var speciesRecord, out reason);
+            Observe("High-2 species mismatch", speciesOutcome == GuSourceOutcome.Committed && mixed.CohortFor(HopeSpecies).MatureCount == 1
+                    && speciesRecord?.SpeciesDefName == DevSpecies,
+                $"outcome={speciesOutcome} ({reason}); Hope row 2->{mixed.CohortFor(HopeSpecies).MatureCount}; record species {speciesRecord?.SpeciesDefName}");
+
+            // ---- High 2c: authorization revoked during SpawnSetup ---------------------------------------------------------
+            var revocable = ReproSource("f2-revoked", cave, anchor, (DevSpecies, 2));
+            afterReleaseSpawn = _ => revocable.revoked = true;
+            var revokedOutcome = Run(revocable, Prepare(revocable, "repro-f2-revoked"), out _, out reason);
+            afterReleaseSpawn = null;
+            Observe("High-2 issuance revoked in SpawnSetup", revokedOutcome == GuSourceOutcome.Committed && revocable.CohortFor(DevSpecies).MatureCount == 1,
+                $"outcome={revokedOutcome} ({reason}); revoked={revocable.revoked}; row 2->{revocable.CohortFor(DevSpecies).MatureCount}");
+
+            // ---- High 4: substituted rows and duplicate debit claims -------------------------------------------------------
+            var revisionField = AccessTools.Field(typeof(GuPopulationRecord), "revision");
+            foreach (var (label, offset) in new[] { ("equal", 0L), ("higher", 5L) })
+            {
+                var scope = ReproSource($"f4-{label}", cave, anchor, (DevSpecies, 3));
+                Check(Run(scope, Prepare(scope, $"repro-f4-{label}-1"), out var first, out reason) == GuSourceOutcome.Committed, $"F4 {label} setup. {reason}");
+                long after = first.CreationEvidence.RevisionAfter;
+                var substitute = new GuPopulationRecord(DevSpecies, 3, 0, -1);
+                revisionField.SetValue(substitute, after + offset);
+                scope.cohorts[0] = substitute;
+                var inflated = Run(scope, Prepare(scope, $"repro-f4-{label}-2"), out _, out reason);
+                Observe($"High-4 {label}-revision substituted row", inflated == GuSourceOutcome.Committed,
+                    $"receipt RevisionAfter={after}; substituted pre-debit stock 3 at revision {after + offset}; next draw={inflated} ({reason}); issued {RecordsFor($"repro-f4-{label}-1").Count + RecordsFor($"repro-f4-{label}-2").Count} individuals from 3 units with 3 still in stock={substitute.MatureCount}");
+            }
+            var dup = ReproSource("f4-dup", cave, anchor, (DevSpecies, 3));
+            var dupRequest = Prepare(dup, "repro-f4-dup-1");
+            Check(Run(dup, dupRequest, out var dupFirst, out reason) == GuSourceOutcome.Committed, $"F4 duplicate setup. {reason}");
+            var fabricated = GuRecord.PrepareFromSource(Guid.NewGuid().ToString("N"), DefDatabase<GuSpeciesDef>.GetNamed(DevSpecies),
+                dupRequest with { EventKey = "repro-f4-dup-2" }, Find.TickManager.TicksGame, "Pawn_repro_fabricated");
+            fabricated.CommitSourceDebit(dupFirst.CreationEvidence.RevisionAfter);
+            ((List<GuRecord>)AccessTools.Field(typeof(GuIndividualRegistry), "records").GetValue(registry)).Add(fabricated);
+            ((Dictionary<string, GuRecord>)AccessTools.Field(typeof(GuIndividualRegistry), "byId").GetValue(registry))[fabricated.Id] = fabricated;
+            ((Dictionary<string, GuRecord>)AccessTools.Field(typeof(GuIndividualRegistry), "byCreationEvent").GetValue(registry))[fabricated.CreationEventKey] = fabricated;
+            var afterDup = Run(dup, Prepare(dup, "repro-f4-dup-3"), out _, out reason);
+            Observe("High-4 duplicate debit claim (in process)", afterDup == GuSourceOutcome.Committed && !dupFirst.IsQuarantined && !fabricated.IsQuarantined,
+                $"two receipts claim debit revision {dupFirst.CreationEvidence.RevisionAfter} of one scope; next draw={afterDup} ({reason}); neither claim quarantined");
+            state = state with { F4DupScope = dup.id, F4DupSource = dup.id, F4DupRecords = new() { dupFirst.Id, fabricated.Id } };
+
+            // ---- High 5a: after-debit fault, failed restore, failed cleanup, throwing identity lookup in rogue logging ------
+            var combined = ReproSource("f5-debited", cave, anchor, (DevSpecies, 3));
+            slice0Probe = (point, _) =>
+            {
+                if (point is GuTransactionPoint.AfterDebit or GuTransactionPoint.RestorePreimage or GuTransactionPoint.Cleanup)
+                    throw new InvalidOperationException($"Injected fault at {point}");
+            };
+            reproIdentityFault = thing => thing is Pawn_GuWildProjection && Environment.StackTrace.Contains("MarkRogue")
+                ? new InvalidOperationException("Injected identity lookup failure during rogue logging") : null;
+            Exception escaped = null;
+            GuSourceOutcome combinedOutcome = GuSourceOutcome.Refused;
+            try { combinedOutcome = Run(combined, Prepare(combined, "repro-f5-debited"), out _, out reason); }
+            catch (Exception error) { escaped = error; }
+            slice0Probe = null;
+            reproIdentityFault = null;
+            var lost = RecordsFor("repro-f5-debited").SingleOrDefault();
+            Observe("High-5 debited recovery with diagnostic failure", escaped != null && lost is { CohortDebitCommitted: true, IsActionable: true }
+                    && registry.ProjectionOf(lost) == null,
+                $"exception escaped={escaped?.GetType().Name}: {escaped?.Message}; outcome={combinedOutcome}; record debited={lost?.CohortDebitCommitted}, actionable={lost?.IsActionable}, unresolved={lost?.Unresolved}, bound={registry.ProjectionOf(lost) != null}; row 3->{combined.CohortFor(DevSpecies).MatureCount}");
+            state = state with { F5Debited = lost?.Id };
+
+            // ---- High 5b: failure before the initial record is assigned, with failed cleanup and failed logging ------------
+            var early = ReproSource("f5-early", cave, anchor, (DevSpecies, 3));
+            bool firstLookup = true;
+            reproIdentityFault = thing =>
+            {
+                if (thing is not Pawn_GuWildProjection) return null;
+                string stack = Environment.StackTrace;
+                if (stack.Contains("MarkRogue")) return new InvalidOperationException("Injected identity lookup failure during rogue logging");
+                if (firstLookup && stack.Contains("StageAndCommitSource") && !stack.Contains("PrepareWildPawn"))
+                {
+                    firstLookup = false;
+                    return new InvalidOperationException("Injected identity lookup failure before the record is assigned");
+                }
+                return null;
+            };
+            slice0Probe = (point, _) => { if (point == GuTransactionPoint.Cleanup) throw new InvalidOperationException("Injected native cleanup failure"); };
+            var earlyRequest = Prepare(early, "repro-f5-early");
+            escaped = null;
+            GuSourceOutcome earlyOutcome = GuSourceOutcome.Refused;
+            try { earlyOutcome = Run(early, earlyRequest, out _, out reason); }
+            catch (Exception error) { escaped = error; }
+            slice0Probe = null;
+            reproIdentityFault = null;
+            int earlyClaims = RecordsFor("repro-f5-early").Count;
+            var retry = Run(early, earlyRequest, out _, out string retryReason);
+            Observe("High-5 undebited quarantine without a durable claim", !firstLookup && earlyOutcome == GuSourceOutcome.Quarantined && earlyClaims == 0
+                    && retry == GuSourceOutcome.Committed,
+                $"record-assignment fault fired={!firstLookup}; outcome={earlyOutcome} ({reason}); escaped={escaped?.Message}; durable claims after quarantine={earlyClaims}; the quarantined key then {retry} ({retryReason})");
+
+            // ---- Medium 2: an authorized rank above the species minimum --------------------------------------------------
+            var ranked = ReproSource("m2-rank", cave, anchor, ("GU_TestRankRangeGu", 2));
+            ranked.anyRank = true;
+            var rankRequest = Prepare(ranked, "repro-m2-rank", "GU_TestRankRangeGu") with { Rank = 2 };
+            var rankOutcome = Run(ranked, rankRequest, out var rankRecord, out reason);
+            Observe("Medium-2 rank disagreement", rankOutcome == GuSourceOutcome.Committed && rankRecord.Rank == 1 && rankRecord.CreationEvidence.Rank == 2,
+                $"outcome={rankOutcome} ({reason}); record rank {rankRecord?.Rank}, receipt rank {rankRecord?.CreationEvidence?.Rank}");
+            state = state with { M2Record = rankRecord?.Id };
+
+            // ---- Low: rollback retains discarded Pawns in recovery hints -------------------------------------------------
+            var hints = (Dictionary<string, Thing>)AccessTools.Field(typeof(GuIndividualRegistry), "lastProjection").GetValue(registry);
+            int hintsBefore = hints.Count;
+            var hinted = ReproSource("low-hints", cave, anchor, (DevSpecies, 6));
+            slice0Probe = (point, _) => { if (point == GuTransactionPoint.BeforePublication) throw new InvalidOperationException("Injected fault before publication"); };
+            for (int attempt = 0; attempt < 5; attempt++)
+                Check(Run(hinted, Prepare(hinted, $"repro-low-{attempt}"), out _, out reason) == GuSourceOutcome.RolledBack, $"Low attempt {attempt}. {reason}");
+            slice0Probe = null;
+            int discarded = hints.Values.Count(thing => thing is { Discarded: true });
+            Observe("Low stale lastProjection", hints.Count - hintsBefore == 5 && discarded >= 5,
+                $"recovery hints {hintsBefore}->{hints.Count} after five rolled-back creations; hints to discarded Pawns={discarded}");
+
+            // ---- High 3: Liquor Worm lure and search ---------------------------------------------------------------------
+            ReproLure(disciple, spring, registry);
+            state = state with { MoonId = ReproMoonSearch(spring, registry) };
+        }
+        finally
+        {
+            harmony.UnpatchAll(harmony.Id);
+            slice0Probe = null;
+            afterReleaseSpawn = duringReleaseIdentityCheck = null;
+            reproIdentityFault = reproSplitFault = null;
+            GuSlice0Source.onCredentialRead = null;
+        }
+        File.WriteAllText(ReproStatePath, JsonSerializer.Serialize(state));
+        GameDataSaveLoader.SaveGame(SaveName);
+        Report($"Slice 0 review reproduction stage new: {reproLines.Count(line => line.Contains(": DEMONSTRATED"))} of {reproLines.Count} scenarios demonstrated.");
+    }
+
+    private static string ReproMoonSearch(CompGuSpiritSpring spring, GuIndividualRegistry registry)
+    {
+        Prefs.DevMode = false;
+        var moon = DefDatabase<GuSpeciesDef>.GetNamed("GU_MoonlightGu");
+        Check(spring.TryEncounterWildGu(moon, registry, out var moonGu, out string reason), $"Moonlight search for the anchor scenario. {reason}");
+        Prefs.DevMode = true;
+        return moonGu.Id;
+    }
+
+    private static void ReproLure(Pawn disciple, CompGuSpiritSpring spring, GuIndividualRegistry registry)
+    {
+        Map cave = disciple.Map;
+        var liquor = DefDatabase<GuSpeciesDef>.GetNamed("GU_LiquorWorm");
+        var cohort = GuIndividualRegistry.ForSpring(spring).CohortFor(liquor.defName);
+        SetField(cohort, "matureCount", 8);
+        Thing springThing = spring.parent;
+        int Mature() => cohort.MatureCount;
+        int Liquors() => registry.Records.Count(record => record.SpeciesDefName == liquor.defName && record.CohortDebitCommitted);
+        int HeldBeer(Pawn pawn) => pawn.inventory.innerContainer.Where(thing => thing.def == ThingDefOf.Beer).Sum(thing => thing.stackCount);
+        void GiveBeer(Pawn pawn, int count)
+        {
+            var beer = ThingMaker.MakeThing(ThingDefOf.Beer);
+            beer.stackCount = count;
+            Check(pawn.inventory.innerContainer.TryAdd(beer), "Beer added to inventory");
+        }
+        Toil Lure()
+        {
+            Prefs.DevMode = false;
+            Order(disciple, springThing, "Lure Liquor Worm with beer");
+            Prefs.DevMode = true;
+            var finalToil = ((List<Toil>)AccessTools.Field(typeof(JobDriver), "toils").GetValue(disciple.jobs.curDriver)).Last();
+            TickUntil(() => disciple.CurJobDef?.defName != "GU_LureWildGu", 4000, "The lure job ended");
+            return finalToil;
+        }
+
+        // Direct SpringSearch for a lure-only species.
+        Prefs.DevMode = false;
+        int before = Mature();
+        bool searched = spring.TryEncounterWildGu(liquor, registry, out var searchedGu, out string reason);
+        Prefs.DevMode = true;
+        Observe("High-3 direct SpringSearch for Liquor Worm", searched && Mature() == before - 1 && searchedGu?.CreationEvidence?.AssetScope == null,
+            $"search committed={searched} ({reason}); cohort {before}->{Mature()}; receipt trigger {searchedGu?.CreationEvidence?.Trigger}, bait none");
+
+        // Interrupted bait settlement: SplitOff throws before its stack decrement.
+        foreach (var held in disciple.inventory.innerContainer.Where(thing => thing.def == ThingDefOf.Beer).ToList()) held.Destroy();
+        GiveBeer(disciple, 2);
+        int gu = Liquors(); before = Mature();
+        bool splitFired = false;
+        reproSplitFault = thing =>
+        {
+            if (thing.def != ThingDefOf.Beer || splitFired) return null;
+            splitFired = true;
+            return new InvalidOperationException("Injected SplitOff failure before the stack decrement");
+        };
+        Lure();
+        reproSplitFault = null;
+        Observe("High-3 interrupted bait settlement", splitFired && Liquors() == gu + 1 && Mature() == before - 1 && HeldBeer(disciple) == 2,
+            $"SplitOff fault fired={splitFired}; Liquor Worms {gu}->{Liquors()}; cohort {before}->{Mature()}; beer held 2->{HeldBeer(disciple)}");
+
+        // Repeated execution of the final toil of one job: the job's own final toil runs twice while the job is current (as
+        // after a restart of the toil); EndJobWith is held so the first execution does not end the job.
+        gu = Liquors(); before = Mature();
+        int beer = HeldBeer(disciple);
+        Prefs.DevMode = false;
+        Order(disciple, springThing, "Lure Liquor Worm with beer");
+        Prefs.DevMode = true;
+        var repeatToil = ((List<Toil>)AccessTools.Field(typeof(JobDriver), "toils").GetValue(disciple.jobs.curDriver)).Last();
+        holdJobEnd = true;
+        repeatToil.initAction();
+        int afterOnce = Liquors();
+        repeatToil.initAction();
+        holdJobEnd = false;
+        disciple.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        Observe("High-3 repeated final toil", afterOnce == gu + 1 && Liquors() == gu + 2 && HeldBeer(disciple) == beer - 2,
+            $"one lure job; first final toil Liquor Worms {gu}->{afterOnce}; re-executed final toil ->{Liquors()}; cohort {before}->{Mature()}; beer {beer}->{HeldBeer(disciple)}");
+
+        // Bait moved to another holder during staging.
+        foreach (var held in disciple.inventory.innerContainer.Where(thing => thing.def == ThingDefOf.Beer).ToList()) held.Destroy();
+        GiveBeer(disciple, 1);
+        var other = PawnsFinder.AllMaps_FreeColonistsSpawned.First(pawn => pawn != disciple);
+        foreach (var held in other.inventory.innerContainer.Where(thing => thing.def == ThingDefOf.Beer).ToList()) held.Destroy();
+        gu = Liquors();
+        bool moved = false;
+        afterReleaseSpawn = _ =>
+        {
+            if (moved) return;
+            var bait = disciple.inventory.innerContainer.First(thing => thing.def == ThingDefOf.Beer);
+            moved = disciple.inventory.innerContainer.TryTransferToContainer(bait, other.inventory.innerContainer, false);
+        };
+        Lure();
+        afterReleaseSpawn = null;
+        Observe("High-3 bait moved during staging", moved && Liquors() == gu + 1 && HeldBeer(other) == 0,
+            $"bait moved to {other.LabelShort} during SpawnSetup={moved}; Liquor Worms {gu}->{Liquors()}; the moved beer was then consumed from the other holder (other holds {HeldBeer(other)})");
+    }
+
+    // ---- Stage reload ------------------------------------------------------------------------------------------------
+
+    private static void VerifySlice0ReproReload()
+    {
+        var registry = IndividualRegistry;
+        var state = JsonSerializer.Deserialize<ReproState>(File.ReadAllText(ReproStatePath));
+        DisableFixtureAutosave();
+        DebugSettings.enableStoryteller = false;
+        Map cave = Find.Maps.Single(map => map.GetUniqueLoadID() == state.MapId);
+
+        var f1 = state.F1Records.Select(registry.FindRecord).ToList();
+        Observe("High-1 after fresh load", f1.Count == 2 && f1.All(record => record.IsQuarantined),
+            $"{f1.Count} records claim {state.F1Key}; quarantined={string.Join(",", f1.Select(record => record.IsQuarantined))}: {f1.FirstOrDefault()?.QuarantineReason}");
+
+        var dup = state.F4DupRecords.Select(registry.FindRecord).ToList();
+        var dupSource = GuSlice0Sources.Instance.sources.Single(source => source.id == state.F4DupSource);
+        Check(GuIndividualRegistry.TryPrepareSourceRequest(dupSource, DevSpecies, GuSlice0Source.ProbeTrigger, null, "repro-f4-dup-after-load", out var request), "Prepared post-load duplicate-scope request");
+        IntVec3 cell = GenRadial.RadialCellsAround(dupSource.anchor, 11.5f, false).First(candidate => IsEmptyInventoryCell(cave, candidate)
+            && !cave.reservationManager.IsReserved(candidate) && candidate.DistanceToSquared(dupSource.anchor) <= 132);
+        var next = registry.TryMaterializeFromSource(dupSource, request, cave, cell, out _, out string reason);
+        Observe("High-4 duplicate debit claim after fresh load", dup.All(record => record is { IsQuarantined: false }) && next == GuSourceOutcome.Committed,
+            $"claims quarantined={string.Join(",", dup.Select(record => record?.IsQuarantined))}; next draw on the scope={next} ({reason})");
+
+        var debited = registry.FindRecord(state.F5Debited);
+        Report($"REPRO High-5 debited record after fresh load: debited={debited?.CohortDebitCommitted}, unresolved={debited?.Unresolved}, actionable={debited?.IsActionable} (the fresh load repairs the in-process actionable state)");
+
+        var ranked = registry.FindRecord(state.M2Record);
+        Observe("Medium-2 rank disagreement after fresh load", ranked is { IsQuarantined: false } && ranked.Rank != ranked.CreationEvidence.Rank,
+            $"record rank {ranked?.Rank}, receipt rank {ranked?.CreationEvidence?.Rank}, quarantined={ranked?.IsQuarantined}");
+
+        // ---- Medium 1: historical replay with a replaced anchor carrying the same habitat ID ----------------------------
+        var original = cave.listerThings.AllThings.Single(thing => thing.TryGetComp<CompGuSpiritSpring>() is { } comp && comp.HabitatId == state.SpringId);
+        var moon = registry.FindRecord(state.MoonId);
+        SetField(moon, "creationEvidence", null);
+        var legacy = new GuCohortMaterializationRequest(moon.CreationEventKey, state.SpringId, state.OldAnchorId, moon.SpeciesDefName, 0);
+        bool originalReplays = registry.TryMaterializeCohort(original.TryGetComp<CompGuSpiritSpring>(), legacy, cave, IntVec3.Invalid, out var first, out _) && first == moon;
+        IntVec3 position = original.Position;
+        original.DeSpawn();
+        var replacement = (ThingWithComps)GenSpawn.Spawn(ThingMaker.MakeThing(original.def), position, cave);
+        var comp = replacement.TryGetComp<CompGuSpiritSpring>();
+        SetField(comp, "habitatId", state.SpringId);
+        bool replays = registry.TryMaterializeCohort(comp, legacy, cave, IntVec3.Invalid, out var replay, out reason) && replay == moon;
+        Observe("Medium-1 historical replay ignores the supplied anchor", originalReplays && replays && replacement.GetUniqueLoadID() != state.OldAnchorId,
+            $"original anchor replays={originalReplays}; replacement anchor {replacement.GetUniqueLoadID()} (old {state.OldAnchorId}) with the same habitat ID replays={replays} ({reason})");
+        Report($"Slice 0 review reproduction stage reload: {reproLines.Count(line => line.Contains(": DEMONSTRATED"))} of {reproLines.Count} scenarios demonstrated.");
+    }
+}

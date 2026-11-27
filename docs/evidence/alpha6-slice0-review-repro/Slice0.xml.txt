@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Test-only species with a rank range, for the Alpha 6 Slice 0 rank contract. Reuses the developer projections. -->
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_TestRankRangeGu</defName>
+    <label>rank-range test Gu</label>
+    <description>Test species spanning ranks one and two.</description>
+    <minRank>1</minRank>
+    <maxRank>2</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <wildProjectionKind>GU_DevTestWildGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DevTestDormantGu</dormantProjectionDef>
+    <capabilityTags><li>development_test</li></capabilityTags>
+    <feeding>
+      <status>Exempt</status>
+      <note>Test fixture; exempt from simulated feeding.</note>
+    </feeding>
+  </ProjectGu.Domain.GuSpeciesDef>
+</Defs>

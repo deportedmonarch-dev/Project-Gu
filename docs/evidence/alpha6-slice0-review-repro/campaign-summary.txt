@@ -1,0 +1,9 @@
+﻿Campaign ee17a451b0cb4fcb9da7ddc81a9a6eb4  parallel=1  mode=Shared  failFast=False
+Wall 87.7 s; scheduler 46.4 s; 2 processes, summed process wall 46.1 s
+Phases (ms): sourcePreflight=18, staleRecovery=34, preflight=2126, gameCopy=4832, build=1612, modStaging=164, planning=42, hashBefore=26922, readOnly=388, scheduler=46395, hashAfter=1761, cleanup=1480
+Peak: 1 game processes, 1080 MB working set, 1067 MB private, game CPU 30.4% of machine, system CPU 45.8%, min available memory 6868 MB, min disk free 69.03 GB
+Read-only enforced: True; game copy changes: 0; isolation problems: 0; user data folder changed: False
+
+PASS     Slice0Repro                  
+Units: PASS 1, FAIL 0, SKIPPED 0, ABORTED 0
+Evidence in C:\Users\monve\Downloads\gu-s0r\tests\obj\Priority0-ee17a451b0cb4fcb9da7ddc81a9a6eb4
