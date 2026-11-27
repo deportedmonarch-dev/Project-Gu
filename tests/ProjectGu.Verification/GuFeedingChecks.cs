@@ -241,7 +241,7 @@ internal static class GuFeedingChecks
         Check(driver.Split("TryCommitFeeding").Length == 2 && !driver.Contains("Destroy(", StringComparison.Ordinal),
             "The feeding job consumes food only through the single commitment call");
         string sustenance = Read("Source/ProjectGu/Sustenance/GuSustenance.cs");
-        int destroy = sustenance.IndexOf("eaten.Destroy", StringComparison.Ordinal), feed = sustenance.IndexOf("GuNourishmentRules.Feed(", StringComparison.Ordinal);
+        int destroy = sustenance.IndexOf("option.Consume(", StringComparison.Ordinal), feed = sustenance.IndexOf("GuNourishmentRules.Feed(", StringComparison.Ordinal);
         Check(destroy > 0 && feed > destroy && sustenance.IndexOf("record.CustodyRevision != intent.CustodyRevision", StringComparison.Ordinal) < destroy,
             "Commitment revalidates the individual's custody revision before consuming, and applies the meal in the same step");
         string registry = Read("Source/ProjectGu/GuIndividualRegistry.Sustenance.cs");

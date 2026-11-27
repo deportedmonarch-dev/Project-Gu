@@ -117,6 +117,9 @@ namespace ProjectGu
                     + $"(it records {cohort.ReceiptDebits}). It was regenerated, substituted or restored out of order, so the scope is frozen until repaired.";
         }
 
+        internal bool SurfaceEvidenceIntact(string sourceId, GuPopulationRecord cohort) =>
+            ScopeEvidenceRefusal(GuSurfaceEcology.SourceKind, sourceId, GuSurfaceEcology.BlackBoar, cohort) == null;
+
         /// <summary>
         /// After both the registry and the source owners have loaded, reports every receipt scope whose live cohort disagrees with
         /// its receipts. Read-only: the same check refuses new issue from a frozen scope at the next transaction. A scope whose

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ProjectGu.Domain;
 using RimWorld;
 using Verse;
@@ -71,6 +72,16 @@ namespace ProjectGu.Sustenance
             if (props.Worker is not { } worker || !worker.TryPlanMeal(feeder, snapshot.NourishmentTicks, out plan, out reason)) return false;
             job = JobMaker.MakeJob(jobDef, plan.Food, access == GuFeedAccess.Ground ? dormant : LocalTargetInfo.Invalid);
             job.count = plan.Count;
+            if (plan.Portions != null)
+            {
+                job.targetQueueA = new List<LocalTargetInfo>(plan.Portions.Count);
+                job.countQueue = new List<int>(plan.Portions.Count);
+                foreach (var (food, count) in plan.Portions)
+                {
+                    job.targetQueueA.Add(food);
+                    job.countQueue.Add(count);
+                }
+            }
             component.RegisterIntent(job.loadID, new GuFeedIntent
             {
                 GuId = record.Id,
@@ -105,7 +116,8 @@ namespace ProjectGu.Sustenance
         /// the feeder's authority, the held food and the remaining appetite; then consume the items and apply the meal.
         /// Returns false with nothing consumed when any check fails.
         /// </summary>
-        internal static bool TryCommitFeeding(Pawn feeder, GuFeedIntent intent, Thing food, Thing groundTarget, out int meals, out string reason)
+        internal static bool TryCommitFeeding(Pawn feeder, GuFeedIntent intent, Thing food, Thing groundTarget, out int meals,
+            out string reason, List<LocalTargetInfo> portions = null, List<int> counts = null)
         {
             meals = 0;
             reason = "The feeding order is no longer valid.";
@@ -126,7 +138,7 @@ namespace ProjectGu.Sustenance
             var props = record.Species.SimulatedFeeding;
             var option = props.Worker?.OptionFor(food.def);
             reason = $"{record.Species.label} does not eat {food.LabelNoCount}.";
-            if (option == null || option.thingDef.defName != intent.FoodDefName) return false;
+            if (option == null || option.thingDef.defName != intent.FoodDefName || !option.Accepts(food)) return false;
             bool carried = feeder.carryTracker?.CarriedThing == food;
             bool inInventory = !carried && food.holdingOwner != null && food.holdingOwner == feeder.inventory?.innerContainer;
             reason = "The food is no longer in hand.";
@@ -136,16 +148,31 @@ namespace ProjectGu.Sustenance
             var state = Settle(registry, record, now);
             if (state == null) return false;
             int wanted = GuNourishmentRules.MealsWanted(props, option, state.NourishmentTicks);
-            meals = Math.Min(wanted, food.stackCount / option.mealCount);
             reason = wanted < 1 ? "The Gu is already sated." : $"Not enough {option.Label} for a meal.";
-            if (meals < 1)
+            if (wanted < 1) return false;
+            if (portions != null)
             {
-                meals = 0;
-                return false;
+                var inventory = feeder.inventory?.innerContainer;
+                if (inventory == null || counts == null || counts.Count != portions.Count) return false;
+                var unique = new HashSet<Thing>();
+                int total = 0;
+                for (int i = 0; i < portions.Count; i++)
+                {
+                    var portion = portions[i].Thing;
+                    if (!option.Accepts(portion) || portion.holdingOwner != inventory || !unique.Add(portion)
+                        || counts[i] < 1 || portion.stackCount < counts[i]) return false;
+                    total += counts[i];
+                }
+                if (total != option.mealCount) return false;
+                for (int i = 0; i < portions.Count; i++) option.Consume(portions[i].Thing, counts[i]);
+                meals = 1;
             }
-            int count = meals * option.mealCount;
-            Thing eaten = food.stackCount > count ? food.SplitOff(count) : food;
-            eaten.Destroy(DestroyMode.Vanish);
+            else
+            {
+                meals = Math.Min(wanted, food.stackCount / option.mealCount);
+                if (meals < 1) return false;
+                option.Consume(food, meals * option.mealCount);
+            }
             GuNourishmentRules.Feed(state, props, option, meals, now);
             state.lastFeedSource = intent.Automatic ? "automatic feeding job" : "fed by " + feeder.LabelShort;
             reason = null;

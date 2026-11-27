@@ -135,6 +135,16 @@ namespace ProjectGu.Domain
 
         public void SetNextEcologyTick(int tick) { nextEcologyTick = tick; }
 
+        internal bool TryRecruitMature(int capacity, int livingResidents)
+        {
+            if (!EvidenceIntact || revision == long.MaxValue || livingResidents < 0
+                || TotalCount + livingResidents >= capacity) return false;
+            matureCount++;
+            AdvanceRevision();
+            Reseal(true);
+            return true;
+        }
+
         /// <summary>The registry recomputes the same chain from its receipts. Stable across processes and platforms.</summary>
         internal static long ChainDigest(long previous, long revisionAfter, string eventKey)
         {

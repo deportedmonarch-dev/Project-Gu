@@ -25,6 +25,7 @@ namespace ProjectGu.Domain
         public bool wildPopulationEnabled;
         public PawnKindDef wildProjectionKind;
         public ThingDef dormantProjectionDef;
+        public float wildCuriosityChancePerHour;
 
         // Tunable mortal will-enforcement prototype inputs; rank and cultivator capability scale these values.
         public int refinementBaseWorkTicks = 9000;
@@ -84,6 +85,8 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: maxRank must be between minRank and 9";
             if (refinementBaseWorkTicks is < 1 or > 600_000)
                 yield return $"{defName}: refinementBaseWorkTicks must be between 1 and 600000";
+            if (!float.IsFinite(wildCuriosityChancePerHour) || wildCuriosityChancePerHour is < 0f or > 1f)
+                yield return $"{defName}: wildCuriosityChancePerHour must be between 0 and 1";
             if (!float.IsFinite(refinementEssenceCost) || refinementEssenceCost <= 0f)
                 yield return $"{defName}: refinementEssenceCost must be finite and positive";
             if (!float.IsFinite(refinementResistance) || refinementResistance < 0.1f || refinementResistance > 10f)

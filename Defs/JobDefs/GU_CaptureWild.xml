@@ -6,4 +6,9 @@
     <reportString>capturing TargetA.</reportString>
     <casualInterruptible>true</casualInterruptible>
   </JobDef>
+  <JobDef>
+    <defName>GU_SearchSurface</defName>
+    <driverClass>ProjectGu.Jobs.JobDriver_GuSearchSurface</driverClass>
+    <reportString>looking for wild Gu.</reportString>
+  </JobDef>
 </Defs>

@@ -218,10 +218,8 @@ namespace ProjectGu.Sustenance
                 int items = 0;
                 foreach (var (supply, take) in plan)
                 {
-                    var thing = supply.Thing;
-                    var eaten = thing.stackCount > take ? thing.SplitOff(take) : thing;
-                    items += eaten.stackCount;
-                    eaten.Destroy(DestroyMode.Vanish);
+                    option.Consume(supply.Thing, take);
+                    items += take;
                 }
                 plan.Clear();
                 GuNourishmentRules.Feed(state, props, option, meals, now);
@@ -252,7 +250,8 @@ namespace ProjectGu.Sustenance
                 sourceDef.Worker.CollectSupplies(cultivator, option.thingDef, supplies);
             }
             int total = 0;
-            foreach (var supply in supplies) total += supply.Available;
+            foreach (var supply in supplies)
+                if (option.Accepts(supply.Thing)) total += supply.Available;
             meals = Math.Min(wanted, total / option.mealCount);
             if (meals < 1)
             {
@@ -266,6 +265,7 @@ namespace ProjectGu.Sustenance
             foreach (var supply in supplies)
             {
                 if (needed <= 0) break;
+                if (!option.Accepts(supply.Thing)) continue;
                 int free = supply.Source.Worker.Revalidate(cultivator, supply.Thing);
                 int take = Math.Min(free, needed);
                 if (take <= 0) continue;

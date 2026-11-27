@@ -328,6 +328,10 @@ namespace ProjectGu.Domain
             stateRevision++;
         }
 
+        internal bool SurfaceResidencyEnded { get; private set; }
+
+        internal void EndSurfaceResidency() => SurfaceResidencyEnded = true;
+
         internal void CommitManifestation(GuManifestationKind kind, string nativeId)
         {
             placement = GuPlacementKind.Manifested;
@@ -516,6 +520,9 @@ namespace ProjectGu.Domain
 
         public void ExposeData()
         {
+            bool surfaceResidencyEnded = SurfaceResidencyEnded;
+            Scribe_Values.Look(ref surfaceResidencyEnded, "surfaceResidencyEnded");
+            SurfaceResidencyEnded = surfaceResidencyEnded;
             Scribe_Values.Look(ref version, "version");
             Scribe_Values.Look(ref id, "id");
             Scribe_Values.Look(ref speciesDefName, "speciesDefName");

@@ -26,7 +26,29 @@ Implementation starts after owner authorization and Alpha 5B acceptance. The gam
 | **5. Artificial propagation and introduction** | Enable an approved artificial species/profile with breeding conditions, one founding entitlement and identity-preserving deliberate introduction. Add environmental source signals through native plant and resource readers. Scope the first farming case to an approved site and compatible species. | One eligible fresh site establishes its permitted pair at the configured founding interval. Failed setup and reload preserve the same due state. Depleting or rebuilding it uses only ordinary sourced recovery. Introduced Gu keep their IDs. Incompatible species, insufficient evidence, legacy sites without consent and unique/immortal fixtures cannot breed implicitly. |
 | **6. Broader presentation and content** | Add the first approved non-animal discovery/presentation role and a Thing adapter only when needed. Extend spring profiles with suitable underground flora and Earth/Water/stone or hibernating content as it is defined. Resource-point relocation remains future scope. | The chosen Gu is reachable and collectible using its own affordance, survives reload, and never enters vanilla plant, Pawn or stock generation. Core, a representative underground/DLC configuration, and a compatible third-party habitat profile pass. |
 
-The next implementation checkpoint is **Slice 0 after Alpha 5B acceptance and authorization**. Its exit is a native replay/save-load proof of the shared transaction against existing spring and fixture sources. The wild nourishment and other Pawn behavior gates apply before the first playable ecology release. Expanded alcohol attraction follows the common-roster proof and needs its own authorization. Existing rare Liquor Worm spring lures remain regression cases throughout. [Species content gates](ALPHA-6-ENGINEERING-READINESS.md#initial-roster-and-content-decisions)
+Slice 0 is [engineering accepted at `b9612e5`](ALPHA-6-SLICE-0-CORRECTIONS.md#engineering-acceptance). The owner authorized [Slice 1A, Black Boar Gu and surface ecology](ALPHA-6-SLICE-1A.md).
+
+### Slice 1A implementation preparation
+
+- Give one eligible natural surface slot a stable layer/tile/slot key and one saved cohort in a sparse game component. Reuse `GuPopulationRecord` for counts, revision and debit evidence. Persist the initialization result even when empty, plus the recovery latch and next opportunity. A live map supplies the read-only habitat snapshot and current binding. Resolve the source through `IGuPopulationSourceDirectory` and issue through `TryMaterializeFromSource`.
+- A favorably situated population starts recovery at or below its minimum. Each due opportunity credits one unit of approved origin, every 3–9 in-game days as configured, until the effective target `min(maximum, capacity)` is reached. Count anonymous units and eligible living resident IDs once each. Discovery changes representation, while capture or death removes wild occupancy. Pause on inactive or unsuitable maps without banking replacements. Capacity loss leaves living stock intact. Map regeneration, save/load and revisits preserve stock and the recovery phase.
+- Validate player proximity, visibility, reachability and the manifestation cap at discovery and again before committing. Use the protected Pawn factory and `GU_CaptureWildGu` if a mobile Pawn is approved. Preserve individual IDs at teardown and reuse the registry's world-site staging on a return visit, with exact habitat and player access checks. The current world-site entry is development-only. An existing resident reappears under its original ID, without another cohort debit. Keep the surface source separate from springs and underground.
+- First native proof uses an eligible site and a matched hard-ineligible site, ordinary discovery and capture, threshold-to-target recovery, and a fresh-process reload plus map replacement. Reuse the wildlife controls with the Black Boar kind and retain the spring search, lure, awakening and underground travel regressions. A new wild Pawn also needs the existing physiology checks for wild ingestion, aging, mating and training.
+
+The Slice 1A content approval covers biome suitability, one native manifestation per locality, proximity and deliberate discovery, capture, natural recruitment, wild physiology and the five-day diet. Strength cultivation and phantoms are future work.
+
+### Native animal exclusions
+
+The pinned RimWorld `1.7.5014 rev1195` assembly confirms the paths below. Use a `Pawn_GuWildProjection` type check at the listed boundaries. Preserve registry capture and legitimate combat/death. Leave ordinary animals on the native path.
+
+| Behavior | Owner-approved exclusion |
+| --- | --- |
+| Hunting | Refuse in `Designator_Hunt.CanDesignateThing` and `PawnColumnWorker_Hunt.HasCheckbox` (the Wildlife tab writes designations separately). Refuse `WorkGiver_HunterHunt.HasJobOnThing` and give `JobDriver_Hunt` a target fail condition for existing queued or resumed jobs. |
+| Taming | Refuse `TameUtility.CanTame`, shared by the designator, Wildlife tab and workgiver. Add a Gu-target fail condition to `JobDriver_Tame` because saved jobs can reach recruitment independently of that utility. |
+| Self-tame | Filter Gu from `IncidentWorker_SelfTame.Candidates`, shared by eligibility and execution, before its native faction change. |
+| Animal insanity | Refuse `IncidentWorker_AnimalInsanityMass.AnimalUsable`, shared by the single and mass incident selectors. |
+
+Verify both hunt UI routes, saved hunt and tame jobs, forced incident execution with Gu-only and mixed candidate pools, and eligible ordinary animals as positive controls. Verify capture remains available and canonical custody stays intact.
 
 ## Alpha 5B integration contract
 
@@ -87,7 +109,7 @@ Use `scripts/verify.ps1 -Focused` during development and the standard suite befo
 
 | Decision | Proposed default and impact |
 | --- | --- |
-| First playable species content | Black Boar Gu, White Boar Gu and Stone Skin Gu are confirmed common roster entries. Approve Black Boar Gu's first habitat and unsuitable control, manifestation, capture/discovery, diet status, origin, ability/refinement and numerical tuning. Approve the follow-on content separately. [Content decisions](ALPHA-6-ENGINEERING-READINESS.md#initial-roster-and-content-decisions) |
+| First playable species content | Black Boar Gu is authorized for Slice 1A. White Boar Gu and Stone Skin Gu require separate content approval. [Slice 1A](ALPHA-6-SLICE-1A.md) |
 | Abstraction and significance | Approve when ordinary wild encounters may leave play or aggregate, whether discovery/inspection alone makes a Gu significant, and which quest, rarity and custody events protect identity. Recommend preserving any captured, refined, quest-bound or unique individual, with a generous out-of-sight timeout and visibly grounded disappearance behavior for approved common wild Gu. Initially preserve all committed individuals on removal. |
 | Regional definition and inactive evidence | Regional populations, bounded unloaded recovery and legitimate colonization are approved. Confirm the proposed evidence policy for healthy/destroyed sites and choose bucket boundaries, conservative evidence floor, catch-up cap and source priorities. |
 | Spring profiles and farming content | Preserve established 5B ecosystems. Author the eligibility and weights for new ordinary and cultivated springs. Confirm proposed independently identified founding and valid provenance, choose a compatible artificial profile and define which introduced stock satisfies establishment. Milk-spout relocation remains deferred. |

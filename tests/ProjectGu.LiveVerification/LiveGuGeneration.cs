@@ -46,7 +46,8 @@ public sealed partial class LiveLifecycleChecks
             "The native audit includes every loaded Gu kind and the high-rank developer fixture");
         var pool = GuStartingPetProbe.Pool;
         Check(pool is { Length: > 0 } && !pool.Any(kinds.Contains)
-            && !ActuallyProjectedGu().Any(), "Native random pets were ordinary animals and the colony started without a Gu Pawn");
+            && ActuallyProjectedGu().All(projection => IndividualRegistry.FindRecord(projection.GuTag()?.GuId)?.CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind),
+            "Native random pets were ordinary animals and any wild Gu has a surface encounter receipt");
         Check(GuStartingPetProbe.ScenarioPool is { Length: > 0 } scenarioPool && !scenarioPool.Any(kinds.Contains),
             "The native named-animal list used by the scenario randomizer and editor excludes every Gu kind");
         Check(!DefDatabase<BiomeDef>.AllDefs.SelectMany(biome => biome.AllWildAnimals).Any(kinds.Contains),
@@ -92,7 +93,7 @@ public sealed partial class LiveLifecycleChecks
         Check(!registry.TrySpawnDevelopmentGu(moon, cave, cell, out _), "The test spawner rejects ordinary species even in Development Mode");
         Check(registry.TrySpawnDevelopmentGu(dev, cave, cell, out var debug), "The explicit Project GU test spawner remains available");
         CheckGenerationBlocked(() => PawnGenerator.GeneratePawn(dev.wildProjectionKind));
-        var record = registry.Records.Single();
+        var record = registry.Records.Single(entry => entry.Origin == GuRecord.DevelopmentOrigin);
         Check(record == registry.Resolve(debug) && record.Origin == GuRecord.DevelopmentOrigin && !record.CohortDebitCommitted
             && debug.GetInspectString().Contains("Development test Gu"), "The developer specimen has one distinct, visibly marked debug origin");
 
@@ -104,7 +105,8 @@ public sealed partial class LiveLifecycleChecks
         Prefs.DevMode = false;
         Check(registry.Resolve(oldPet) == null && !registry.CanOrderWildCapture(oldPet, disciple)
             && !registry.TryCaptureWild(oldPet, oldPet.GuRevision, disciple, oldPet.Position, out _, out _)
-            && spring.MatureCountFor(moon.defName) == 2 && registry.Records.Single() == record,
+            && spring.MatureCountFor(moon.defName) == 2
+            && registry.Records.All(entry => entry == record || entry.CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind),
             "An unbound legacy pet cannot be captured, registered or charged to a cohort");
         File.WriteAllLines(GuGenerationStatePath, new[] { debug.ThingID, record.Id, oldPet.ThingID, spring.HabitatId });
         var forcedErrors = Log.Messages.Where(message => message.type == LogMessageType.Error).Select(message => message.text).ToArray();
@@ -131,7 +133,7 @@ public sealed partial class LiveLifecycleChecks
         var pawns = PawnsFinder.All_AliveOrDead.OfType<Pawn_GuWildProjection>().ToArray();
         var debug = pawns.Single(pawn => pawn.ThingID == state[0]);
         var oldPet = pawns.Single(pawn => pawn.ThingID == state[2]);
-        var record = registry.Records.Single();
+        var record = registry.Records.Single(entry => entry.Origin == GuRecord.DevelopmentOrigin);
         Check(record.Id == state[1] && registry.Resolve(debug) == record && record.Origin == GuRecord.DevelopmentOrigin,
             "Scribe restored the original authorized developer specimen");
         Check(oldPet.Faction == Faction.OfPlayer && registry.RogueProjections.Contains(oldPet.GuTag())

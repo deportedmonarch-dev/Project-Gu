@@ -271,10 +271,20 @@ namespace ProjectGu
         /// on the same tile. Dormant Gu return as Things and active Gu as wild Pawns.
         /// </summary>
         internal bool TryRecoverFromWorldSite(string id, int expectedRevision, Map map, IntVec3 cell, out Thing manifestation, out string reason)
+            => TryRecoverWorldSite(id, expectedRevision, map, cell, null, out manifestation, out reason);
+
+        internal bool TryRecoverSurfaceResident(GuRecord resident, Map map, IntVec3 cell, Func<bool> surfaceReady, out string reason)
+            => TryRecoverWorldSite(resident.Id, resident.CustodyRevision, map, cell, surfaceReady, out _, out reason);
+
+        private bool TryRecoverWorldSite(string id, int expectedRevision, Map map, IntVec3 cell, Func<bool> surfaceReady,
+            out Thing manifestation, out string reason)
         {
             manifestation = null;
             reason = "The Gu is not held at an abstract world location, or the request is stale.";
-            if (!CanUseDevelopmentCustody || Resolve(id) is not { } record || record.Placement != GuPlacementKind.Contained
+            if (!(surfaceReady == null ? CanUseDevelopmentCustody : CanUseCustody) || Resolve(id) is not { } record
+                || surfaceReady != null && (record.SurfaceResidencyEnded || record.Condition != GuCondition.Active
+                    || record.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind || !surfaceReady())
+                || record.Placement != GuPlacementKind.Contained
                 || record.ContainerKind != GuContainerKind.WorldSite || record.CustodyRevision != expectedRevision
                 || expectedRevision == int.MaxValue) return false;
             reason = "Choose an open cell on a map at the Gu's recorded world location.";
@@ -316,6 +326,8 @@ namespace ProjectGu
                     Log.Warning($"[Project GU] {reason} {exception}");
                     return false;
                 }
+                if (surfaceReady != null && (!surfaceReady() || map.reservationManager.IsReserved(cell)
+                    || !CanPlaceDormant(map, cell, staged as Pawn))) return false;
                 record.CommitManifestation(dormant ? GuManifestationKind.Thing : GuManifestationKind.Pawn, staged.GetUniqueLoadID());
                 staged.GuTag()?.Bind(record);
                 BindProjection(record, staged);

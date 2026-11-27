@@ -79,6 +79,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         else if (GenCommandLine.CommandLineArgPassed("guslice0legacyreload")) Run(VerifySlice0LegacyReload, "legacyreload");
         else if (GenCommandLine.CommandLineArgPassed("guslice0legacy")) Run(VerifySlice0Legacy, "legacy");
         else if (GenCommandLine.CommandLineArgPassed("guslice0final")) Run(VerifySlice0Final, "final");
+        else if (Slice1A) Run(VerifySlice1AReload, "reload");
         else if (Slice0Wildlife) Run(VerifySlice0WildlifeReload, "reload");
         else if (Slice0) Run(VerifySlice0Reload, "reload");
         else if (GenCommandLine.CommandLineArgPassed("guslice3b5baperture")) Run(ReleaseIntegratedCohort, "aperture");

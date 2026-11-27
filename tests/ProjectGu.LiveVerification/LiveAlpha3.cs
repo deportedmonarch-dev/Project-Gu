@@ -24,6 +24,9 @@ public sealed partial class LiveLifecycleChecks
     private sealed record Alpha3State(string LiquorId, string MoonId, string CultivatorId, string ApertureId, string SessionId,
         int PulsesDone, int TicksIntoPulse, double Initial, double Middle, int Committed, int CooldownUntil);
 
+    private static IEnumerable<GuRecord> Alpha3Records(GuIndividualRegistry registry) =>
+        registry.Records.Where(record => record.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind);
+
     // ---------------------------------------------------------------------------------------------------------------
     private static void ExerciseAlpha3(Pawn disciple, GuCultivatorRecord cultivator, Hediff_Aperture aperture,
         Thing springThing, CompGuSpiritSpring spring)
@@ -31,7 +34,7 @@ public sealed partial class LiveLifecycleChecks
         DebugSettings.enableStoryteller = false;
         var registry = IndividualRegistry;
         Map cave = disciple.Map;
-        Check(!Prefs.DevMode && spring.MatureCountFor(LiquorSpecies) == 2 && spring.MatureCountFor("GU_MoonlightGu") == 2 && !registry.Records.Any(),
+        Check(!Prefs.DevMode && spring.MatureCountFor(LiquorSpecies) == 2 && spring.MatureCountFor("GU_MoonlightGu") == 2 && !Alpha3Records(registry).Any(),
             "The new cavern spring holds two mature Liquor Worms beside the Moonlight and Hope Gu cohorts");
         // Alpha 5B: the spring explains the lure with an informational command, but never offers a plain search.
         Check(!springThing.GetGizmos().OfType<Command_Action>().Any(command => command.defaultLabel == "Search for Liquor Worm")
@@ -57,12 +60,12 @@ public sealed partial class LiveLifecycleChecks
         disciple.drafter.Drafted = true;
         TickUntil(() => false, 30);
         disciple.drafter.Drafted = false;
-        Check(TotalBeer(cave) == beerBefore && spring.MatureCountFor(LiquorSpecies) == 2 && !registry.Records.Any(),
+        Check(TotalBeer(cave) == beerBefore && spring.MatureCountFor(LiquorSpecies) == 2 && !Alpha3Records(registry).Any(),
             "Interrupting the lure kept every beer and drew no Liquor Worm");
 
         Order(disciple, springThing, "Lure Liquor Worm with beer");
-        TickUntil(() => registry.Records.Any(), 2500, "The completed lure drew a wild Liquor Worm");
-        var liquor = registry.Records.Single();
+        TickUntil(() => Alpha3Records(registry).Any(), 2500, "The completed lure drew a wild Liquor Worm");
+        var liquor = Alpha3Records(registry).Single();
         var wild = (Pawn_GuWildProjection)registry.ProjectionOf(liquor);
         Check(liquor.SpeciesDefName == LiquorSpecies && wild.kindDef.defName == "GU_WildLiquorWorm" && liquor.CohortDebitCommitted
             && spring.MatureCountFor(LiquorSpecies) == 1 && TotalBeer(cave) == beerBefore - 1 && liquor.Refinement == null,
@@ -244,7 +247,8 @@ public sealed partial class LiveLifecycleChecks
     private static void AssertStoredOnly(GuIndividualRegistry registry, Hediff_Aperture aperture, IReadOnlyCollection<GuRecord> expected, Thing retired)
     {
         var occupants = registry.ApertureOccupants(aperture).ToList();
-        var projected = ActuallyProjectedGu().ToList();
+        var projected = ActuallyProjectedGu().Where(thing =>
+            registry.FindRecord(thing.GuTag()?.GuId)?.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind).ToList();
         Check(occupants.Count == expected.Count && expected.All(occupants.Contains) && (retired == null || retired.Destroyed) && projected.Count == 0,
             $"The aperture holds exactly the expected Gu with no physical projection (occupants {occupants.Count}, retired destroyed {retired?.Destroyed}, "
             + $"projected: {string.Join(", ", projected.Select(thing => $"{thing.def.defName} {thing.GetUniqueLoadID()} spawned={thing.Spawned} destroyed={thing.Destroyed} gu={thing.GuTag()?.GuId}"))})");
@@ -310,7 +314,7 @@ public sealed partial class LiveLifecycleChecks
         var liquor = IndividualRegistry.Resolve(state.LiquorId);
         var occupants = IndividualRegistry.ApertureOccupants(aperture).Select(record => record.Id).ToHashSet();
         Check(aperture.ApertureId == state.ApertureId && liquor?.SpeciesDefName == LiquorSpecies && occupants.SetEquals(new[] { state.LiquorId, state.MoonId })
-            && IndividualRegistry.Records.Count == 2,
+            && Alpha3Records(IndividualRegistry).Count() == 2,
             "Reload kept the disciple's aperture with exactly the Liquor Worm and the Moonlight Gu");
         return (state, disciple, aperture, liquor);
     }

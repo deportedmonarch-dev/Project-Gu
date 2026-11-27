@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <HediffDef>
+    <defName>GU_CarcassConsumed</defName>
+    <label>flesh consumed</label>
+    <description>A Gu consumed this carcass. The remains yield no meat or hide.</description>
+    <hediffClass>HediffWithComps</hediffClass>
+    <isBad>false</isBad>
+    <scenarioCanAdd>false</scenarioCanAdd>
+  </HediffDef>
+</Defs>

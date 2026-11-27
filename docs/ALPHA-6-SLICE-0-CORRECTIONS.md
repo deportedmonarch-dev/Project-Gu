@@ -1,6 +1,6 @@
 # Alpha 6 Slice 0 · Transaction integrity corrections
 
-**Status:** corrections implemented and natively verified on `feature/alpha6-wild-gu-ecology`. Awaiting independent review and owner acceptance. Not merged. Slice 1A is not started.
+**Status:** engineering accepted at `b9612e5` on `feature/alpha6-wild-gu-ecology`. Owner acceptance is pending. [Slice 1A preparation](ALPHA-6-IMPLEMENTATION-AND-VERIFICATION.md#slice-1a-implementation-preparation) is recorded in the handoff.
 
 - **Base:** Slice 0 candidate `a4d40a5670c10300401737d108a080824485ae71`. Accepted baseline `155806c27b1f34515d235f86f70cfbfd68639c0e`. Research checkpoint `a2217d5df58ff9c56264ca420fb6fa27aba01476`.
 - **Review:** [the independent Codex review](evidence/ALPHA-6-SLICE-0-CODEX-REVIEW.md), preserved byte for byte (SHA-256 `a881add4…42024be`). Its verdict was corrections required before Slice 1A: five High, two Medium and one Low finding, plus the pre-existing `Slice3B5B` fixture failure.
@@ -218,7 +218,7 @@ Audit and native controls are recorded in [RFC-0007](RFC-0007-WILD-GU-ECOLOGY.md
 
 - **Accounting is not affected.** The only gameplay consumer of `ecoSystemWeight` sums factionless spawned Pawns, and every Gu kind is weight 0, enforced by the registry factory. Desired weight and density read no Pawns, and pools never contain Gu.
 - **No correction was required.** This is now a mandatory Slice 1A gate.
-- **Native profile `Slice0Wildlife`.** Sixteen manifested Gu leave occupancy, desired weight, density and the full gate bit-identical. An ordinary animal changes them (positive control). The engine's spawner tick under a fixed seed replenishes the same wildlife with and without Gu, in the spring cavern too, and after a fresh-process reload.
+- **Native profile `Slice0Wildlife`.** Sixteen manifested Gu leave occupancy, desired weight, density and the full gate bit-identical. An ordinary animal raises occupancy and closes the full gate. The engine's spawner tick under a fixed seed replenishes the same wildlife with and without Gu on the surface. The cavern control checks occupancy. Fresh-process reload checks identities, occupancy and continued replenishment eligibility.
 - **Inherited eligibility, pre-existing and unchanged.** Hunt designation, tame designation, animal-insanity target and self-tame candidate are all **true** for wild Gu. Taming and self-tame change faction outside the registry. These need an owner decision before Slice 1A ships a new wild Pawn.
 
 ## 5. Verification
@@ -294,3 +294,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-priorit
 - Inherited hunt, tame, insanity and self-tame eligibility of wild Gu (section 4) is pre-existing. It is recorded for an owner decision and was not changed in this pass.
 - Rendered (windowed) inspection was not part of this pass. Every result is headless native.
 - Slice 1A remains gated as before, now including the wildlife-independence controls.
+
+## 9. Engineering acceptance
+
+All eight findings are closed for Slice 0. Guard-first preflight and duplicate-key rejection protect event identity. The registered owner supplies the live binding, policy and cohort, and authorization is rechecked after staging. Owner-side evidence detects substituted rows and duplicate debit claims after reload while preserving counts. Combined native faults durably leave one counted unresolved individual or one blocked, undebited event. Historical events require the original live anchor, the issuance rank agrees with the record and receipt, and rollback clears discarded-Pawn recovery hints. The corrected `Slice3B5B` fixture passed all four stages.
+
+The ordinary lure spends one exact held bait per committed intent. Repeated final toils, competing lures, moved or resized bait and a save made mid-wait are covered. An injected native spend failure can still leave one committed Gu and the original bait with a durable `Interrupted` receipt. The player job ends and offers no same-intent retry. The fresh-process test submits a direct registry replay with the original bait and proves one settlement with zero additional Gu or debit. Defer player-facing recovery for this exceptional case. The receipt preserves the outcome, and a later lure job gets a fresh intent and must pay for its own draw. Combined native projection faults may leave a counted but unavailable Gu, with custody evidence intact for diagnosis. The supported historical saves loaded, resaved and reloaded successfully. Saves from the unaccepted `a4d40a5` candidate can have frozen receipt scopes as described above.
+
+The native wildlife controls establish unchanged occupancy, density and the full gate, with an ordinary-animal positive control and matched-seed replenishment on the surface map. The cavern check measured occupancy. The fresh-process check verified the same registered Gu and continued replenishment eligibility. Inherited hunt, tame, self-tame and insanity are separate Slice 1A behavior gates. [Pinned engine audit and exclusions](ALPHA-6-IMPLEMENTATION-AND-VERIFICATION.md#native-animal-exclusions)
+
+Reviewed the raw 19-scenario reproduction, the archived 31/31 native campaign `046377d4`, the corrected source and the pinned `1.7.5014 rev1195` assembly from the saved installation fixture. No material Slice 0 blocker found. The acceptance review did not rerun the campaign.

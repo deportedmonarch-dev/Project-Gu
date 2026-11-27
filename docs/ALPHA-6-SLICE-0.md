@@ -1,6 +1,6 @@
 # Alpha 6 Slice 0 · Registry transaction foundation
 
-**Status:** implemented and natively verified on `feature/alpha6-wild-gu-ecology` (`a4d40a5`). The independent Codex review required corrections; they are recorded, reproduced and verified in [ALPHA-6-SLICE-0-CORRECTIONS.md](ALPHA-6-SLICE-0-CORRECTIONS.md), which supersedes this record where they differ (independent source authority, guard ordering, owner-side debit evidence, the production lure transaction and its `player-lure:{habitat}:{species}:{actor}:{job}` intent key, recovery ordering, the historical anchor check, the rank contract and recovery hints). Awaiting owner acceptance. Not merged. Slice 1A (Black Boar Gu) is not started.
+**Status:** engineering accepted at `b9612e5` on `feature/alpha6-wild-gu-ecology`. Owner acceptance is pending. The [corrections and acceptance record](ALPHA-6-SLICE-0-CORRECTIONS.md) supersedes this original candidate record (`a4d40a5`) where they differ.
 
 Base: accepted integration baseline `155806c27b1f34515d235f86f70cfbfd68639c0e` (`integration/alpha5b`). Research input: `research/alpha6-wild-gu-ecology` at `a2217d5df58ff9c56264ca420fb6fa27aba01476`. Its four documents are imported unchanged: [RFC-0007](RFC-0007-WILD-GU-ECOLOGY.md), [readiness review](ALPHA-6-ENGINEERING-READINESS.md), [implementation handoff](ALPHA-6-IMPLEMENTATION-AND-VERIFICATION.md) and [baseline audit](ALPHA-6-BASELINE-AUDIT.md). Where they name the Alpha 5B candidate `5df38de` as current, this document records the reconciliation with the accepted baseline.
 

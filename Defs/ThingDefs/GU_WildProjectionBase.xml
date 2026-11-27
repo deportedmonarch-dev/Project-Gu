@@ -10,6 +10,10 @@
       <li Class="ProjectGu.CompProperties_GuManifestation" />
     </comps>
     <race>
+      <foodType>None</foodType>
+      <disableMating>true</disableMating>
+      <trainability>None</trainability>
+      <hediffGiverSets Inherit="False" />
       <petness>0</petness>
       <wildBiomes Inherit="False" />
       <neverIncludeInQuests>true</neverIncludeInQuests>

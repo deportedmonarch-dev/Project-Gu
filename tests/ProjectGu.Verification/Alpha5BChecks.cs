@@ -107,9 +107,9 @@ internal static class Alpha5BChecks
             && !provisioning.Contains("StartJob", StringComparison.Ordinal),
             "Background provisioning creates no job: the Gu Master is never interrupted or moved");
         int revalidate = provisioning.IndexOf("Worker.Revalidate(cultivator, supply.Thing)", StringComparison.Ordinal);
-        int destroy = provisioning.IndexOf("eaten.Destroy", StringComparison.Ordinal);
+        int destroy = provisioning.IndexOf("option.Consume(", StringComparison.Ordinal);
         int feed = provisioning.IndexOf("GuNourishmentRules.Feed(", StringComparison.Ordinal);
-        Check(revalidate > 0 && destroy > 0 && feed > destroy && provisioning.Split("eaten.Destroy").Length == 2,
+        Check(revalidate > 0 && destroy > 0 && feed > destroy && provisioning.Split("option.Consume(").Length == 2,
             "Provisioning revalidates every planned stack, consumes in one place, then applies the meal");
         Check(provisioning.Contains("IsInValidStorage", StringComparison.Ordinal) && provisioning.Contains("IsForbidden(Faction.OfPlayer)", StringComparison.Ordinal)
             && provisioning.Contains("CanReserveStack", StringComparison.Ordinal) && provisioning.Contains("CanReach(", StringComparison.Ordinal)

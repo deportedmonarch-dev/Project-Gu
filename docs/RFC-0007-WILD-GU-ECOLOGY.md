@@ -202,7 +202,7 @@ Project GU's ecological populations coexist with ordinary RimWorld wildlife. The
 - **Negative control.** Sixteen registered, factionless, manifested wild Gu of four species leave current weight, desired weight, density, the ecosystem-full gate and the ordinary count bit-identical. The engine's weight equals the same sum with the Gu terms left out.
 - **Positive control.** One more ordinary animal raises the weight by its `ecoSystemWeight` and closes replenishment. Removing it restores the measured state exactly.
 - **Replenishment.** The engine's own `WildAnimalSpawnerTick` runs at a spawner interval under a fixed `Rand` seed. The same seed replenishes the same species and group size with the Gu present and after every Gu is removed.
-- The same holds for Gu manifested in the spring cavern, and after a fresh-process reload with Gu present.
+- The spring-cavern control checks occupancy weight. The fresh-process control checks exact registered identities, occupancy, desired weight and continued eligibility for replenishment.
 
 **Decision.** Existing projections do not affect native wildlife population accounting, so no production correction is needed in this pass. The narrowest seam is already in use: per-kind `ecoSystemWeight` = 0, enforced by the registry factory, with no Harmony patch on the spawner. If a future Gu-beast must take part in wildlife ecology, that is an intentional, explicitly owned interaction through Project GU ecology. Inherited animal accounting is never the mechanism. A third-party mod that adds a Gu kind to a biome's lists or raises its weight is a diagnosed configuration conflict: the factory refuses such a kind, and `GuGeneration` asserts pool exclusion.
 

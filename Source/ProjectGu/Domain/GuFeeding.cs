@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Verse;
 
 namespace ProjectGu.Domain
@@ -40,11 +41,28 @@ namespace ProjectGu.Domain
         public ThingDef thingDef;
         public int mealCount = 1;
         public float daysPerMeal = 1f;
+        public bool stripCorpseFlesh;
+        public List<ThingDef> exclusiveMeatSources;
+        private bool? verifiedMeat;
         /// <summary>Optional note shown to the player, for example that beer is a poor substitute for wine.</summary>
         [MustTranslate] public string note;
 
         public int TicksPerMeal => (int)Math.Round(daysPerMeal * GuNourishmentRules.TicksPerDay);
         public string Label => thingDef?.label ?? "?";
+
+        internal bool Accepts(Thing food) => food is { Destroyed: false } && food.def == thingDef
+            && (!stripCorpseFlesh || GuCorpseFeeding.HasFlesh(food)) && MatchesMeatSources;
+
+        private bool MatchesMeatSources => exclusiveMeatSources.NullOrEmpty() || (verifiedMeat ??=
+            exclusiveMeatSources.Any(source => source?.race?.meatDef == thingDef)
+            && !DefDatabase<ThingDef>.AllDefsListForReading.Any(def => def.category == ThingCategory.Pawn
+                && def.race?.meatDef == thingDef && !exclusiveMeatSources.Contains(def)));
+
+        internal void Consume(Thing food, int count)
+        {
+            if (stripCorpseFlesh) GuCorpseFeeding.Consume((Corpse)food);
+            else (food.stackCount > count ? food.SplitOff(count) : food).Destroy(DestroyMode.Vanish);
+        }
     }
 
     /// <summary>
@@ -61,6 +79,7 @@ namespace ProjectGu.Domain
         public List<GuFoodOption> foods = new();
         /// <summary>Most nourishment an individual can store.</summary>
         public float maxDays = 2f;
+        public bool requireFullMealSpace;
         /// <summary>Hungry when stored nourishment falls to this or below.</summary>
         public float hungryBelowDays = 0.5f;
         /// <summary>Nourishment of an individual first taken into care (fresh from the wild or newly created).</summary>
@@ -112,8 +131,10 @@ namespace ProjectGu.Domain
                 {
                     if (food?.thingDef == null || food.thingDef.category != ThingCategory.Item)
                         yield return $"{owner}: every food must be an item ThingDef";
-                    else if (food.mealCount < 1 || food.mealCount > food.thingDef.stackLimit)
-                        yield return $"{owner}: {food.thingDef.defName} mealCount must be between 1 and its stack limit";
+                    else if (food.mealCount < 1 || food.mealCount > 10000)
+                        yield return $"{owner}: {food.thingDef.defName} mealCount must be between 1 and 10000";
+                    if (food?.stripCorpseFlesh == true && (food.mealCount != 1 || food.thingDef?.thingClass != typeof(Corpse)))
+                        yield return $"{owner}: corpse meals require one corpse";
                     if (food != null && (!float.IsFinite(food.daysPerMeal) || food.daysPerMeal <= 0f || food.daysPerMeal > maxDays))
                         yield return $"{owner}: daysPerMeal must be positive and no more than maxDays";
                 }
@@ -308,7 +329,7 @@ namespace ProjectGu.Domain
             int perMeal = option?.TicksPerMeal ?? 0;
             if (props == null || perMeal <= 0) return 0;
             long room = (long)props.MaxTicks - Math.Max(0, nourishment);
-            return (int)Math.Max(0L, (room + perMeal / 2) / perMeal);
+            return (int)Math.Max(0L, (room + (props.requireFullMealSpace ? 0 : perMeal / 2)) / perMeal);
         }
 
         /// <summary>Applies meals already physically consumed. Feeding ends any starvation.</summary>
@@ -333,6 +354,7 @@ namespace ProjectGu.Domain
         public readonly Thing Food;
         public readonly GuFoodOption Option;
         public readonly int Meals;
+        internal readonly List<(Thing Food, int Count)> Portions;
         public int Count => Meals * (Option?.mealCount ?? 0);
 
         public GuMealPlan(Thing food, GuFoodOption option, int meals)
@@ -340,6 +362,15 @@ namespace ProjectGu.Domain
             Food = food;
             Option = option;
             Meals = meals;
+            Portions = null;
+        }
+
+        internal GuMealPlan(GuFoodOption option, List<(Thing Food, int Count)> portions)
+        {
+            Food = portions[0].Food;
+            Option = option;
+            Meals = 1;
+            Portions = portions;
         }
     }
 

@@ -15,6 +15,10 @@ namespace ProjectGu
     {
         [ThreadStatic] private static ThingDef permittedRace;
         private bool releaseSuppressed;
+        private Pawn curiosityTarget;
+        private int curiosityUntil;
+        private int nextEvadeTick;
+        internal bool IsBlackBoar => def?.defName == "GU_WildBlackBoarGu";
 
         public string GuId => this.GuTag()?.GuId;
         public int GuRevision => this.GuTag()?.GuRevision ?? 0;
@@ -60,6 +64,23 @@ namespace ProjectGu
             // The V1 identity keys are read and written by the manifestation comp in the same node.
             base.ExposeData();
             Scribe_Values.Look(ref releaseSuppressed, "guReleaseSuppressed");
+            Scribe_References.Look(ref curiosityTarget, "guCuriosityTarget");
+            Scribe_Values.Look(ref curiosityUntil, "guCuriosityUntil");
+            Scribe_Values.Look(ref nextEvadeTick, "guNextEvadeTick");
+        }
+
+        public override void SpawnSetup(Map map, bool respawningAfterLoad)
+        {
+            base.SpawnSetup(map, respawningAfterLoad);
+            if (respawningAfterLoad)
+            {
+                needs?.AddOrRemoveNeedsAsAppropriate();
+                if (health.hediffSet.GetFirstHediffOfDef(HediffDefOf.Malnutrition) is { } malnutrition)
+                    health.RemoveHediff(malnutrition);
+                var designations = map.designationManager;
+                if (designations.DesignationOn(this, DesignationDefOf.Hunt) is { } hunt) designations.RemoveDesignation(hunt);
+                if (designations.DesignationOn(this, DesignationDefOf.Tame) is { } tame) designations.RemoveDesignation(tame);
+            }
         }
 
         protected override void Tick()
@@ -74,7 +95,58 @@ namespace ProjectGu
 
         protected override void TickInterval(int delta)
         {
-            if (!releaseSuppressed) base.TickInterval(delta);
+            if (releaseSuppressed) return;
+            base.TickInterval(delta);
+            if (IsBlackBoar && Spawned && Faction == null && !Downed && !InMentalState && this.IsHashIntervalTick(250, delta))
+                ObserveCuriosity();
+        }
+
+        private bool CuriousAbout(Pawn pawn) => pawn != null && pawn == curiosityTarget && Find.TickManager.TicksGame < curiosityUntil;
+
+        private void ObserveCuriosity()
+        {
+            int now = Find.TickManager.TicksGame;
+            if (curiosityTarget != null && (!CuriousAbout(curiosityTarget) || !curiosityTarget.Spawned || curiosityTarget.Map != Map))
+                curiosityTarget = null;
+            if (curiosityTarget == null && this.IsHashIntervalTick(2500, 250)
+                && DefDatabase<GuSpeciesDef>.GetNamedSilentFail(GuSurfaceEcology.BlackBoar) is { wildCuriosityChancePerHour: > 0f } species
+                && Rand.Chance(species.wildCuriosityChancePerHour))
+            {
+                foreach (var pawn in Map.mapPawns.FreeColonistsSpawned)
+                {
+                    if (pawn.Downed || pawn.Position.DistanceToSquared(Position) > 144
+                        || !this.CanReach(pawn, PathEndMode.Touch, Danger.Some)) continue;
+                    curiosityTarget = pawn;
+                    curiosityUntil = now + 10000;
+                    Messages.Message($"A wild Black Boar Gu is lingering near {pawn.LabelShort}.", this, MessageTypeDefOf.NeutralEvent, false);
+                    break;
+                }
+            }
+            if (curiosityTarget == null || CurJob?.def == JobDefOf.Flee || !jobs.IsCurrentJobPlayerInterruptible()) return;
+            if (Position.DistanceToSquared(curiosityTarget.Position) <= 16)
+            {
+                jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait, 275), JobCondition.InterruptOptional);
+                return;
+            }
+            foreach (var cell in GenRadial.RadialCellsAround(curiosityTarget.Position, 3f, false))
+            {
+                if (!cell.InBounds(Map) || !cell.Standable(Map) || cell.GetFirstPawn(Map) != null
+                    || !this.CanReach(cell, PathEndMode.OnCell, Danger.Some)) continue;
+                jobs.StartJob(JobMaker.MakeJob(JobDefOf.Goto, cell), JobCondition.InterruptOptional);
+                break;
+            }
+        }
+
+        internal void EvadeCapture(Pawn captor)
+        {
+            int now = Find.TickManager.TicksGame;
+            if (!IsBlackBoar || releaseSuppressed || !Spawned || captor.Map != Map || Downed || InMentalState
+                || CuriousAbout(captor) || now < nextEvadeTick || Position.DistanceToSquared(captor.Position) > 49
+                || CurJob?.def == JobDefOf.Flee || !jobs.IsCurrentJobPlayerInterruptible()) return;
+            nextEvadeTick = now + Rand.RangeInclusive(90, 210);
+            if (!Rand.Chance(0.55f) || FleeUtility.FleeJob(this, captor, 9) is not { } flee) return;
+            flee.expiryInterval = 130;
+            jobs.StartJob(flee, JobCondition.InterruptOptional);
         }
 
         public override void Kill(DamageInfo? dinfo = null, Hediff exactCulprit = null)

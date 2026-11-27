@@ -86,6 +86,7 @@ namespace ProjectGu
                 }
 
                 record.ChangeCondition(GuCondition.Dormant);
+                if (record.CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind) record.EndSurfaceResidency();
                 record.CommitManifestation(GuManifestationKind.Thing, staged.GetUniqueLoadID());
                 staged.InitializeBinding(record);
                 committed = true;
@@ -145,7 +146,7 @@ namespace ProjectGu
             && pawn.carryTracker?.CarriedThing == null && pawn.equipment?.AllEquipmentListForReading.Count is not > 0
             && pawn.apparel?.WornApparel.Count is not > 0;
 
-        private static bool CanPlaceDormant(Map map, IntVec3 cell, Pawn source) => map is { Disposed: false }
+        internal static bool CanPlaceDormant(Map map, IntVec3 cell, Pawn source) => map is { Disposed: false }
             && Find.Maps.Contains(map) && cell.InBounds(map) && !cell.Fogged(map) && cell.Standable(map)
             && cell.GetThingList(map).All(thing => thing == source || SharesCellWithGu(thing));
 

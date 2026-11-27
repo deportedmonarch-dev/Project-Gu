@@ -18,6 +18,7 @@ namespace ProjectGu.Jobs
         internal const int FeedingTicks = 240;
 
         private GuFeedIntent intent;
+        private int nextPortion;
 
         internal string GuId => intent?.GuId;
         internal bool Automatic => intent?.Automatic == true;
@@ -28,6 +29,7 @@ namespace ProjectGu.Jobs
         {
             base.ExposeData();
             Scribe_Deep.Look(ref intent, "guFeedIntent");
+            Scribe_Values.Look(ref nextPortion, "guNextPortion");
         }
 
         public override bool TryMakePreToilReservations(bool errorOnFailed)
@@ -35,7 +37,14 @@ namespace ProjectGu.Jobs
             // Vanilla may call this on a cached driver before the job starts (ordered jobs), so only peek here.
             intent ??= GuSustenanceComponent.Instance?.PeekIntent(job.loadID);
             if (intent == null || Food == null) return false;
-            if (Food.Spawned && !pawn.Reserve(Food, job, GuFeedingWorker_Items.MaxPawnsPerStack, job.count, null, errorOnFailed)) return false;
+            if (job.targetQueueA is { } portions)
+            {
+                if (job.countQueue?.Count != portions.Count) return false;
+                for (int i = nextPortion; i < portions.Count; i++)
+                    if (portions[i].Thing is { Spawned: true } source
+                        && !pawn.Reserve(source, job, GuFeedingWorker_Items.MaxPawnsPerStack, job.countQueue[i], null, errorOnFailed)) return false;
+            }
+            else if (Food.Spawned && !pawn.Reserve(Food, job, GuFeedingWorker_Items.MaxPawnsPerStack, job.count, null, errorOnFailed)) return false;
             return !GroundGu || pawn.Reserve(job.GetTarget(TargetIndex.B), job, 1, -1, null, errorOnFailed);
         }
 
@@ -67,11 +76,34 @@ namespace ProjectGu.Jobs
             offer.WithProgressBarToilDelay(GroundGu ? TargetIndex.B : TargetIndex.A);
             var gotoGu = GroundGu ? Toils_Goto.GotoThing(TargetIndex.B, PathEndMode.Touch).FailOnDespawnedNullOrForbidden(TargetIndex.B) : null;
 
-            // Food already in the feeder's inventory or hands is not fetched.
-            yield return Toils_Jump.JumpIf(gotoGu ?? offer, () => Food is not { Spawned: true });
-            yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.ClosestTouch)
-                .FailOnDespawnedNullOrForbidden(TargetIndex.A).FailOnSomeonePhysicallyInteracting(TargetIndex.A);
-            yield return Toils_Haul.StartCarryThing(TargetIndex.A, failIfStackCountLessThanJobCount: true).FailOnDestroyedNullOrForbidden(TargetIndex.A);
+            if (job.targetQueueA == null)
+            {
+                // Food already in the feeder's inventory or hands is not fetched.
+                yield return Toils_Jump.JumpIf(gotoGu ?? offer, () => Food is not { Spawned: true });
+                yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.ClosestTouch)
+                    .FailOnDespawnedNullOrForbidden(TargetIndex.A).FailOnSomeonePhysicallyInteracting(TargetIndex.A);
+                yield return Toils_Haul.StartCarryThing(TargetIndex.A, failIfStackCountLessThanJobCount: true).FailOnDestroyedNullOrForbidden(TargetIndex.A);
+            }
+            else
+            {
+                var next = Toils_General.Do(() =>
+                {
+                    if (nextPortion == job.targetQueueA.Count)
+                    {
+                        job.targetA = job.targetQueueA[0];
+                        JumpToToil(gotoGu ?? offer);
+                        return;
+                    }
+                    job.targetC = job.targetQueueA[nextPortion];
+                });
+                var collect = Toils_General.Do(CollectPortion);
+                yield return next;
+                yield return Toils_Jump.JumpIf(collect, () => job.targetC.Thing?.holdingOwner == pawn.inventory?.innerContainer);
+                yield return Toils_Goto.GotoThing(TargetIndex.C, PathEndMode.ClosestTouch)
+                    .FailOnDespawnedNullOrForbidden(TargetIndex.C).FailOnSomeonePhysicallyInteracting(TargetIndex.C);
+                yield return collect;
+                yield return Toils_Jump.Jump(next);
+            }
             if (gotoGu != null) yield return gotoGu;
             yield return offer;
 
@@ -82,7 +114,8 @@ namespace ProjectGu.Jobs
                 Thing food = Food;
                 string label = food?.LabelNoCount;
                 var record = Current.Game?.GetComponent<GuIndividualRegistry>()?.FindRecord(GuId);
-                if (!GuSustenance.TryCommitFeeding(pawn, intent, food, job.GetTarget(TargetIndex.B).Thing, out int meals, out string reason))
+                if (!GuSustenance.TryCommitFeeding(pawn, intent, food, job.GetTarget(TargetIndex.B).Thing, out int meals,
+                    out string reason, job.targetQueueA, job.countQueue))
                 {
                     if (!Automatic || job.playerForced) Messages.Message(reason, new LookTargets(pawn), MessageTypeDefOf.RejectInput, false);
                     EndJobWith(JobCondition.Incompletable);
@@ -93,6 +126,38 @@ namespace ProjectGu.Jobs
                         new LookTargets(pawn), MessageTypeDefOf.SilentInput, false);
             };
             yield return commit;
+        }
+
+        private void CollectPortion()
+        {
+            var food = job.targetC.Thing;
+            var inventory = pawn.inventory?.innerContainer;
+            int count = job.countQueue[nextPortion];
+            if (inventory == null || food is not { Destroyed: false } || food.stackCount < count)
+            {
+                EndJobWith(JobCondition.Incompletable);
+                return;
+            }
+            if (food.holdingOwner != inventory)
+            {
+                if (!food.Spawned || food.Map != pawn.Map || food.IsForbidden(pawn)
+                    || !pawn.CanReachImmediate(food, PathEndMode.ClosestTouch))
+                {
+                    EndJobWith(JobCondition.Incompletable);
+                    return;
+                }
+                IntVec3 origin = food.Position;
+                var portion = food.SplitOff(count);
+                if (portion.Spawned) portion.DeSpawn();
+                if (!inventory.TryAdd(portion, canMergeWithExistingStacks: false))
+                {
+                    GenPlace.TryPlaceThing(portion, origin, pawn.Map, ThingPlaceMode.Near);
+                    EndJobWith(JobCondition.Incompletable);
+                    return;
+                }
+                job.targetQueueA[nextPortion] = portion;
+            }
+            nextPortion++;
         }
 
         private bool StillFeedable()

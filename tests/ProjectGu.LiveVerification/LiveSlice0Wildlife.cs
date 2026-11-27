@@ -54,7 +54,8 @@ public sealed partial class LiveLifecycleChecks
         Current.Game.CurrentMap = home;
         var guKinds = DefDatabase<PawnKindDef>.AllDefs.Where(Pawn_GuWildProjection.IsGuKind).ToList();
         var species = DefDatabase<GuSpeciesDef>.AllDefs.Where(GuIndividualRegistry.IsDevelopmentSpawnable).OrderBy(def => def.defName).ToList();
-        Check(guKinds.Count >= 4 && species.Count >= 4, $"Loaded {guKinds.Count} Gu projection kinds and {species.Count} spawnable species");
+        Check(guKinds.Count >= 5 && species.Any(def => def.defName == GuSurfaceEcology.BlackBoar),
+            $"Loaded {guKinds.Count} Gu projection kinds including the spawnable Black Boar Gu");
         Check(guKinds.All(kind => kind.ecoSystemWeight == 0f && Pawn_GuWildProjection.HasNativeGenerationExclusions(kind)),
             "Every Gu projection kind declares zero ecosystem weight and the native generation exclusions");
         Check(!DefDatabase<BiomeDef>.AllDefs.Any(biome => guKinds.Any(kind => biome.CommonalityOfAnimal(kind) > 0f
@@ -87,6 +88,12 @@ public sealed partial class LiveLifecycleChecks
             var pawn = PawnGenerator.GeneratePawn(ordinaryKind);
             return (Pawn)GenSpawn.Spawn(pawn, FreeCell(center), home);
         }
+
+        // Hold spontaneous encounters out of the controlled experiment.
+        foreach (var existing in SpawnedGu(home)) existing.Destroy();
+        var ecologyTick = AccessTools.Method(typeof(GuSurfaceEcology), nameof(GuSurfaceEcology.GameComponentTick));
+        var fixture = new Harmony("projectgu.priority0test.wildlife");
+        fixture.Patch(ecologyTick, prefix: new HarmonyMethod(typeof(LiveLifecycleChecks), nameof(SuppressAmbientInWildlifeControl)));
 
         // Equivalent ordinary population just below the desired weight: clear the factionless population, then refill with one kind.
         foreach (var pawn in OrdinaryWild(home)) pawn.Destroy();
@@ -141,8 +148,7 @@ public sealed partial class LiveLifecycleChecks
         Check(CurrentWeight(cave) == caveBefore && CurrentWeight(cave) == OrdinaryWeight(cave), $"Gu manifested in the spring cavern left its occupancy weight unchanged ({caveBefore:0.###})");
         foreach (var pawn in caveGu) pawn.Destroy();
 
-        // Inherited animal eligibility, recorded for the Slice 1A gate. Population accounting paths are asserted; the
-        // custody-sensitive inherited behaviors are reported as facts (pre-existing, unchanged by Slice 0).
+        // Check exclusions separately from the population accounting controls.
         var sample = SpawnGu(home, center, 1).Single();
         var predator = DefDatabase<PawnKindDef>.AllDefs.Where(kind => kind.RaceProps.predator && kind.RaceProps.maxPreyBodySize >= sample.BodySize
             && !Pawn_GuWildProjection.IsGuKind(kind)).OrderByDescending(kind => kind.combatPower).First();
@@ -150,17 +156,11 @@ public sealed partial class LiveLifecycleChecks
         Check(!FoodUtility.IsAcceptablePreyFor(hunter, sample) && !sample.RaceProps.CanDoHerdMigration && !sample.kindDef.canArriveManhunter
             && !sample.RaceProps.herdMigrationAllowed, $"A wild Gu is never predator prey ({predator.defName}), never migrates in herds and never arrives manhunter");
         hunter.Destroy();
-        bool huntable;
-        try { huntable = new Designator_Hunt().CanDesignateThing(sample).Accepted; }
-        catch (Exception) { huntable = sample.AnimalOrWildMan() && !sample.IsPrisonerInPrisonCell() && (sample.Faction == null || !sample.Faction.def.humanlikeFaction); }
-        bool tameable = TameUtility.CanTame(sample);
-        bool insanity = IncidentWorker_AnimalInsanityMass.AnimalUsable(sample);
-        bool selfTame = sample.IsAnimal && sample.Faction == null && !sample.InMentalState && !sample.Downed && sample.GetStatValue(StatDefOf.Wildness) > 0f;
-        Report($"INHERITED ELIGIBILITY (not population accounting; Slice 1A gate): hunt designation {huntable}, tame designation {tameable}, "
-            + $"animal insanity target {insanity}, self-tame incident candidate {selfTame} (wildness {sample.GetStatValue(StatDefOf.Wildness):0.##}).");
+        Check(!new Designator_Hunt().CanDesignateThing(sample).Accepted && !TameUtility.CanTame(sample)
+            && !IncidentWorker_AnimalInsanityMass.AnimalUsable(sample), "The framework excludes native hunt, tame and insanity targets");
 
         // Saved with Gu present for the fresh-process check.
-        var kept = SpawnGu(home, center, 3).Append(sample).ToList();
+        var kept = SpawnGu(home, center, species.Count).Append(sample).ToList();
         File.WriteAllText(WildlifeStatePath, JsonSerializer.Serialize(new WildlifeState(home.GetUniqueLoadID(), kept.Select(pawn => pawn.GuId).ToList(),
             DesiredWeight(home), OrdinaryWild(home).Count)));
         Check(CurrentWeight(home) == OrdinaryWeight(home) && !home.wildAnimalSpawner.AnimalEcosystemFull, "Saved with Gu present and replenishment still eligible");
@@ -169,6 +169,8 @@ public sealed partial class LiveLifecycleChecks
         Report($"Wildlife independence: 16 manifested Gu changed nothing in occupancy, desired weight, density or the full gate; an ordinary {ordinaryKind.defName} did; "
             + "matched-seed replenishment was identical with and without Gu.");
     }
+
+    private static bool SuppressAmbientInWildlifeControl() => false;
 
     private static void VerifySlice0WildlifeReload()
     {

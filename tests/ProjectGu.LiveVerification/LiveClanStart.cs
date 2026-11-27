@@ -47,14 +47,16 @@ internal static class ClanQuickStart
         Current.Game.Scenario = Def.scenario;
         Find.Scenario.PreConfigure();
         Current.Game.storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
-        Current.Game.World = WorldGenerator.GenerateWorld(0.3f, GenText.RandomSeedString(), OverallRainfall.Normal,
+        bool slice1a = GenCommandLine.CommandLineArgPassed("guslice1a");
+        Current.Game.World = WorldGenerator.GenerateWorld(0.3f, slice1a ? "gu-alpha6-slice1a" : GenText.RandomSeedString(), OverallRainfall.Normal,
             OverallTemperature.Normal, OverallPopulation.Normal, LandmarkDensity.Normal);
         Find.GameInitData.ChooseRandomStartingTile();
-        if (mountainous)
+        if (mountainous || slice1a)
         {
-            var tiles = Find.WorldGrid.Surface.Tiles.Where(tile => tile.hilliness == Hilliness.Mountainous
+            var tiles = Find.WorldGrid.Surface.Tiles.Where(tile => (!mountainous || tile.hilliness == Hilliness.Mountainous)
+                && (!slice1a || tile.PrimaryBiome.defName == "TemperateForest" && tile.hilliness == Hilliness.Flat)
                 && TileFinder.IsValidTileForNewSettlement(tile.tile)).Select(tile => tile.tile).ToList();
-            if (tiles.Count > 0) Find.GameInitData.startingTile = tiles.RandomElement();
+            if (tiles.Count > 0) Find.GameInitData.startingTile = slice1a ? tiles[0] : tiles.RandomElement();
             else Log.Warning("[Project GU test] No mountainous settlement tile; using the random tile.");
         }
         Find.GameInitData.mapSize = 250;
@@ -151,7 +153,7 @@ public sealed partial class LiveLifecycleChecks
         Report($"Start: elder {Describe(elder)}; disciples {string.Join(", ", disciples.Select(Describe))}; workers {string.Join(", ", workers.Select(Describe))}; pit {distance:0.0} cells from the nearest colonist at {pit.Position}; biome {home.Biome.defName}, hilliness {home.TileInfo.hilliness}.");
 
         var plan = AssertPlanned(colonists);
-        if (!Alpha1 && !Alpha2 && !Alpha3 && !RankOne && !GuGeneration && !Slice0 && !Slice0Wildlife)
+        if (!Alpha1 && !Alpha2 && !Alpha3 && !RankOne && !GuGeneration && !Slice0 && !Slice0Wildlife && !Slice1A)
         {
             File.WriteAllLines(ClanPlanPath, plan.Select(p => $"{p.Key}={p.Value}"));
             GameDataSaveLoader.SaveGame(PrefoundingSave);
@@ -191,6 +193,11 @@ public sealed partial class LiveLifecycleChecks
         Report($"Ordinary travel and awakening: {disciple.LabelShort} descended in {ticks} ticks and opened a {discipleAperture.AptitudeGrade}-grade aperture ({discipleAperture.Aptitude}). Hope Gu {mature}+{juvenile} -> {spring.HopeGuAvailable}+{spring.HopeGuJuvenile}.");
 
         var exit = site.Endpoints.Single(end => !end.IsSurface).Anchor;
+        if (Slice1A)
+        {
+            ExerciseSlice1A(elder, workers.First(), home, cave);
+            return;
+        }
         if (GuGeneration)
         {
             ExerciseGuGeneration(disciple, spring);

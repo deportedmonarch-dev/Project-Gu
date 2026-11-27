@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="GU_WildProjectionRace">
+    <defName>GU_WildBlackBoarGu</defName>
+    <label>wild Black Boar Gu</label>
+    <description>A black, ground-crawling insect. It scuttles away when pursued and cannot fly.</description>
+    <statBases>
+      <MoveSpeed>4.0</MoveSpeed>
+    </statBases>
+    <tools Inherit="False">
+      <li>
+        <label>mandibles</label>
+        <capacities><li>Bite</li></capacities>
+        <power>5</power>
+        <cooldownTime>2</cooldownTime>
+        <linkedBodyPartsGroup>Mouth</linkedBodyPartsGroup>
+      </li>
+    </tools>
+    <race>
+      <body>BeetleLike</body>
+      <canFlyIntoMap>false</canFlyIntoMap>
+      <canLeaveMapFlying>false</canLeaveMapFlying>
+    </race>
+  </ThingDef>
+  <PawnKindDef ParentName="GU_WildProjectionKind">
+    <defName>GU_WildBlackBoarGu</defName>
+    <label>wild Black Boar Gu</label>
+    <race>GU_WildBlackBoarGu</race>
+    <combatPower>1</combatPower>
+    <lifeStages>
+      <li>
+        <bodyGraphicData>
+          <!-- Stock RimWorld insect placeholder, to be replaced with ProjectGU/Gu/BlackBoarGu/Wild. -->
+          <texPath>Things/Pawn/Animal/Megascarab/Megascarab</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.70</drawSize>
+          <color>(0.46,0.46,0.46)</color>
+        </bodyGraphicData>
+        <dessicatedBodyGraphicData>
+          <texPath>Things/Pawn/Animal/Megascarab/Dessicated_Megascarab</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.70</drawSize>
+        </dessicatedBodyGraphicData>
+      </li>
+    </lifeStages>
+  </PawnKindDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>GU_DormantBlackBoarGu</defName>
+    <label>dormant Black Boar Gu</label>
+    <description>A captured Black Boar Gu. It remains unrefined until a Gu Master subdues its will.</description>
+    <thingClass>ProjectGu.Thing_GuDormantProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps><li Class="ProjectGu.CompProperties_GuManifestation" /></comps>
+    <stackLimit>1</stackLimit>
+    <tickerType>Never</tickerType>
+    <alwaysHaulable>true</alwaysHaulable>
+    <thingCategories><li>GU_DormantGu</li></thingCategories>
+    <tradeability>None</tradeability>
+    <graphicData>
+      <!-- Existing Project GU dormant placeholder, to be replaced with ProjectGU/Gu/BlackBoarGu/Dormant. -->
+      <texPath>ProjectGU/Gu/LiquorWorm/Dormant</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>0.72</drawSize>
+      <color>(0.40,0.40,0.40)</color>
+    </graphicData>
+    <statBases>
+      <Mass>0.15</Mass>
+    </statBases>
+  </ThingDef>
+</Defs>

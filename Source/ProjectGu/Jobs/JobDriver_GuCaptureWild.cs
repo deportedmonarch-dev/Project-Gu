@@ -10,6 +10,14 @@ namespace ProjectGu.Jobs
     public sealed class JobDriver_GuCaptureWild : JobDriver
     {
         private int expectedRevision = -1;
+        private int pursuitDeadline = -1;
+
+        public override void Notify_Starting()
+        {
+            base.Notify_Starting();
+            if (pursuitDeadline < 0 && job.targetA.Thing is Pawn_GuWildProjection { IsBlackBoar: true })
+                pursuitDeadline = Find.TickManager.TicksGame + 1200;
+        }
 
         public override bool TryMakePreToilReservations(bool errorOnFailed)
         {
@@ -25,7 +33,20 @@ namespace ProjectGu.Jobs
         protected override IEnumerable<Toil> MakeNewToils()
         {
             this.FailOnDespawnedNullOrForbidden(TargetIndex.A);
-            yield return Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
+            var pursuit = Toils_Goto.GotoThing(TargetIndex.A, PathEndMode.Touch);
+            pursuit.AddPreTickIntervalAction(_ =>
+            {
+                if (job.targetA.Thing is not Pawn_GuWildProjection { IsBlackBoar: true } wild) return;
+                if (pursuitDeadline < 0) pursuitDeadline = Find.TickManager.TicksGame + 1200;
+                if (Find.TickManager.TicksGame >= pursuitDeadline)
+                {
+                    Messages.Message($"{pawn.LabelShort} gave up pursuing the Black Boar Gu.", pawn, MessageTypeDefOf.NeutralEvent, false);
+                    EndJobWith(JobCondition.Incompletable);
+                    return;
+                }
+                wild.EvadeCapture(pawn);
+            });
+            yield return pursuit;
             yield return new Toil
             {
                 defaultCompleteMode = ToilCompleteMode.Instant,
@@ -54,6 +75,7 @@ namespace ProjectGu.Jobs
         {
             base.ExposeData();
             Scribe_Values.Look(ref expectedRevision, "guExpectedRevision", -1);
+            Scribe_Values.Look(ref pursuitDeadline, "guPursuitDeadline", -1);
         }
     }
 }
