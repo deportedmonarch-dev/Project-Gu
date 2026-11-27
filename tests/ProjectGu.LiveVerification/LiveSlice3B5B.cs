@@ -17,6 +17,17 @@ public sealed partial class LiveLifecycleChecks
         var aperture = AddProbeAperture(host);
         Check(!IndividualRegistry.TryStoreDormant(thing, fixture.Healthy.Record.Revision - 1, host, aperture, out _)
             && ReadCohortClaim(fixture.Healthy.Request, record) == fixture.Healthy, "A stale deposit leaves the authorized inventory intact");
+        // Owner contract: a dormant unrefined Gu cannot enter a mortal aperture (the production gate since 6c93ee1); a refined
+        // one can. The gate is exercised first, unchanged; then the same canonical individual is refined for the host's durable
+        // cultivator identity, as the other historical aperture fixtures do (BindFixtureRefinement), and the deposit proceeds.
+        Check(!IndividualRegistry.TryStoreDormant(thing, fixture.Healthy.Record.Revision, host, aperture, out string unrefined)
+            && unrefined.Contains("has not been refined") && ReadCohortClaim(fixture.Healthy.Request, record) == fixture.Healthy
+            && thing.holdingOwner == host.inventory.GetDirectlyHeldThings(),
+            $"The dormant unrefined Gu is refused by the mortal aperture and stays in ordinary native inventory. {unrefined}");
+        string cultivatorId = BindFixtureRefinement(record, host);
+        Check(record.Refinement?.CultivatorId == cultivatorId && IndividualRegistry.Resolve(thing) == record
+            && ReadCohortClaim(fixture.Healthy.Request, record) == fixture.Healthy,
+            "Refinement binds the same canonical individual without changing its custody or event evidence");
         Check(IndividualRegistry.TryStoreDormant(thing, fixture.Healthy.Record.Revision, host, aperture, out string reason),
             $"The previously materialized Gu entered its exact aperture. {reason}");
         var expected = fixture.Healthy.Record with {
