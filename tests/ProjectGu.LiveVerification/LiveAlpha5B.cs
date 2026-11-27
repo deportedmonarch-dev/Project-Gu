@@ -437,14 +437,18 @@ public sealed partial class LiveLifecycleChecks
         var profile = spring.AmbientProfiles.Single();
         string hope = profile.species.defName;
         int Living() => spring.MatureCountFor(hope) + spring.JuvenileCountFor(hope);
+        int NonSurfaceRecords() => registry.Records.Count(record => record.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind);
         int WildCount() => cave.mapPawns.AllPawnsSpawned.Count(p => p is Pawn_GuWildProjection);
-        int living = Living(), records = registry.Records.Count, wildBefore = WildCount();
+        int DormantCount() => cave.listerThings.AllThings.Count(thing => thing is Thing_GuDormantProjection);
+        int living = Living(), records = NonSurfaceRecords(), wildBefore = WildCount(), dormantBefore = DormantCount();
         int spirits = GuSpringAmbience.SpiritCount(spring, profile);
         Check(spirits == Math.Min(profile.maxSpirits, living) && (living == 0) == (spirits == 0),
             $"The spring shows one ambient spirit per living Hope Gu, capped at {profile.maxSpirits} ({spirits} for {living})");
         TickUntil(() => false, 600);
-        Check(Living() == living && registry.Records.Count == records && WildCount() == wildBefore,
-            "Ambient spirits create no record, no pawn and no Thing, and never change the cohort");
+        Check(Living() == living && NonSurfaceRecords() == records && WildCount() == wildBefore && DormantCount() == dormantBefore,
+            $"Ambient spirits create no Gu record or projection and never change the cohort "
+            + $"(cohort {living} -> {Living()}, non-surface records {records} -> {NonSurfaceRecords()}, "
+            + $"wild {wildBefore} -> {WildCount()}, dormant {dormantBefore} -> {DormantCount()})");
         string inspect = springThing.GetInspectString();
         Check(inspect.Contains("Encounters:") && inspect.Contains("Liquor Worm: lure with beer") && inspect.Contains("Hope Gu: use Search"),
             $"The spring explains how each population is met:\n{inspect}");

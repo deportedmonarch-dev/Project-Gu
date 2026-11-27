@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!--
+    Black Boar Gu bodily cultivation. Granted by a species through its abilities list; the Black Boar species gains that
+    line at integration with the Alpha 6 ecology branch. About 15 daily sessions of 10 pulses reach full development.
+    Values are provisional, pending owner balance review (docs/GU-BODILY-CULTIVATION.md).
+  -->
+  <ProjectGu.Combat.GuAbilityDef>
+    <defName>GU_BlackBoarCultivation</defName>
+    <label>Black Boar cultivation</label>
+    <description>The Gu Master sits and lets the Black Boar Gu temper their body with the strength of a black boar. Each pulse spends primeval essence and permanently develops their Black Boar strength. Stopping keeps all development, and the session can be resumed without waiting.</description>
+    <essenceCost>0</essenceCost>
+    <cooldownTicks>60000</cooldownTicks>
+    <warmupTicks>0</warmupTicks>
+    <targetPawns>false</targetPawns>
+    <targetLocations>false</targetLocations>
+    <requireLineOfSight>false</requireLineOfSight>
+    <iconPath>ProjectGU/UI/Abilities/BlackBoarCultivation</iconPath>
+    <category>Cultivation</category>
+    <effectNotes>
+      <li>Permanently develops Black Boar strength: up to +40% melee damage, +50% carrying capacity, +20% mining speed and +15% construction speed at full development.</li>
+      <li>The bonus grows with every successful pulse; full development takes about 15 days of regular sessions.</li>
+      <li>Development belongs to the body. Withdrawing, transferring or losing the Gu keeps it.</li>
+    </effectNotes>
+    <limitations>
+      <li>One Black Boar strength per body. Once fully developed, no Black Boar Gu can add more.</li>
+      <li>Each pulse needs primeval essence; with too little, the session pauses and can be resumed later.</li>
+      <li>Requires an undrafted, conscious Gu Master. Drafting, another order, incapacitation or withdrawing the Gu suspends the session.</li>
+    </limitations>
+    <channel Class="ProjectGu.Combat.GuChannelProperties_BodilyCultivation">
+      <pulseIntervalTicks>500</pulseIntervalTicks>
+      <pulseCount>10</pulseCount>
+      <attainment>GU_BodilyStrength_BlackBoar</attainment>
+      <pulsesToFullDevelopment>150</pulsesToFullDevelopment>
+      <essencePerPulse>1</essencePerPulse>
+    </channel>
+  </ProjectGu.Combat.GuAbilityDef>
+</Defs>

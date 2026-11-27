@@ -1,5 +1,7 @@
 # Alpha 6 implementation and verification handoff
 
+The Black Boar integration connects the accepted Slice 1A ecology to S0/S1 bodily cultivation. The implementation record includes the independent review and current-format native verification. [Black Boar integration](GU-BODILY-CULTIVATION.md#independent-review-and-integration)
+
 Implementation starts after owner authorization and Alpha 5B acceptance. The gameplay candidate remains `5df38decbc4f0b089267de0d52f66db224ba9b5a`. The [RFC](RFC-0007-WILD-GU-ECOLOGY.md) defines ownership, conservation and the approved ecology requirements. The [baseline audit](ALPHA-6-BASELINE-AUDIT.md) records Alpha 5A evidence. The [readiness review](ALPHA-6-ENGINEERING-READINESS.md) records the confirmed roster, recommended defaults and separate species content decisions. The delivery order below is proposed.
 
 ## Architecture choices

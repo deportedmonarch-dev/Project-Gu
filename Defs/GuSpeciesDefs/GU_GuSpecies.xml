@@ -115,6 +115,7 @@
     <pathTags><li>strength</li></pathTags>
     <habitatTags><li>surface</li><li>forest</li></habitatTags>
     <role>Strength Path</role>
+    <abilities><li>GU_BlackBoarCultivation</li></abilities>
     <feeding>
       <status>Simulated</status>
       <note>Feeds on 100 units of raw pork or one whole pig or wild boar corpse every five days.</note>

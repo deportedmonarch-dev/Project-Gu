@@ -37,8 +37,11 @@ internal static class LiquorWormManagedChecks
         SessionId = Guid.NewGuid().ToString("N"),
         GuId = Guid.NewGuid().ToString("N"),
         Ability = worker.ability,
-        Binding = worker.BindingFor(aperture)
+        Binding = worker.BindingFor(G(aperture))
     };
+
+    // The Liquor Worm worker reads only the aperture from its grant.
+    private static GuAbilityGrant G(Hediff_Aperture aperture) => new(null, aperture, null, null);
 
     private static double Total(Hediff_Aperture aperture) => Enum.GetValues<RankOneStage>().Sum(aperture.EssenceOfQuality);
 
@@ -47,12 +50,12 @@ internal static class LiquorWormManagedChecks
         var aperture = NewAperture(20); // D grade: capacity 20, Initial 10 at awakening.
         var worker = Worker();
         var session = SessionFor(worker, aperture);
-        Check(worker.CanChannel(aperture, out _) && session.Binding == (int)RankOneStage.Initial,
+        Check(worker.CanChannel(G(aperture), out _) && session.Binding == (int)RankOneStage.Initial,
             "An Initial-stage aperture with Initial essence can begin Liquor Worm refinement");
         double total = Total(aperture);
         double wall = aperture.WallNourishment;
         for (int pulse = 0; pulse < 4; pulse++)
-            Check(worker.ApplyPulse(aperture, session, out _) == GuPulseResult.Applied, "A pulse converted essence");
+            Check(worker.ApplyPulse(G(aperture), session, out _) == GuPulseResult.Applied, "A pulse converted essence");
         Check(aperture.EssenceOfQuality(RankOneStage.Initial) == 6 && aperture.EssenceOfQuality(RankOneStage.Middle) == 4
             && Total(aperture) == total && aperture.Stage == RankOneStage.Initial && aperture.WallNourishment == wall
             && session.Converted == 4,
@@ -60,12 +63,12 @@ internal static class LiquorWormManagedChecks
 
         Check(aperture.TrySpendEssence(5.5), "Fixture spends Initial essence down to a fraction");
         Check(aperture.EssenceOfQuality(RankOneStage.Initial) == 0.5
-            && worker.ApplyPulse(aperture, session, out _) == GuPulseResult.Applied
+            && worker.ApplyPulse(G(aperture), session, out _) == GuPulseResult.Applied
             && aperture.EssenceOfQuality(RankOneStage.Initial) == 0 && aperture.EssenceOfQuality(RankOneStage.Middle) == 4.5,
             "A pulse converts only what remains of the source quality");
-        Check(worker.ApplyPulse(aperture, session, out string exhausted) == GuPulseResult.Stopped
+        Check(worker.ApplyPulse(G(aperture), session, out string exhausted) == GuPulseResult.Stopped
             && aperture.EssenceOfQuality(RankOneStage.Middle) == 4.5 && aperture.EssenceOfQuality(RankOneStage.Upper) == 0
-            && !worker.CanChannel(aperture, out _),
+            && !worker.CanChannel(G(aperture), out _),
             $"With no current-stage essence left the session stops and never re-refines Middle essence ({exhausted})");
 
         // Wall nourishment then credits the refined essence at Middle weight.
@@ -81,7 +84,7 @@ internal static class LiquorWormManagedChecks
         var session = SessionFor(worker, aperture);
         AdvanceTo(aperture, RankOneStage.Middle);
         double middle = aperture.EssenceOfQuality(RankOneStage.Middle);
-        Check(worker.ApplyPulse(aperture, session, out string changed) == GuPulseResult.Stopped
+        Check(worker.ApplyPulse(G(aperture), session, out string changed) == GuPulseResult.Stopped
             && aperture.EssenceOfQuality(RankOneStage.Middle) == middle,
             $"A session bound to Initial stops without converting once the cultivator reaches Middle ({changed})");
 
@@ -89,14 +92,14 @@ internal static class LiquorWormManagedChecks
         while (aperture.EssenceOfQuality(RankOneStage.Upper) < 2) aperture.RecoverEssence();
         var upper = SessionFor(worker, aperture);
         double total = Total(aperture);
-        Check(worker.ApplyPulse(aperture, upper, out _) == GuPulseResult.Applied && aperture.EssenceOfQuality(RankOneStage.Peak) == 1
+        Check(worker.ApplyPulse(G(aperture), upper, out _) == GuPulseResult.Applied && aperture.EssenceOfQuality(RankOneStage.Peak) == 1
             && Total(aperture) == total && aperture.Stage == RankOneStage.Upper,
             "At Upper the Liquor Worm refines Upper essence into Peak essence");
 
         AdvanceTo(aperture, RankOneStage.Peak);
         double peak = aperture.EssenceOfQuality(RankOneStage.Peak);
-        Check(!worker.CanChannel(aperture, out string ceiling) && aperture.Rank == 1
-            && worker.ApplyPulse(aperture, SessionFor(worker, aperture), out _) == GuPulseResult.Stopped
+        Check(!worker.CanChannel(G(aperture), out string ceiling) && aperture.Rank == 1
+            && worker.ApplyPulse(G(aperture), SessionFor(worker, aperture), out _) == GuPulseResult.Stopped
             && aperture.EssenceOfQuality(RankOneStage.Peak) == peak,
             $"Rank 1 Peak cannot be refined further and nothing becomes Rank 2 quality ({ceiling})");
     }

@@ -154,7 +154,7 @@ namespace ProjectGu.Interface
             else if (driver is JobDriver_GuChannelAbility channel && GuCombatLedger.Instance?.ChannelById(channel.SessionId) is { Active: true } session)
             {
                 ActiveChannel = session;
-                if (session.Ability?.category == GuAbilityCategory.Cultivation) Activity |= GuApertureActivity.EssenceRefinement;
+                if (session.Ability?.channel?.Worker(session.Ability).RefinesEssence == true) Activity |= GuApertureActivity.EssenceRefinement;
                 ActivityLabel = $"Channeling {session.Ability?.label} ({session.PulsesDone}/{session.PulseCount} pulses)";
             }
             else if (driver is JobDriver_GuRefineMortalGu && driver.job?.targetA.Thing is Thing_GuDormantProjection thing

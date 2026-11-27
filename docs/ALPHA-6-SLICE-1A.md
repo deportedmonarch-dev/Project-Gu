@@ -1,6 +1,6 @@
 # Alpha 6 Slice 1A · Black Boar Gu
 
-Black Boar Gu is a natural Rank 1 Strength Path Gu with a reference value of 600 primeval stones. The reference value has no vanilla silver conversion or trade price. The future Beast Strength and Phantom Framework carries its cultivation and combat design. [Roadmap](ROADMAP.md#beast-strength-and-phantom-framework)
+Black Boar Gu is a natural Rank 1 Strength Path Gu with a reference value of 600 primeval stones. The reference value has no vanilla silver conversion or trade price. On the integration branch, the refined and stored individual grants permanent Black Boar bodily cultivation. Beast phantom combat remains future work. [Bodily cultivation](GU-BODILY-CULTIVATION.md) · [Roadmap](ROADMAP.md#beast-strength-and-phantom-framework)
 
 ## Surface ecology
 

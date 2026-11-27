@@ -28,6 +28,8 @@ namespace ProjectGu.Interface
         public string DisabledReason { get; }
         public string GuId { get; }
         public string Tooltip { get; internal set; }
+        /// <summary>The technique a Channel action runs; null for other kinds.</summary>
+        public GuAbilityDef Ability { get; internal set; }
         private readonly Func<string> run;
 
         internal GuApertureAction(GuApertureActionKind kind, string label, string guId, Func<string> run, string disabledReason = null)
@@ -126,7 +128,7 @@ namespace ProjectGu.Interface
             });
         }
 
-        /// <summary>Self-use channel techniques that act on the aperture itself, such as Liquor Worm refinement.</summary>
+        /// <summary>Self-use cultivation channels, such as Liquor Worm refinement and bodily cultivation.</summary>
         public static IEnumerable<GuApertureAction> CultivationChannels(Pawn host, Hediff_Aperture aperture)
         {
             if (!CanManage(host, aperture)) yield break;
@@ -143,9 +145,9 @@ namespace ProjectGu.Interface
             string guId = grant.Gu.Id;
             bool available = GuChannelService.CanChannel(host, guId, ability, out _, out var resumable, out string reason);
             string label = resumable != null ? $"Resume {ability.label} ({resumable.PulsesDone}/{resumable.PulseCount})" : ability.LabelCap.ToString();
-            if (!available) return new GuApertureAction(GuApertureActionKind.Channel, label, guId, null, reason ?? "unavailable");
+            if (!available) return new GuApertureAction(GuApertureActionKind.Channel, label, guId, null, reason ?? "unavailable") { Ability = ability };
             return new GuApertureAction(GuApertureActionKind.Channel, label, guId,
-                () => GuChannelService.TryOrderChannel(host, guId, ability, out string failure) ? null : failure);
+                () => GuChannelService.TryOrderChannel(host, guId, ability, out string failure) ? null : failure) { Ability = ability };
         }
 
         // ---- Gu custody and will-enforcement ---------------------------------------------------------------------

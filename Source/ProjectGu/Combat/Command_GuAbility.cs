@@ -42,11 +42,12 @@ namespace ProjectGu.Combat
         private void ConfigureChannel(GuAbilityGrant grant)
         {
             var props = ability.channel;
+            var worker = props.Worker(ability);
             bool available = GuChannelService.CanChannel(caster, guId, ability, out _, out var resumable, out string reason);
             if (resumable != null) defaultLabel = $"Resume {ability.label} ({resumable.PulsesDone}/{resumable.PulseCount})";
             defaultDesc = $"{ability.description}\n\nGu: {grant.Gu.Species?.label ?? grant.Gu.SpeciesDefName} [{grant.Gu.Id}]"
-                + $"\nCost: {ability.essenceCost:0.#} primeval essence when a new session begins (resuming is free)"
-                + $"\nDuration: {props.pulseCount} pulses, one every {props.pulseIntervalTicks.ToStringTicksToPeriod()}, up to {props.amountPerPulse:0.##} essence each"
+                + $"\nCost: {worker.ActivationText}"
+                + $"\nDuration: {props.pulseCount} pulses, one every {props.pulseIntervalTicks.ToStringTicksToPeriod()}; each pulse: {worker.PerPulseText}"
                 + $"\nRecovery: {ability.cooldownTicks.ToStringTicksToPeriod()} after a new session begins"
                 + $"\n\n{grant.Aperture.CultivationStatus}";
             if (!available) Disable(reason);

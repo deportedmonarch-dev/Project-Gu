@@ -47,16 +47,16 @@ internal static class ClanQuickStart
         Current.Game.Scenario = Def.scenario;
         Find.Scenario.PreConfigure();
         Current.Game.storyteller = new Storyteller(StorytellerDefOf.Cassandra, DifficultyDefOf.Rough);
-        bool slice1a = GenCommandLine.CommandLineArgPassed("guslice1a");
-        Current.Game.World = WorldGenerator.GenerateWorld(0.3f, slice1a ? "gu-alpha6-slice1a" : GenText.RandomSeedString(), OverallRainfall.Normal,
+        bool forest = GenCommandLine.CommandLineArgPassed("guslice1a") || GenCommandLine.CommandLineArgPassed("gubodilyforest");
+        Current.Game.World = WorldGenerator.GenerateWorld(0.3f, forest ? "gu-alpha6-slice1a" : GenText.RandomSeedString(), OverallRainfall.Normal,
             OverallTemperature.Normal, OverallPopulation.Normal, LandmarkDensity.Normal);
         Find.GameInitData.ChooseRandomStartingTile();
-        if (mountainous || slice1a)
+        if (mountainous || forest)
         {
             var tiles = Find.WorldGrid.Surface.Tiles.Where(tile => (!mountainous || tile.hilliness == Hilliness.Mountainous)
-                && (!slice1a || tile.PrimaryBiome.defName == "TemperateForest" && tile.hilliness == Hilliness.Flat)
+                && (!forest || tile.PrimaryBiome.defName == "TemperateForest" && tile.hilliness == Hilliness.Flat)
                 && TileFinder.IsValidTileForNewSettlement(tile.tile)).Select(tile => tile.tile).ToList();
-            if (tiles.Count > 0) Find.GameInitData.startingTile = slice1a ? tiles[0] : tiles.RandomElement();
+            if (tiles.Count > 0) Find.GameInitData.startingTile = forest ? tiles[0] : tiles.RandomElement();
             else Log.Warning("[Project GU test] No mountainous settlement tile; using the random tile.");
         }
         Find.GameInitData.mapSize = 250;

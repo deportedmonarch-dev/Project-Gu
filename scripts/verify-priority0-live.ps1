@@ -2,7 +2,7 @@ param(
     [string]$RimWorldPath = 'C:\Program Files (x86)\Steam\steamapps\common\RimWorld',
     [string]$HarmonyPath = '',
     [string]$InstalledProjectGuPath = '',
-    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'Slice0', 'Slice0Wildlife', 'Slice1A', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
+    [ValidateSet('Core', 'IdeologyOdyssey', 'IdeologyReset', 'Awakening', 'Botanical', 'CargoPrototype', 'AutomaticHauling', 'Slice3A', 'Slice3B1', 'Slice3B2', 'Slice3B3A', 'Slice3B3B', 'Slice3B3C', 'Slice3B4', 'Slice3B5A', 'Slice3B5B', 'Slice3B5BPerf', 'VanillaGuInventory', 'V2EngineProbe', 'V1Migration', 'Phase2Lifecycle', 'DormantHauling', 'ManifestationProbe', 'CultivatorLifecycle', 'CultivatorMigration', 'ClanStart', 'GuGeneration', 'ClanSession', 'Alpha1', 'Alpha2', 'Alpha2Visual', 'Alpha3', 'Alpha3Visual', 'Alpha4A', 'Alpha4AVisual', 'Alpha4APerf', 'Alpha5A', 'Alpha5AVisual', 'Alpha5B', 'Alpha5BVisual', 'Alpha5BLogistics', 'Bodily', 'Slice0', 'Slice0Wildlife', 'Slice1A', 'RankOne', 'Both', 'Regression')][string[]]$Profile = @('Both'),
     [switch]$Rendered,
     [string]$Alpha5BLogisticsSave = '',
     [string]$Legacy31Save = '',
@@ -577,6 +577,15 @@ Measure-Phase 'planning' {
             Add-Launch $unit 'final' $false $false '-guclanstart -gualpha3 -gualpha3final'
             # Rendered inspection opens a game window; run with -Parallel 1 and no other RimWorld instance.
             if ($name -eq 'Alpha3Visual') { Add-Launch $unit 'visual' $false $true '-guclanstart -gualpha3 -gualpha3visual' }
+            continue
+        }
+        if ($name -eq 'Bodily') {
+            # Real surface Black Boar lifecycle on the Alpha 3 save, followed by two fresh-process reloads.
+            $unit = New-Unit $name $saveData "PASS $name bodily cultivation, mid-pulse reload, full development and final reload. Evidence in $saveData"
+            Add-Launch $unit 'new' $true $false '-guclanstart -gualpha3 -gubodilyforest'
+            Add-Launch $unit 'bodily' $false $false '-guclanstart -gualpha3 -gubodily'
+            Add-Launch $unit 'reload' $false $false '-guclanstart -gualpha3 -gubodily -gubodilyreload'
+            Add-Launch $unit 'final' $false $false '-guclanstart -gualpha3 -gubodily -gubodilyfinal'
             continue
         }
         if ($name -eq 'Alpha4A' -or $name -eq 'Alpha4AVisual') {
