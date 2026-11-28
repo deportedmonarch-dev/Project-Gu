@@ -35,7 +35,7 @@
           <drawSize>0.65</drawSize>
         </bodyGraphicData>
         <dessicatedBodyGraphicData>
-          <texPath>ProjectGU/Gu/StoneSkinGu/Wild</texPath>
+          <texPath>ProjectGU/Gu/StoneSkinGu/Dessicated</texPath>
           <graphicClass>Graphic_Multi</graphicClass>
           <drawSize>0.65</drawSize>
           <color>(125,115,105)</color>
