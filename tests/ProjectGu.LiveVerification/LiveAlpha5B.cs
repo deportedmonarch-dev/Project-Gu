@@ -469,7 +469,6 @@ public sealed partial class LiveLifecycleChecks
         // Wait for the wild Gu to stand in spirit grass on its own, as in the reported case.
         TickUntil(() => wild.Spawned && wild.Position.GetPlant(cave)?.def == GrassDef, 6000);
         bool inGrass = wild.Position.GetPlant(cave)?.def == GrassDef;
-        IntVec3 at = wild.Position;
         var options = wild.GetFloatMenuOptions(disciple).ToList();
         var capture = options.FirstOrDefault(o => o.Label == "Capture Hope Gu (unrefined)");
         Check(capture?.action != null, $"A wild Hope Gu {(inGrass ? "standing in spirit grass " : "")}can be captured ({string.Join(" | ", options.Select(o => o.Label))})");
@@ -477,9 +476,11 @@ public sealed partial class LiveLifecycleChecks
         capture.action();
         TickUntil(() => registry.ProjectionOf(hopeGu) is Thing_GuDormantProjection, 3000, "The Hope Gu was captured by the ordinary job");
         var dormant = registry.ProjectionOf(hopeGu);
-        Check(dormant.Position == at && (!inGrass || dormant.Position.GetPlant(cave)?.def == GrassDef),
-            $"The dormant Hope Gu lies where it was caught{(inGrass ? ", on the spirit grass" : "")} ({dormant.Position})");
-        Report($"Hope Gu: {spirits} ambient spirits for {living} living; captured {(inGrass ? "in spirit grass" : "on open ground")} at {at}.");
+        var caughtAt = wild.GuTag().LastLocation(Now).Cell;
+        bool caughtInGrass = caughtAt.GetPlant(cave)?.def == GrassDef;
+        Check(dormant.Spawned && dormant.Map == cave && dormant.Position.DistanceToSquared(caughtAt) <= 2,
+            $"The dormant Hope Gu lies at its native capture cell or an adjacent open cell ({caughtAt} -> {dormant.Position})");
+        Report($"Hope Gu: {spirits} ambient spirits for {living} living; captured {(caughtInGrass ? "in spirit grass" : "on open ground")} at {caughtAt}.");
         return (Living(), GuSpringAmbience.SpiritCount(spring, profile));
     }
 

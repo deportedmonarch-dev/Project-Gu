@@ -26,6 +26,10 @@ namespace ProjectGu
         private int lastLayer = -1;
         private IntVec3 lastCell = IntVec3.Invalid;
         private string lastMapId;
+        private string lastMapParent;
+        private string lastMapParentDef;
+        private string lastUndergroundLevel;
+        private string lastLegacySourceParent;
 
         public string GuId => guId;
         public int GuRevision => guRevision;
@@ -47,7 +51,8 @@ namespace ProjectGu
         internal bool HasLastLocation => lastTile >= 0;
 
         internal GuLocation LastLocation(int tick) =>
-            GuLocation.FromTile(lastTile, lastLayer, lastCell, lastMapId, null, tick);
+            GuLocation.FromTile(lastTile, lastLayer, lastCell, lastMapId, null, tick,
+                lastMapParent, lastMapParentDef, lastUndergroundLevel, lastLegacySourceParent);
 
         /// <summary>Transient. Set by the registry when this tag claims an ID without being the authorized manifestation.</summary>
         internal bool Rogue { get; set; }
@@ -67,6 +72,10 @@ namespace ProjectGu
             Scribe_Values.Look(ref lastLayer, "guLastLayer", -1);
             Scribe_Values.Look(ref lastCell, "guLastCell", IntVec3.Invalid);
             Scribe_Values.Look(ref lastMapId, "guLastMapId");
+            Scribe_Values.Look(ref lastMapParent, "guLastMapParent");
+            Scribe_Values.Look(ref lastMapParentDef, "guLastMapParentDef");
+            Scribe_Values.Look(ref lastUndergroundLevel, "guLastUndergroundLevel");
+            Scribe_Values.Look(ref lastLegacySourceParent, "guLastLegacySourceParent");
             if (Scribe.mode == LoadSaveMode.PostLoadInit
                 && (!string.IsNullOrEmpty(guId) || parent is Pawn_GuWildProjection)) LoadBuffer.Add(this);
         }
@@ -79,7 +88,11 @@ namespace ProjectGu
             lastTile = location.Tile;
             lastLayer = location.Layer;
             lastCell = parent.Position;
-            lastMapId = map.GetUniqueLoadID();
+            lastMapId = location.MapId;
+            lastMapParent = location.MapParentId;
+            lastMapParentDef = location.MapParentDef;
+            lastUndergroundLevel = location.UndergroundLevel;
+            lastLegacySourceParent = location.LegacySourceParent;
         }
 
         // Native lifecycle hooks only enqueue. The registry applies events after the native callback returns.

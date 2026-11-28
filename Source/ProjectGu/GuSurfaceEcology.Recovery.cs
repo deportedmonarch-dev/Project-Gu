@@ -21,7 +21,7 @@ namespace ProjectGu
         private bool scheduleReady;
         private long processed, saturatedTurns, loadedObservations, migrations;
 
-        internal enum BlockedBy { Unknown, None, Habitat, Destroyed, MapBinding, Residents, DebitEvidence, NoSource }
+        internal enum BlockedBy { Unknown, None, Habitat, Destroyed, MapBinding, Residents, DebitEvidence, NoSource, Abandoned }
 
         internal readonly record struct Address(string Owner, string Species, bool Regional = false);
         internal readonly record struct Work(Address Address, int Tick);
@@ -240,7 +240,7 @@ namespace ProjectGu
                 return;
             }
             var residents = Residents(address.Owner, address.Species);
-            BlockedBy habitat = row.Blocked == BlockedBy.Destroyed ? BlockedBy.Destroyed
+            BlockedBy habitat = row.Blocked is BlockedBy.Destroyed or BlockedBy.Abandoned ? row.Blocked
                 : !row.Unloaded || row.EvidenceTick < 0 || row.EvidenceProfile != species.surfaceHabitat
                     || row.EvidenceProfileName != species.surfaceProfile?.defName ? BlockedBy.Unknown
                 : row.HabitatWeight <= 0 || WorldWeight(tile, species, row.ExposedRock) <= 0 ? BlockedBy.Habitat : BlockedBy.None;
@@ -330,7 +330,7 @@ namespace ProjectGu
             Schedule(address, row, now);
         }
 
-        internal void ObserveMapRetirement(Map map)
+        internal void ObserveBeforeMapRemoval(Map map)
         {
             if (Registry == null || Registry.CustodyTransitionInProgress || !GuPocketProbeComponent.IsSurfaceSettlement(map)) return;
             string key = Key(map);
@@ -342,12 +342,22 @@ namespace ProjectGu
                 if (!site.Populations.TryGetValue(species.defName, out var row)) continue;
                 int weight = Suitability(map, species, out bool rock);
                 ObserveLoaded(map, key, row, species, weight, rock, Residents(key, species.defName), now);
-                row.Unloaded = true;
-                Schedule(new(key, species.defName), row, now);
             }
         }
 
-        internal void ObserveDestroyedSettlement(Settlement settlement)
+        internal void ConfirmMapRemoval(Map map, int now)
+        {
+            if (map.Parent is not Settlement || !map.Tile.Valid || !sites.TryGetValue(Key(map), out var site)) return;
+            string key = Key(map), binding = map.GetUniqueLoadID();
+            foreach (var (species, row) in site.Populations)
+            {
+                if (row.LastMap != binding) continue;
+                row.Unloaded = true;
+                Schedule(new(key, species), row, now);
+            }
+        }
+
+        internal void ObserveRemovedSettlement(Settlement settlement, bool abandoned)
         {
             if (settlement.Spawned || !settlement.Tile.Valid || settlement.Tile.LayerDef != PlanetLayerDefOf.Surface) return;
             string key = Key(settlement.Tile);
@@ -356,7 +366,8 @@ namespace ProjectGu
             EnsureSchedule(now);
             foreach (var (species, row) in site.Populations)
                 if (row.LastParent == settlement.GetUniqueLoadID())
-                    Advance(new(key, species), row, null, settlement.Tile, null, 0, BlockedBy.Destroyed, now);
+                    Advance(new(key, species), row, null, settlement.Tile, null, 0,
+                        abandoned ? BlockedBy.Abandoned : BlockedBy.Destroyed, now);
         }
     }
 }

@@ -34,7 +34,7 @@ namespace ProjectGu
         internal string LastMigrationSummary { get; private set; }
         internal bool CustodyTransitionInProgress { get; private set; }
         private bool CanUseDevelopmentCustody => Prefs.DevMode && CanUseCustody;
-        private bool CanUseCustody => ready && GuCustodySaveGuard.Installed && !CustodyTransitionInProgress
+        private bool CanUseCustody => ready && GuCustodySaveGuard.Installed && !CustodyTransitionInProgress && !MapTeardownInProgress
             && !LongEventHandler.AnyEventNowOrWaiting && Scribe.mode == LoadSaveMode.Inactive;
 
         public override void ExposeData()
@@ -45,7 +45,7 @@ namespace ProjectGu
                 ready = false;
                 CompGuManifestation.LoadBuffer.Clear();
             }
-            if (Scribe.mode == LoadSaveMode.Saving && (CustodyTransitionInProgress
+            if (Scribe.mode == LoadSaveMode.Saving && (CustodyTransitionInProgress || MapTeardownInProgress
                 || Current.Game?.GetComponent<GuWorldComponent>()?.CanSaveCultivators == false))
                 throw new InvalidOperationException("Gu custody or cultivator identity is not ready to save.");
             // Native events reported since the last tick must reach the save, or demonstrated evidence would be lost.

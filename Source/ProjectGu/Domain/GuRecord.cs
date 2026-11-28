@@ -462,7 +462,8 @@ namespace ProjectGu.Domain
             Log.Message($"[Project GU] Gu {id} retired from individual simulation: {cause}. {detail}");
         }
 
-        internal static string WorldSiteId(GuLocation location) => $"site:{location.Layer}:{location.Tile}";
+        internal static string WorldSiteId(GuLocation location) => location.MapParentId is { } parent
+            ? $"site:{location.Layer}:{location.Tile}:{parent}" : $"site:{location.Layer}:{location.Tile}";
 
         /// <summary>Abstract world-location custody for a Gu whose native map or holder is gone (owner decisions §4).</summary>
         internal void CommitWorldSite(GuLocation location, string cause, string detail, int tick)

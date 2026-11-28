@@ -38,6 +38,7 @@ public sealed partial class LiveLifecycleChecks
     {
         DisableFixtureAutosave();
         DebugSettings.enableStoryteller = false;
+        RelationAudit("before regional map generation");
         var ecology = GuSurfaceEcology.Instance;
         var blackDef = DefDatabase<GuSpeciesDef>.GetNamed(BlackSpecies);
         var whiteDef = DefDatabase<GuSpeciesDef>.GetNamed(WhiteSpecies);
@@ -60,6 +61,7 @@ public sealed partial class LiveLifecycleChecks
         nativeTile.PrimaryBiome = BiomeDef.Named("Desert");
         var settlement = RegionalSettlement(tile);
         var map = settlement.Map;
+        RelationAudit("after regional desert generation");
         RegionalTick();
         var black = ecology.LocalityAt(tile, BlackSpecies);
         var white = ecology.LocalityAt(tile, WhiteSpecies);
@@ -77,6 +79,7 @@ public sealed partial class LiveLifecycleChecks
         nativeTile.PrimaryBiome = BiomeDef.Named("TemperateForest");
         GenMapParent(settlement);
         map = settlement.Map;
+        RelationAudit("after regional forest regeneration");
         var localRocks = Find.World.NaturalRockTypesIn(tile).ToArray();
         foreach (var existing in localRocks.SelectMany(rock => map.listerThings.ThingsOfDef(rock)).ToArray()) existing.Destroy();
         RegionalTick();
@@ -148,6 +151,7 @@ public sealed partial class LiveLifecycleChecks
             black.ReplacementTicks, black.ReplacementOrdinal, donorBlack.Cohort.Revision, donorBlack.Cohort.MatureCount, blackResident,
             whiteResident, Find.Maps.Count, Find.WorldObjects.AllWorldObjects.Count)));
         AssertNoErrors("regional new");
+        RelationAudit("before regional save");
         GameDataSaveLoader.SaveGame(SaveName);
     }
 

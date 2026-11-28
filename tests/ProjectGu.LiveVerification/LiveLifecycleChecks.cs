@@ -30,7 +30,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
     private static bool Botanical => GenCommandLine.CommandLineArgPassed("gubotanical");
     private static bool CargoPrototype => GenCommandLine.CommandLineArgPassed("gucargoprototype");
     private static bool AutomaticHauling => GenCommandLine.CommandLineArgPassed("guautomatichauling");
-    private Action NewCheck => EncounterReturn ? ExerciseEncounterReturn : RegionalEcology ? ExerciseRegionalEcology : ClanStart ? ExerciseClanStart : CultivatorLifecycle ? ExerciseCultivatorLifecycle : ManifestationProbe ? ExerciseManifestationProbe : Phase2Lifecycle ? ExercisePhase2Lifecycle : DormantHauling ? ExerciseDormantHauling : V2Engine ? ExerciseV2EngineProbe : VanillaGuInventory ? ExerciseVanillaGuInventory
+    private Action NewCheck => SiteContinuity ? ExerciseSiteContinuity : EncounterReturn ? ExerciseEncounterReturn : RegionalEcology ? ExerciseRegionalEcology : ClanStart ? ExerciseClanStart : CultivatorLifecycle ? ExerciseCultivatorLifecycle : ManifestationProbe ? ExerciseManifestationProbe : Phase2Lifecycle ? ExercisePhase2Lifecycle : DormantHauling ? ExerciseDormantHauling : V2Engine ? ExerciseV2EngineProbe : VanillaGuInventory ? ExerciseVanillaGuInventory
         : Slice3B5BPerf ? PrepareGuRegistryBenchmark : Slice3B5A || Slice3B5B ? ExerciseSlice3B5A
         : Slice3B4 ? ExerciseSlice3B4 : Slice3B3C ? ExerciseSlice3B3C : Slice3B3B ? ExerciseSlice3B3B : Slice3B3A ? ExerciseSlice3B3A : Slice3B2 ? ExerciseSlice3B2
         : Slice3B1 ? ExerciseSlice3B1 : Slice3A ? ExerciseSlice3A : EmptyCavernReset ? ExerciseEmptyCavernReset
@@ -81,6 +81,7 @@ public sealed partial class LiveLifecycleChecks : GameComponent
         else if (GenCommandLine.CommandLineArgPassed("guslice0final")) Run(VerifySlice0Final, "final");
         else if (EncounterReturn && GenCommandLine.CommandLineArgPassed("gureturncompacted")) Run(VerifyCompactedReturn, "compacted");
         else if (EncounterReturn) Run(VerifyEncounterReturnReload, "reload");
+        else if (SiteContinuity) Run(VerifySiteContinuityReload, "reload");
         else if (RegionalEcology) Run(VerifyRegionalEcologyReload, "reload");
         else if (Slice1A) Run(VerifySlice1AReload, "reload");
         else if (Slice0Wildlife) Run(VerifySlice0WildlifeReload, "reload");

@@ -31,20 +31,25 @@ namespace ProjectGu
 
         private readonly Queue<PendingEvent> pending = new();
         private int sweepCursor;
-        private MapTeardownCapture activeTeardown;
+        private readonly Dictionary<Map, MapTeardownCapture> mapTeardowns = new();
         // Transient: Things being destroyed only because their holder is being torn down, with the holder's location.
         private readonly Dictionary<Thing, GuLocation> holderTeardown = new();
         // Transient: where a corpse stood when its destruction began, keyed by the inner Pawn.
         private readonly Dictionary<Pawn, GuLocation> corpseLocations = new();
 
         internal int PendingEventCount => pending.Count;
+        internal bool MapTeardownInProgress => mapTeardowns.Count != 0;
+
+        private bool CapturedByTeardown(GuRecord record) =>
+            mapTeardowns.Values.Any(capture => capture.Captured.ContainsKey(record));
 
         // ---- Native event intake (called from native callbacks; enqueue only) ----------------------------------
 
         internal void EnqueueProjectionEvent(Thing projection, GuTerminalEvidence evidence)
         {
             if (projection == null) return;
-            if (activeTeardown != null && byProjection.TryGetValue(projection, out var captured) && activeTeardown.Captured.ContainsKey(captured))
+            if (evidence != GuTerminalEvidence.Killed && MapTeardownInProgress
+                && byProjection.TryGetValue(projection, out var captured) && CapturedByTeardown(captured))
                 return;
             var location = projection.GuTag()?.TakeEndingLocation() ?? LocationOf(projection);
             if (holderTeardown.TryGetValue(projection, out var holder))
@@ -60,8 +65,9 @@ namespace ProjectGu
         internal void EnqueueApertureEvent(Hediff_Aperture aperture, GuUnresolvedCause cause, string detail)
         {
             if (aperture?.pawn is not { } host) return;
-            if (activeTeardown != null && apertureOf.Any(binding => binding.Value == aperture && byId.TryGetValue(binding.Key, out var record)
-                    && activeTeardown.Captured.ContainsKey(record)))
+            if (cause != GuUnresolvedCause.HostDead && MapTeardownInProgress
+                && apertureOf.Any(binding => binding.Value == aperture && byId.TryGetValue(binding.Key, out var record)
+                    && CapturedByTeardown(record)))
                 return;
             var location = corpseLocations.TryGetValue(host, out var corpse) ? corpse
                 : GuLocation.Capture(host.Dead ? host.Corpse?.MapHeld : host.MapHeld,
@@ -69,10 +75,9 @@ namespace ProjectGu
             pending.Enqueue(new(PendingKind.Aperture, null, aperture, cause, GuTerminalEvidence.None, location, detail));
         }
 
-        internal void BeginMapTeardown(Map map)
+        internal bool BeginMapTeardown(Map map)
         {
-            if (!ready || map == null) return;
-            if (activeTeardown != null) EndMapTeardown(activeTeardown.Map);
+            if (!ready || map == null || mapTeardowns.ContainsKey(map)) return false;
             int tick = Find.TickManager.TicksGame;
             var capture = new MapTeardownCapture { Map = map };
             foreach (var binding in projectionOf)
@@ -86,20 +91,23 @@ namespace ProjectGu
                     capture.Captured[record] = GuLocation.Capture(map, host.Dead ? host.Corpse.PositionHeld : host.PositionHeld,
                         host.GetUniqueLoadID(), tick);
             }
-            activeTeardown = capture.Captured.Count == 0 ? null : capture;
+            mapTeardowns.Add(map, capture);
+            criticalCacheTick = -1;
+            return true;
         }
 
         internal void EndMapTeardown(Map map)
         {
-            if (activeTeardown == null || activeTeardown.Map != map) return;
+            if (!mapTeardowns.Remove(map, out var capture)) return;
             pending.Enqueue(new(PendingKind.MapTeardown, null, null, GuUnresolvedCause.MapRemoved, GuTerminalEvidence.MapRemoved,
-                null, $"Map {map.GetUniqueLoadID()} was removed.", activeTeardown));
-            activeTeardown = null;
+                null, null, capture));
+            if (map.Disposed || !Find.Maps.Contains(map))
+                GuSurfaceEcology.Instance?.ConfirmMapRemoval(map, Find.TickManager.TicksGame);
         }
 
         public override void GameComponentTick()
         {
-            if (!ready || CustodyTransitionInProgress) return;
+            if (!ready || CustodyTransitionInProgress || MapTeardownInProgress) return;
             if (pending.Count > 0) ApplyPendingEvents();
             Current.Game?.GetComponent<GuWorldComponent>()?.ApplyNativeCultivatorObservations();
             int tick = Find.TickManager.TicksGame;
@@ -112,7 +120,7 @@ namespace ProjectGu
         /// <summary>Applies queued native events. Exposed for fixtures that need a deterministic reconciliation point.</summary>
         internal void ApplyPendingEvents()
         {
-            if (!ready || CustodyTransitionInProgress || pending.Count == 0) return;
+            if (!ready || CustodyTransitionInProgress || MapTeardownInProgress || pending.Count == 0) return;
             int tick = Find.TickManager.TicksGame;
             while (pending.Count > 0)
             {
@@ -197,22 +205,28 @@ namespace ProjectGu
                 if (record.Placement == GuPlacementKind.Manifested)
                 {
                     var thing = ProjectionOf(record);
-                    if (thing != null && MatchesManifestation(record, thing))
+                    if (thing != null && MatchesManifestation(record, thing) && HasNativeCustody(thing))
                     {
-                        // A Gu that followed a living holder to the world keeps its manifestation. A wild Gu Pawn passed to
-                        // the world by itself has left native simulation.
-                        // ReturnToPopulation has no population target yet, so the world Pawn stays the manifestation (as in the sweep).
-                        if (thing is Pawn pawn && IsAbandonedWorldPawn(pawn) && PreservationFor(record) != GuPreservationPolicy.ReturnToPopulation)
-                            Abandon(record, pawn, location, GuUnresolvedCause.MapRemoved, GuTerminalEvidence.MapRemoved, "MapRemoved",
-                                "The map was removed and the wild Gu passed to the world.", tick);
+                        if (thing is Pawn_GuWildProjection pawn && IsAbandonedWorldPawn(pawn))
+                            ResolveWorldPawnDeparture(record, pawn, location, GuUnresolvedCause.MapRemoved, GuTerminalEvidence.MapRemoved, tick);
+                        else record.NoteLocation(LocationOf(thing) ?? location);
+                        continue;
+                    }
+                    if (thing is Pawn_GuWildProjection detached && MatchesManifestation(record, detached))
+                    {
+                        PreserveDetachedProjection(record, detached, location, tick);
                         continue;
                     }
                     Abandon(record, thing, location, GuUnresolvedCause.MapRemoved, GuTerminalEvidence.MapRemoved, "MapRemoved",
                         "The map was removed with the Gu on it.", tick);
                     continue;
                 }
-                if (record.ContainerKind == GuContainerKind.MortalAperture
-                    && apertureOf.TryGetValue(record.Id, out var aperture) && IsBoundAperture(aperture, record)) continue;
+                if (record.ContainerKind == GuContainerKind.MortalAperture && apertureOf.TryGetValue(record.Id, out var aperture)
+                    && IsBoundAperture(aperture, record) && HasNativeCustody(aperture.pawn.Dead ? aperture.pawn.Corpse : aperture.pawn))
+                {
+                    record.NoteLocation(LocationOf(aperture.pawn.Dead ? aperture.pawn.Corpse : aperture.pawn) ?? location);
+                    continue;
+                }
                 // The host's remains left with the map, so its aperture Gu slipped out there (D2.7). The map is gone, so the
                 // escaped Gu is placed by its preservation policy at that location.
                 bool escaped = record.ContainerKind == GuContainerKind.MortalAperture;
@@ -230,7 +244,8 @@ namespace ProjectGu
         {
             var species = record.Species;
             if (species == null || !string.IsNullOrEmpty(record.UniquenessKey) || record.Refinement?.CultivatorId != null
-                || record.Rank >= species.individualPreservationMinRank) return GuPreservationPolicy.Individual;
+                || record.Rank >= 6 || record.Rank >= species.individualPreservationMinRank
+                || species.wildIdentityRetentionDays < 0) return GuPreservationPolicy.Individual;
             return species.abandonmentPolicy;
         }
 
@@ -258,13 +273,13 @@ namespace ProjectGu
             else
             {
                 string note = policy == GuPreservationPolicy.ReturnToPopulation
-                    ? " No regional population can receive it yet." : " The location could not be established.";
+                    ? " The habitat cannot accept a return without an exact native custody transaction." : " The location could not be established.";
                 record.MarkUnresolved(fallback, evidence, detail + note, tick, location);
             }
         }
 
         /// <summary>Intentional retirement of a native object that no longer represents the record. Never counted as destruction.</summary>
-        private void RetireNativeObject(Thing thing, GuRecord record)
+        private void RetireNativeObject(Thing thing, GuRecord record, bool markRogue = true)
         {
             if (thing == null || thing.Discarded || (thing.Destroyed && thing is not Pawn)) return;
             try
@@ -281,7 +296,50 @@ namespace ProjectGu
             {
                 Log.Warning($"[Project GU] Could not retire the former native object of Gu {record.Id}. {exception}");
             }
-            if (!thing.Discarded && !thing.Destroyed) MarkRogue(thing.GuTag(), "The record left native simulation but its former object could not be retired.");
+            if (markRogue && !thing.Discarded && !thing.Destroyed)
+                MarkRogue(thing.GuTag(), "The record left native simulation but its former object could not be retired.");
+        }
+
+        private void ResolveWorldPawnDeparture(GuRecord record, Pawn_GuWildProjection pawn, GuLocation location,
+            GuUnresolvedCause cause, GuTerminalEvidence evidence, int tick)
+        {
+            record.NoteLocation(location);
+            if (PreservationFor(record) == GuPreservationPolicy.ReturnToPopulation || record.ReturnBlockedForBinding
+                || record.CustodyRevision == int.MaxValue || !HasSafeRetirementState(pawn) || Find.WorldPawns.IsBeingDiscarded(pawn)) return;
+
+            CustodyTransitionInProgress = true;
+            try
+            {
+                // Use the same native GC retirement path as the existing lifecycle. Confirm the body is gone before moving identity.
+                RetireNativeObject(pawn, record, markRogue: false);
+                if (pawn.Discarded && !Find.WorldPawns.Contains(pawn) && !Find.WorldPawns.IsBeingDiscarded(pawn))
+                {
+                    Abandon(record, null, location, cause, evidence, cause.ToString(),
+                        "The wild Gu left its native map and its unowned world Pawn was retired.", tick);
+                    lastProjection.Remove(record.Id);
+                    return;
+                }
+
+                record.BlockReturnForBinding();
+                if (HasNativeCustody(pawn)) return;
+                PreserveDetachedProjection(record, pawn, location, tick);
+            }
+            finally { CustodyTransitionInProgress = false; }
+        }
+
+        private static bool HasNativeCustody(Thing thing)
+        {
+            if (thing == null || thing.Discarded) return false;
+            if (thing.MapHeld is { Disposed: false } map && Find.Maps.Contains(map)) return true;
+            if (thing is Pawn pawn && Find.WorldPawns.Contains(pawn)) return true;
+            return thing.ParentHolder switch
+            {
+                null or Map => false,
+                Pawn_InventoryTracker inventory => HasNativeCustody(inventory.pawn),
+                Pawn_CarryTracker carry => HasNativeCustody(carry.pawn),
+                Thing holder => HasNativeCustody(holder),
+                _ => true
+            };
         }
 
         private static bool IsAbandonedWorldPawn(Pawn pawn) => !pawn.Dead && !pawn.Spawned && pawn.IsWorldPawn()
@@ -330,11 +388,9 @@ namespace ProjectGu
             {
                 if (MatchesManifestation(record, thing))
                 {
-                    // A wild Gu Pawn that left every map by itself is abstracted or retired by policy. ReturnToPopulation has no
-                    // target yet: the world Pawn stays until native GC discards it, and the record then keeps its evidence.
-                    if (thing is Pawn pawn && IsAbandonedWorldPawn(pawn) && PreservationFor(record) != GuPreservationPolicy.ReturnToPopulation)
-                        Abandon(record, pawn, LocationOf(pawn), GuUnresolvedCause.ProjectionEnded, GuTerminalEvidence.None, "WorldPawn",
-                            "The wild Gu left every map and became a world Pawn.", tick);
+                    if (thing is Pawn_GuWildProjection pawn && IsAbandonedWorldPawn(pawn))
+                        ResolveWorldPawnDeparture(record, pawn, LocationOf(pawn) ?? record.LastKnown, GuUnresolvedCause.ProjectionEnded,
+                            GuTerminalEvidence.None, tick);
                     return;
                 }
                 // A missed native event. The native object's state is the evidence.

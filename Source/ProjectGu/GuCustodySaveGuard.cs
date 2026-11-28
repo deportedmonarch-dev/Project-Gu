@@ -43,7 +43,7 @@ namespace ProjectGu
                 return false;
             }
             var registry = game?.GetComponent<GuIndividualRegistry>();
-            if (registry?.CustodyTransitionInProgress == true)
+            if (registry is { CustodyTransitionInProgress: true } or { MapTeardownInProgress: true })
             {
                 Messages.Message("Wait for the Gu custody transition to finish before saving.", MessageTypeDefOf.RejectInput, false);
                 return false;

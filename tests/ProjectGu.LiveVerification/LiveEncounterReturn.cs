@@ -204,6 +204,15 @@ public sealed partial class LiveLifecycleChecks
         int day = GuSurfaceEcology.TicksPerDay;
         Check(tracked != null && tracked.EncounterProtected(Now + 2 * day, day, 60 * day),
             "A fresh process restores the active tracking lease");
+        var digest = AccessTools.Field(typeof(GuPopulationRecord), "returnDigest");
+        long expected = saved.Row.Cohort.ReturnDigest;
+        try
+        {
+            digest.SetValue(saved.Row.Cohort, expected ^ 1L);
+            IndividualRegistry.CompactRecords(Now + GuIndividualRegistry.RetentionTicks, IndividualRegistry.Records.Count);
+            Check(!saved.Record.IsCompacted, "Compaction preserves the detailed record while its cohort credit cannot be verified");
+        }
+        finally { digest.SetValue(saved.Row.Cohort, expected); }
         IndividualRegistry.CompactRecords(Now + GuIndividualRegistry.RetentionTicks, IndividualRegistry.Records.Count);
         Check(saved.Record.IsCompacted && IndividualRegistry.TryReturnSurfaceResident(saved.State.Id, saved.State.Custody, saved.Map, out _),
             "Compaction preserves the old ID, replay and destination credit");

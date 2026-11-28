@@ -115,11 +115,19 @@ namespace ProjectGu
 
         private static GuRecord[] Residents(string key, string species) => Registry.SurfaceResidents(key, species, Capacity + 1);
 
-        private static bool Countable(GuRecord record, PlanetTile tile, Map map) => record.IsActionable && record.Condition == GuCondition.Active
-            && record.Refinement?.CultivatorId == null && (IsWorldResident(record)
-                ? record.LastKnown?.Tile == tile.tileId && record.LastKnown.Layer == tile.Layer.LayerID
-                : Registry.ProjectionOf(record) is Pawn_GuWildProjection { Dead: false, Spawned: true, Faction: null } pawn
-                    && map != null && pawn.Map == map && Registry.Observe(record).Form == GuObservedForm.ActivePawn);
+        private static bool Countable(GuRecord record, PlanetTile tile, Map map)
+        {
+            if (!record.IsActionable || record.Condition != GuCondition.Active || record.Refinement?.CultivatorId != null) return false;
+            if (IsWorldResident(record)) return IsRecordedLocality();
+            if (Registry.ProjectionOf(record) is not Pawn_GuWildProjection { Dead: false, Faction: null } pawn) return false;
+            var observed = Registry.Observe(record).Form;
+            return pawn.Spawned ? map != null && pawn.Map == map && observed == GuObservedForm.ActivePawn
+                : observed == GuObservedForm.WorldPawn && pawn.GetCaravan() == null && pawn.holdingOwner == null && IsRecordedLocality();
+
+            // A resident still occupies one habitat unit while its exact native parent is unavailable for recovery.
+            bool IsRecordedLocality() => record.LastKnown is { MapParentId: not null } location
+                && location.Tile == tile.tileId && location.Layer == tile.Layer.LayerID;
+        }
 
         private static bool IsWorldResident(GuRecord record) =>
             record.Placement == GuPlacementKind.Contained && record.ContainerKind == GuContainerKind.WorldSite;
@@ -130,13 +138,16 @@ namespace ProjectGu
         internal Locality LocalityAt(PlanetTile tile, string species) =>
             tile.Valid && sites.TryGetValue(Key(tile), out var site) ? site.Populations.GetValueOrDefault(species) : null;
 
+        internal GuPopulationRecord CohortAt(string locality, string species) =>
+            sites.TryGetValue(locality, out var site) ? site.Populations.GetValueOrDefault(species)?.Cohort : null;
+
         internal Locality RegionalPopulation(string region, string species) =>
             region != null && regions.TryGetValue(region, out var entry) ? entry.Populations.GetValueOrDefault(species) : null;
 
         public override void GameComponentTick()
         {
             int now = Find.TickManager.TicksGame;
-            if (now % SampleTicks != 0 || Registry == null || Registry.CustodyTransitionInProgress) return;
+            if (now % SampleTicks != 0 || Registry == null || Registry.CustodyTransitionInProgress || Registry.MapTeardownInProgress) return;
             EnsureSchedule(now);
             foreach (var map in Find.Maps)
             {
@@ -155,7 +166,7 @@ namespace ProjectGu
                     if (suitability == 0 || residents.Length > 1 || residents.Any(record => !Countable(record, map.Tile, map))
                         || now % ManifestationTicks != 0 || now < locality.NextManifestationTick) continue;
                     var resident = residents.SingleOrDefault();
-                    if (resident != null ? IsWorldResident(resident) : locality.Cohort.MatureCount > 0)
+                    if (resident != null ? IsWorldResident(resident) && resident.LastKnown?.IsAt(map) == true : locality.Cohort.MatureCount > 0)
                         TryManifest(map, key, sites[key], locality, species, resident, now);
                 }
             }

@@ -101,6 +101,7 @@ namespace ProjectGu
                     return false;
                 }
                 moved = true;
+                criticalCacheTick = -1;
                 record.NoteEncounterInteraction(Find.TickManager.TicksGame, historical: true);
                 reason = null;
                 return true;

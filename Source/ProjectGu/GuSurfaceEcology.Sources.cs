@@ -143,6 +143,7 @@ namespace ProjectGu
         {
             if (Registry?.Resolve(id) is not { SurfaceResidence: null, Species: { HasSurfacePopulation: true } species } record
                 || record.CustodyRevision != revision || !GuPocketProbeComponent.IsSurfaceSettlement(map)
+                || Registry.ProjectionOf(record) is not Pawn_GuWildProjection { Spawned: true }
                 || !Countable(record, map.Tile, map) || source == GuSurfaceSource.Escape && !record.HasEscapeEvidence) return false;
             string key = Key(map);
             int weight = Suitability(map, species, out bool exposedRock);

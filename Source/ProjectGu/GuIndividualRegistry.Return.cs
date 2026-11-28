@@ -69,7 +69,7 @@ namespace ProjectGu
                 return record.EncounterProtected(now, quietTicks, historyTicks) || !CanRetire(pawn);
             }
 
-            if (Protected() || pending.Count != 0 || activeTeardown != null || ecology == null
+            if (Protected() || pending.Count != 0 || ecology == null
                 || !ecology.TryPrepareReturn(record, map, out var destination, out _)) return false;
 
             var cohort = destination.Cohort;
@@ -95,7 +95,7 @@ namespace ProjectGu
                     if (!pawn.Dead && !pawn.Destroyed && !pawn.Discarded) record.BlockReturnForBinding();
                     return false;
                 }
-                if (!record.IsActionable || pending.Count != 0 || activeTeardown != null || record.CustodyRevision != expectedRevision
+                if (!record.IsActionable || pending.Count != 0 || MapTeardownInProgress || record.CustodyRevision != expectedRevision
                     || record.StateRevision != stateRevision
                     || ProjectionOf(record) != pawn || map.Disposed || !Find.Maps.Contains(map) || Protected()
                     || !ecology.TryPrepareReturn(record, map, out var approved, out int remaining) || approved != destination
@@ -138,17 +138,26 @@ namespace ProjectGu
             }
             if (pawn.Discarded || !CanRestoreDetached(pawn)) return;
 
+            int tick = Find.TickManager.TicksGame;
+            PreserveDetachedProjection(record, pawn, GuLocation.Capture(map, cell, null, tick), tick);
+        }
+
+        private void PreserveDetachedProjection(GuRecord record, Pawn_GuWildProjection pawn, GuLocation location, int tick)
+        {
             record.BlockReturnForBinding();
-            try { Find.WorldPawns.PassToWorld(pawn, PawnDiscardDecideMode.KeepForever); }
+            try
+            {
+                if (!pawn.Discarded && CanRestoreDetached(pawn) && !Find.WorldPawns.IsBeingDiscarded(pawn))
+                    Find.WorldPawns.PassToWorld(pawn, PawnDiscardDecideMode.KeepForever);
+            }
             catch (Exception exception)
             {
-                Log.Warning($"[Project GU] Native return could not preserve Gu {record.Id} as a world pawn. {exception}");
+                Log.Warning($"[Project GU] Native custody of the detached Gu {record.Id} could not be restored. {exception}");
             }
-            if (Find.WorldPawns.Contains(pawn) || pending.Any(item => item.Projection == pawn)) return;
+            if (HasNativeCustody(pawn) || pending.Any(item => item.Projection == pawn)) return;
             UnbindAll(record);
             record.MarkUnresolved(GuUnresolvedCause.ProjectionMissing, GuTerminalEvidence.None,
-                "Native return rollback could not restore an owned projection.", Find.TickManager.TicksGame,
-                GuLocation.Capture(map, cell, null, Find.TickManager.TicksGame));
+                "Native reconciliation could not restore an owned projection.", tick, location);
         }
 
         private void RetireReturnedPawn(Pawn_GuWildProjection pawn, GuRecord record)

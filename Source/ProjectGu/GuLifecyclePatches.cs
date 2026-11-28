@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
@@ -15,6 +16,7 @@ namespace ProjectGu
     {
         internal const string HarmonyId = "projectgu.livingcultivation.lifecycle";
         internal static bool Installed { get; }
+        private static readonly HashSet<MapParent> abandoning = new();
 
         private static GuIndividualRegistry Registry => Current.Game?.GetComponent<GuIndividualRegistry>();
         private static GuWorldComponent Cultivators => Current.Game?.GetComponent<GuWorldComponent>();
@@ -24,9 +26,15 @@ namespace ProjectGu
             try
             {
                 var harmony = new Harmony(HarmonyId);
+                harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(Game), nameof(Game.DeinitAndRemoveMap))),
+                    prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforeMapDeinit)) { priority = Priority.Last },
+                    finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterMapDeinit)));
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(MapDeiniter), nameof(MapDeiniter.Deinit))),
                     prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforeMapDeinit)),
                     finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterMapDeinit)));
+                harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(MapParent), nameof(MapParent.Abandon))),
+                    prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforeParentAbandon)),
+                    finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterParentAbandon)));
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(WorldObjectsHolder), nameof(WorldObjectsHolder.Remove))),
                     postfix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterWorldObjectRemoval)));
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(Corpse), nameof(Corpse.Destroy))),
@@ -59,22 +67,30 @@ namespace ProjectGu
         private static System.Reflection.MethodInfo Required(System.Reflection.MethodInfo method) =>
             method ?? throw new MissingMethodException("A native lifecycle method required by Project GU was not found.");
 
-        private static void BeforeMapDeinit(Map map)
+        private static void BeforeMapDeinit(Map map, out bool __state)
         {
-            GuSurfaceEcology.Instance?.ObserveMapRetirement(map);
-            Registry?.BeginMapTeardown(map);
+            __state = Registry?.BeginMapTeardown(map) == true;
+            if (__state) GuSurfaceEcology.Instance?.ObserveBeforeMapRemoval(map);
         }
 
-        private static Exception AfterMapDeinit(Map map, Exception __exception)
+        private static Exception AfterMapDeinit(Map map, bool __state, Exception __exception)
         {
-            Registry?.EndMapTeardown(map);
+            if (__state) Registry?.EndMapTeardown(map);
+            return __exception;
+        }
+
+        private static void BeforeParentAbandon(MapParent __instance, out bool __state) => __state = abandoning.Add(__instance);
+
+        private static Exception AfterParentAbandon(MapParent __instance, bool __state, Exception __exception)
+        {
+            if (__state) abandoning.Remove(__instance);
             return __exception;
         }
 
         private static void AfterWorldObjectRemoval(WorldObject __0, bool __runOriginal)
         {
             if (__runOriginal && __0 is Settlement settlement)
-                GuSurfaceEcology.Instance?.ObserveDestroyedSettlement(settlement);
+                GuSurfaceEcology.Instance?.ObserveRemovedSettlement(settlement, abandoning.Contains(settlement));
         }
 
         // Destroy clears the corpse contents before the finalizer runs, so the inner Pawn travels in __state.

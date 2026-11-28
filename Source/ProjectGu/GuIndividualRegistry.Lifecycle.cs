@@ -273,8 +273,8 @@ namespace ProjectGu
             && record.LastKnown?.IsAt(map) == true);
 
         /// <summary>
-        /// Development fixture for future expeditions: manifests a Gu held at an abstract world location on a map that stands
-        /// on the same tile. Dormant Gu return as Things and active Gu as wild Pawns.
+        /// Development fixture for future expeditions: manifests a Gu at its recorded native locality.
+        /// Dormant Gu return as Things and active Gu as wild Pawns.
         /// </summary>
         internal bool TryRecoverFromWorldSite(string id, int expectedRevision, Map map, IntVec3 cell, out Thing manifestation, out string reason)
             => TryRecoverWorldSite(id, expectedRevision, map, cell, null, out manifestation, out reason);
@@ -292,7 +292,7 @@ namespace ProjectGu
                 || record.Placement != GuPlacementKind.Contained
                 || record.ContainerKind != GuContainerKind.WorldSite || record.CustodyRevision != expectedRevision
                 || expectedRevision == int.MaxValue) return false;
-            reason = "Choose an open cell on a map at the Gu's recorded world location.";
+            reason = "Choose an open cell in the Gu's recorded native locality.";
             if (record.LastKnown?.IsAt(map) != true || !CanPlaceDormant(map, cell, null)) return false;
             var species = record.Species;
             bool dormant = record.Condition == GuCondition.Dormant;
@@ -331,6 +331,8 @@ namespace ProjectGu
                     Log.Warning($"[Project GU] {reason} {exception}");
                     return false;
                 }
+                if (!record.IsActionable || record.CustodyRevision != expectedRevision || record.LastKnown?.IsAt(map) != true
+                    || !IsOnCell(staged, map, cell) || MapTeardownInProgress || pending.Any(item => item.Teardown?.Map == map)) return false;
                 if (surfaceReady != null && (!surfaceReady() || map.reservationManager.IsReserved(cell)
                     || !CanPlaceDormant(map, cell, staged as Pawn))) return false;
                 record.CommitManifestation(dormant ? GuManifestationKind.Thing : GuManifestationKind.Pawn, staged.GetUniqueLoadID());
@@ -407,7 +409,7 @@ namespace ProjectGu
             var held = inventory.Where(thing => byProjection.TryGetValue(thing, out var record) && record.IsLiving
                 && MatchesManifestation(record, thing)).ToArray();
             if (held.Length == 0) return;
-            if (dropMap is { Disposed: false } map && dropCell.IsValid && Find.Maps.Contains(map) && activeTeardown?.Map != map)
+            if (dropMap is { Disposed: false } map && dropCell.IsValid && Find.Maps.Contains(map) && !mapTeardowns.ContainsKey(map))
             {
                 foreach (var thing in held)
                 {
@@ -428,20 +430,24 @@ namespace ProjectGu
             {
                 criticalCacheTick = tick;
                 criticalPawns.Clear();
-                // Selective by design: only Gu that must keep their identity justify keeping a native world Pawn. Every retained
-                // Pawn costs memory and save size, so population-policy Gu and their carriers are left to native GC.
+                // Holders carry canonical custody even while off-map. For unheld bodies, retain only species with explicit
+                // individual policy and exact surface residents that reconciliation cannot safely move into record-only custody.
                 foreach (var (thing, record) in byProjection)
                 {
                     if (!record.IsLiving) continue;
                     var policy = PreservationFor(record);
-                    // A Gu Pawn of an individual or retiring species is kept only until reconciliation abstracts or retires it.
-                    if (thing is Pawn projection) { if (policy != GuPreservationPolicy.ReturnToPopulation) criticalPawns.Add(projection); }
-                    else if (policy != GuPreservationPolicy.Individual) continue;
+                    if (thing is Pawn projection)
+                    {
+                        if (record.SurfaceResidence != null || policy != GuPreservationPolicy.ReturnToPopulation)
+                            criticalPawns.Add(projection);
+                    }
+                    else if (policy != GuPreservationPolicy.Individual && record.Species?.HasSurfacePopulation != true) continue;
                     else if (thing.ParentHolder is Pawn_InventoryTracker inventory) criticalPawns.Add(inventory.pawn);
                     else if (thing.ParentHolder is Pawn_CarryTracker carry) criticalPawns.Add(carry.pawn);
                 }
                 foreach (var (id, aperture) in apertureOf)
-                    if (byId.TryGetValue(id, out var record) && record.IsLiving && PreservationFor(record) == GuPreservationPolicy.Individual)
+                    if (byId.TryGetValue(id, out var record) && record.IsLiving
+                        && (PreservationFor(record) == GuPreservationPolicy.Individual || record.Species?.HasSurfacePopulation == true))
                         criticalPawns.Add(aperture.pawn);
             }
             return criticalPawns.Contains(pawn);
@@ -465,9 +471,13 @@ namespace ProjectGu
                 var record = records[compactionCursor++];
                 if (record == null) continue;
                 if (record.IsLiving) record.SummarizeHistoryBefore(now - RetentionTicks);
-                else if (record.EndedTick >= 0 && now - record.EndedTick >= RetentionTicks && record.Compact()) compactedCount++;
+                else if (!record.IsCompacted && record.EndedTick >= 0 && now - record.EndedTick >= RetentionTicks
+                    && (record.Existence != GuExistence.Aggregated || CanCompactPopulationReturn(record)) && record.Compact()) compactedCount++;
             }
             return compactedCount;
         }
+
+        private bool CanCompactPopulationReturn(GuRecord record) => record.PopulationReturn is { } receipt && receipt.Matches(record)
+            && GuSurfaceEcology.Instance?.CohortAt(receipt.Site, record.SpeciesDefName) is { } cohort && SurfaceEvidenceIntact(receipt.Site, cohort);
     }
 }

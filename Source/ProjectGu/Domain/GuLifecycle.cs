@@ -1,3 +1,5 @@
+using ProjectGu.Underground;
+using RimWorld.Planet;
 using Verse;
 
 namespace ProjectGu.Domain
@@ -14,6 +16,8 @@ namespace ProjectGu.Domain
         private string mapId;
         private string mapParentId;
         private string mapParentDef;
+        private string undergroundLevel;
+        private string legacySourceParent;
         private string holderId;
         private int tick = -1;
 
@@ -23,6 +27,8 @@ namespace ProjectGu.Domain
         public string MapId => mapId;
         public string MapParentId => mapParentId;
         public string MapParentDef => mapParentDef;
+        internal string UndergroundLevel => undergroundLevel;
+        internal string LegacySourceParent => legacySourceParent;
         public string HolderId => holderId;
         public int Tick => tick;
         public bool HasTile => tile >= 0;
@@ -34,24 +40,40 @@ namespace ProjectGu.Domain
             var location = new GuLocation { cell = cell, holderId = holderId, tick = tick };
             if (map != null)
             {
-                // A pocket map has no world tile of its own. Its source map's tile is where it can be reached.
-                var tile = map.Tile;
-                if (!tile.Valid && map.Parent is RimWorld.Planet.PocketMapParent { sourceMap: { } source }) tile = source.Tile;
+                var tile = SiteTile(map);
                 location.tile = tile.tileId;
                 location.layer = tile.Valid ? tile.Layer?.LayerID ?? -1 : -1;
                 location.mapId = map.GetUniqueLoadID();
                 location.mapParentId = map.Parent?.GetUniqueLoadID();
                 location.mapParentDef = map.Parent?.def?.defName;
+                location.undergroundLevel = (map.Parent as GuUndergroundLevelParent)?.LevelId;
+                // Legacy pocket teardown retains egress to its exact native source, including a regenerated source map.
+                location.legacySourceParent = (map.Parent as PocketMapParent)?.sourceMap?.Parent?.GetUniqueLoadID();
             }
             return location;
         }
 
-        internal static GuLocation FromTile(int tile, int layer, IntVec3 cell, string mapId, string holderId, int tick) =>
-            new() { tile = tile, layer = layer, cell = cell, mapId = mapId, holderId = holderId, tick = tick };
+        internal static GuLocation FromTile(int tile, int layer, IntVec3 cell, string mapId, string holderId, int tick,
+            string parentId = null, string parentDef = null, string level = null, string sourceParent = null) => new()
+        {
+            tile = tile, layer = layer, cell = cell, mapId = mapId, holderId = holderId, tick = tick,
+            mapParentId = parentId, mapParentDef = parentDef, undergroundLevel = level, legacySourceParent = sourceParent
+        };
 
-        /// <summary>True when the map stands on the recorded tile and layer.</summary>
-        internal bool IsAt(Map map) => map != null && HasTile && map.Tile.tileId == tile
-            && (map.Tile.Valid ? map.Tile.Layer?.LayerID ?? -1 : -1) == layer;
+        private static PlanetTile SiteTile(Map map) => !map.Tile.Valid && map.Parent is PocketMapParent { sourceMap: { } source }
+            ? source.Tile : map.Tile;
+
+        /// <summary>Checks the original native locality, including the parent and layer across map regeneration.</summary>
+        internal bool IsAt(Map map)
+        {
+            if (map is not { Disposed: false, Parent: { Spawned: true } parent } || parent.Map != map || !Find.Maps.Contains(map)) return false;
+            var address = SiteTile(map);
+            if (!address.Valid || address.tileId != tile || address.Layer?.LayerID != layer) return false;
+            string parentId = parent.GetUniqueLoadID();
+            if (legacySourceParent == parentId) return true;
+            return mapParentId == parentId && mapParentDef == parent.def?.defName
+                && undergroundLevel == (parent as GuUndergroundLevelParent)?.LevelId;
+        }
 
         public string Describe() => (HasTile ? $"tile {tile} layer {layer}" : "no tile")
             + (cell.IsValid ? $" cell {cell}" : "") + (mapId == null ? "" : $" map {mapId}")
@@ -66,6 +88,8 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref mapId, "mapId");
             Scribe_Values.Look(ref mapParentId, "mapParentId");
             Scribe_Values.Look(ref mapParentDef, "mapParentDef");
+            Scribe_Values.Look(ref undergroundLevel, "undergroundLevel");
+            Scribe_Values.Look(ref legacySourceParent, "legacySourceParent");
             Scribe_Values.Look(ref holderId, "holderId");
             Scribe_Values.Look(ref tick, "tick", -1);
         }

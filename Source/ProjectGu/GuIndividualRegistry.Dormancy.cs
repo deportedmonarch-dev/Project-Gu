@@ -136,9 +136,11 @@ namespace ProjectGu
             || (!pawn.IsMutant && !pawn.IsCreepJoiner && !pawn.IsDuplicate && Find.Anomaly?.PawnHasUnnaturalCorpse(pawn) != true
                 && Find.Anomaly?.IsPawnHypnotized(pawn) != true);
 
-        private static bool CanRetire(Pawn_GuWildProjection pawn) => pawn.GetType() == typeof(Pawn_GuWildProjection) && IsOutsideAnomalyLifecycle(pawn)
+        private static bool CanRetire(Pawn_GuWildProjection pawn) => !Find.WorldPawns.Contains(pawn) && HasSafeRetirementState(pawn);
+
+        private static bool HasSafeRetirementState(Pawn_GuWildProjection pawn) => pawn.GetType() == typeof(Pawn_GuWildProjection) && IsOutsideAnomalyLifecycle(pawn)
             && pawn.Faction == null && !pawn.Downed && !pawn.IsPrisoner && !pawn.IsSlave && pawn.GetLord() == null
-            && !Find.WorldPawns.Contains(pawn) && !QuestUtility.IsQuestLodger(pawn) && pawn.questTags?.Count is not > 0
+            && !QuestUtility.IsQuestLodger(pawn) && pawn.questTags?.Count is not > 0
             && Find.QuestManager?.IsReservedByAnyQuest(pawn) != true
             && pawn.relations?.RelatedToAnyoneOrAnyoneRelatedToMe != true && !Find.TaleManager.AnyTaleConcerns(pawn)
             && (pawn.ownership == null || (pawn.ownership.OwnedBed == null && pawn.ownership.AssignedGrave == null
