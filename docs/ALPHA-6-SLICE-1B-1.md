@@ -34,6 +34,10 @@ Slice 3 still needs a policy for how long common residents stay physical and whe
 
 The surface fixture let both Boar species appear and wander on a generated settlement with no colonists, checked their placement cells and separate debits, and verified that the camera and discovery messages stayed quiet. The search job found the existing Black Boar at its exact position, submitted its native highlight, and preserved its position, registry count and cohort revision. An out-of-radius search reported failure. An autonomous job left the camera where it was. The fixture also checked depletion while White Boar remained, and restoration of the original resident after map regeneration. Recovery checks shortened an already scheduled interval in the disposable fixture, then used the native tick path to verify one replacement at a time through capacity four. Camera position and highlight submission were checked headlessly.
 
+### Owner acceptance of the ambient correction
+
+The owner accepted autonomous surface manifestation and detection-only environmental search at `236cb67` on RimWorld 1.7.5021 rev1365 within the scope tested. The owner did not report case-by-case results. Slice 3 still owns the fogged-terrain policy, physical resident limits and transitions between physical residents and abstract cohorts.
+
 ## Framework corrections
 
 Surface ecology previously assumed every locality, transaction, resident and pursuit belonged to Black Boar. A species Def now opts into the surface forest rules. Each locality retains one registered source identity with separate species cohorts, recovery clocks and resident checks. The registry receipt format already scoped debits by species. Surface evidence now uses the cohort's species, and discovery, pursuit and curiosity messages use the registered species or projection label.
