@@ -298,7 +298,7 @@ public sealed partial class LiveLifecycleChecks
         var species = DefDatabase<GuSpeciesDef>.AllDefsListForReading.Single(def => def.abilities.Contains(ability));
         Map map = disciple.Map;
         var ecology = GuSurfaceEcology.Instance;
-        Check(!Prefs.DevMode && map.Biome.defName == "TemperateForest", "The disciple searches in the real surface habitat with Development Mode off");
+        Check(!Prefs.DevMode && map.Biome.defName == "TemperateForest", "The disciple is in the real surface habitat with Development Mode off");
         TickUntil(() => ecology.LocalityAt(map, species.defName) != null, 500, "The surface locality is initialized");
         var locality = ecology.LocalityAt(map, species.defName);
         GuRecord Resident() => registry.Records.SingleOrDefault(record => record.SpeciesDefName == species.defName
@@ -309,13 +309,13 @@ public sealed partial class LiveLifecycleChecks
             TickUntil(() => locality.ReplacementTicks >= 0, 500, "The empty surface cohort schedules native recruitment");
             locality.ReplacementTicks = 250;
         }
-        TickUntil(() => Resident() != null, 7500, $"Ordinary surface proximity discovered a registered {species.label}");
+        TickUntil(() => Resident() != null, 7500, $"Ambient ecology manifested a registered {species.label}");
         var boar = Resident();
         var receipt = boar.CreationEvidence;
         int remaining = locality.Cohort.MatureCount;
-        Check(boar.SpeciesDefName == species.defName && receipt.Trigger == "surface-proximity" && boar.CohortDebitCommitted
+        Check(boar.SpeciesDefName == species.defName && receipt.Trigger == GuSurfaceEcology.AmbientTrigger && boar.CohortDebitCommitted
             && receipt.RevisionAfter == receipt.RevisionBefore + 1 && registry.SurfaceEvidenceIntact(receipt.SourceId, locality.Cohort),
-            "The discovered individual has a committed, conserved surface cohort debit");
+            "The ambient resident has a committed, conserved surface cohort debit");
         var wild = (Pawn_GuWildProjection)registry.ProjectionOf(boar);
         PositionBeside(disciple, wild);
         Order(disciple, wild, $"Capture {species.label} (unrefined)");

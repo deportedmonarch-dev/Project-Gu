@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -17,6 +18,8 @@ namespace ProjectGu.Presentation
         internal const int MaxInstances = 64;
 
         private readonly List<GuFxInstance> active = new();
+        private Thing searchResult;
+        private float searchHighlightUntil;
 
         public GuFxMapComponent(Map map) : base(map) { }
 
@@ -107,6 +110,26 @@ namespace ProjectGu.Presentation
             }
         }
 
+        internal void HighlightSearchResult(Thing target)
+        {
+            searchResult = target;
+            searchHighlightUntil = Time.realtimeSinceStartup + 3f;
+        }
+
+        public override void MapComponentUpdate()
+        {
+            if (searchResult == null) return;
+            if (Time.realtimeSinceStartup >= searchHighlightUntil || !searchResult.Spawned
+                || searchResult.Map != map || searchResult.Position.Fogged(map))
+            {
+                searchResult = null;
+                return;
+            }
+
+            if (Find.CurrentMap == map)
+                TargetHighlighter.Highlight(searchResult, true, false, true);
+        }
+
         public override void MapComponentDraw()
         {
             LastDrawSubmissions = 0;
@@ -125,6 +148,7 @@ namespace ProjectGu.Presentation
 
         public override void MapRemoved()
         {
+            searchResult = null;
             TotalRetired += active.Count;
             active.Clear();
         }

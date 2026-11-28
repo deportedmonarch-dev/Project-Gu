@@ -7,6 +7,7 @@ using HarmonyLib;
 using ProjectGu;
 using ProjectGu.Domain;
 using ProjectGu.Jobs;
+using ProjectGu.Presentation;
 using ProjectGu.Sustenance;
 using RimWorld;
 using RimWorld.Planet;
@@ -41,13 +42,13 @@ public sealed partial class LiveLifecycleChecks
             CheckReplacementRoll(habitat);
             habitat.ReplacementTicks = 250;
         }
-        TickUntil(() => SurfaceGu().Count > 0, 5200, "A colonist's proximity materialized a naturally wandering Black Boar");
+        TickUntil(() => SurfaceGu().Count > 0, 5200, "Surface ecology manifested a Black Boar through the native tick");
         var caught = SurfaceGu().Single();
         var wild = (Pawn_GuWildProjection)IndividualRegistry.ProjectionOf(caught);
         var receipt = caught.CreationEvidence;
-        Check(receipt.Trigger == "surface-proximity" && receipt.Rank == 1 && caught.CohortDebitCommitted
+        Check(receipt.Trigger == GuSurfaceEcology.AmbientTrigger && receipt.Rank == 1 && caught.CohortDebitCommitted
             && receipt.RevisionAfter == receipt.RevisionBefore + 1 && habitat.Cohort.MatureCount + 1 == Math.Max(1, initial),
-            "Discovery exchanged one mature unit for one registered individual");
+            "Ambient manifestation exchanged one mature unit for one registered individual");
         var start = wild.Position;
         long age = wild.ageTracker.AgeBiologicalTicks;
         Check(wild.needs.food == null && wild.RaceProps.disableMating && !wild.RaceProps.hasGenders && !wild.RaceProps.canFlyIntoMap
@@ -59,7 +60,7 @@ public sealed partial class LiveLifecycleChecks
             && !wild.health.hediffSet.HasHediff(HediffDefOf.Malnutrition), "Wild wandering changed neither biological age nor food resources");
         controlFood.Destroy();
         ExerciseBlackBoarNativeGuards(home, mortal, wild);
-        Report("Proximity discovery, wandering, abstract feeding, fixed age and native exclusion controls passed.");
+        Report("Ambient manifestation, wandering, abstract feeding, fixed age and native exclusion controls passed.");
 
         PositionBeside(mortal, wild);
         Order(mortal, wild, "Capture Black Boar Gu (unrefined)");
@@ -247,16 +248,24 @@ public sealed partial class LiveLifecycleChecks
         var target = AccessTools.Field(typeof(Pawn_GuWildProjection), "curiosityTarget");
         var revision = habitat.Cohort.Revision;
         float normalChance = species.wildCuriosityChancePerHour;
+        bool wasDrafted = mortal.Drafted;
         try
         {
             Check(normalChance == 0.001f, "The production curiosity chance is rare and configurable");
             species.wildCuriosityChancePerHour = 1f;
-            wild.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait, 2800), JobCondition.InterruptForced);
-            TickUntil(() => target.GetValue(wild) is Pawn, 2800, "The wild Gu picked a particular colonist through its native interval");
+            mortal.drafter.Drafted = true;
+            mortal.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait, 5300), JobCondition.InterruptForced);
+            wild.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait, 5300), JobCondition.InterruptForced);
+            Check(wild.CanReach(mortal, PathEndMode.Touch, Danger.Some), "The stationary curiosity fixture has a reachable colonist");
+            TickUntil(() => target.GetValue(wild) is Pawn, 5200, "The wild Gu picked a particular colonist through its native interval");
             Check(habitat.Cohort.Revision == revision && IndividualRegistry.Resolve(wild) != null,
                 "Curiosity kept the same Gu and changed no population");
         }
-        finally { species.wildCuriosityChancePerHour = normalChance; }
+        finally
+        {
+            species.wildCuriosityChancePerHour = normalChance;
+            mortal.drafter.Drafted = wasDrafted;
+        }
     }
 
     private static void ExerciseSurfaceReplacement(Pawn scout, Map original)
@@ -286,32 +295,52 @@ public sealed partial class LiveLifecycleChecks
         tile.PrimaryBiome = BiomeDef.Named("TemperateForest");
         GenMapParent(settlement);
         map = settlement.Map;
-        TickUntil(() => Now % 2500 == 0, 2500);
-        scout.DeSpawn();
-        GenSpawn.Spawn(scout, map.Center, map);
-        scout.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        Current.Game.CurrentMap = original;
+        var cameraBefore = SurfaceCameraTarget();
+        int startTick = Now;
         TickUntil(() => GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") != null, 250);
         var habitat = GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu");
-        if (habitat.Cohort.MatureCount == 0)
+        var whiteHabitat = GuSurfaceEcology.Instance.LocalityAt(map, "GU_WhiteBoarGu");
+        Pawn_GuWildProjection Wild(string species) => map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>()
+            .SingleOrDefault(pawn => IndividualRegistry.Resolve(pawn)?.SpeciesDefName == species);
+        foreach (var locality in new[] { habitat, whiteHabitat })
         {
-            CheckReplacementRoll(habitat);
-            habitat.ReplacementTicks = 250;
-            TickUntil(() => habitat.Cohort.MatureCount > 0 || map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu"), 500);
+            if (locality.Cohort.MatureCount == 0 && Wild(locality.Cohort.SpeciesDefName) == null)
+            {
+                CheckReplacementRoll(locality);
+                locality.ReplacementTicks = 250;
+            }
         }
-        var nearby = GenRadial.RadialCellsAround(scout.Position, 6, true).First(cell =>
-            GuSurfaceEcology.SearchGround(map, cell) && scout.CanReach(cell, PathEndMode.Touch, Danger.Some));
-        var search = new FloatMenuOptionProvider_GuSearchSurface().GetOptions(new FloatMenuContext(new List<Pawn> { scout },
-            nearby.ToVector3Shifted(), map)).FirstOrDefault(option => option.Label == "Search for wild Gu");
-        Check(search != null, "An ordinary terrain right-click exposes Search for wild Gu");
-        search.action();
-        TickUntil(() => map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu"), 2500, "The terrain search can materialize a native resident");
-        var before = map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Single(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu");
+        var placements = new Dictionary<Pawn, IntVec3>();
+        bool BothManifested()
+        {
+            foreach (var species in new[] { BlackSpecies, WhiteSpecies })
+                if (Wild(species) is { } resident) placements.TryAdd(resident, resident.Position);
+            return placements.Count == 2;
+        }
+        TickUntil(BothManifested, 5200,
+            "Both species manifested on a newly initialized settlement without any colonists or jobs on the map");
+        var before = Wild(BlackSpecies);
+        var white = Wild(WhiteSpecies);
         var record = IndividualRegistry.Resolve(before);
-        Check(record.CreationEvidence.Trigger == "surface-search", "The deliberate job committed its own surface discovery receipt");
+        Check(map.mapPawns.FreeColonistsSpawned.Count == 0 && Find.CurrentMap == original && SurfaceCameraTarget() == cameraBefore
+            && !LiveMessages().Any(message => message.startingTick >= startTick && message.text.Contains("discovered a wild")),
+            "Witness-free manifestation left the player's map and camera alone and issued no discovery message");
+        Check(new[] { before, white }.All(pawn => GuSurfaceEcology.AmbientHabitat(map, placements[pawn])
+            && IndividualRegistry.Resolve(pawn).CreationEvidence.Trigger == GuSurfaceEcology.AmbientTrigger)
+            && habitat.Cohort.ReceiptDebits == 1 && whiteHabitat.Cohort.ReceiptDebits == 1,
+            "Both initial placements used open natural habitat and each species paid its own debit");
+        var departure = before.Position;
+        TickUntil(() => before.Position != departure, 1600, "The ambient resident wandered before any colonist visited");
+
+        scout.DeSpawn();
+        GenSpawn.Spawn(scout, map.Center, map);
+        ExerciseSurfaceSearch(scout, before, white, habitat);
         long revision = habitat.Cohort.Revision;
         int count = habitat.Cohort.MatureCount;
         scout.DeSpawn();
         GenSpawn.Spawn(scout, previous, original);
+        Current.Game.CurrentMap = original;
         Current.Game.DeinitAndRemoveMap(map, false);
         TickUntil(() => record.ContainerKind == GuContainerKind.WorldSite, 250, "Native teardown kept a living resident at its world locality");
         int remaining = habitat.ReplacementTicks;
@@ -319,20 +348,87 @@ public sealed partial class LiveLifecycleChecks
         Check(habitat.ReplacementTicks == remaining, "The unloaded locality did not bank any replacement time");
         GenMapParent(settlement);
         map = settlement.Map;
-        scout.DeSpawn();
-        GenSpawn.Spawn(scout, map.Center, map);
         TickUntil(() => IndividualRegistry.ProjectionOf(record) is Pawn_GuWildProjection { Spawned: true }, 5200,
-            "The regenerated map discovered the same resident through production staging");
+            "The regenerated map remanifested the same resident without any colonist arriving");
         Check(IndividualRegistry.ProjectionOf(record) != before && habitat == GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu")
             && habitat.Cohort.MatureCount == count && habitat.Cohort.Revision == revision && record.CohortDebitCommitted,
             "Map replacement preserved the ID and charged no second debit");
-        var returned = (Pawn_GuWildProjection)IndividualRegistry.ProjectionOf(record);
-        returned.TakeDamage(new DamageInfo(DamageDefOf.Cut, 1000, 20, instigator: scout));
-        TickUntil(() => !record.IsLiving, 250, "Direct lethal damage ended the remanifested individual");
-        scout.DeSpawn();
-        GenSpawn.Spawn(scout, previous, original);
+        while (true)
+        {
+            var victim = Wild(BlackSpecies);
+            var victimRecord = IndividualRegistry.Resolve(victim);
+            victim.TakeDamage(new DamageInfo(DamageDefOf.Cut, 1000, 20));
+            TickUntil(() => !victimRecord.IsLiving, 250, "Direct lethal damage ended the resident");
+            if (habitat.Cohort.MatureCount == 0) break;
+            TickUntil(() => Wild(BlackSpecies) != null, 5200, "Remaining stock supplied the vacant resident slot");
+        }
+        long depletedRevision = habitat.Cohort.Revision;
+        TickUntil(() => false, 2600);
+        Check(Wild(BlackSpecies) == null && habitat.Cohort.MatureCount == 0 && habitat.Cohort.Revision == depletedRevision
+            && habitat.ReplacementTicks > 0 && Wild(WhiteSpecies) != null,
+            "A depleted species stayed absent across an ambient attempt while recovery waited and White Boar remained");
         Current.Game.DeinitAndRemoveMap(map, false);
         settlement.Destroy();
+    }
+
+    private static List<Message> LiveMessages() =>
+        (List<Message>)AccessTools.Field(typeof(Messages), "liveMessages").GetValue(null);
+
+    private static IntVec3 SurfaceCameraTarget()
+    {
+        var target = ((UnityEngine.Vector3)AccessTools.Field(typeof(CameraDriver), "rootPos").GetValue(Find.CameraDriver)).ToIntVec3();
+        return new IntVec3(target.x, 0, target.z);
+    }
+
+    private static void ExerciseSurfaceSearch(Pawn scout, Pawn_GuWildProjection wild, Pawn_GuWildProjection other,
+        GuSurfaceEcology.Locality habitat)
+    {
+        Map map = scout.Map;
+        Current.Game.CurrentMap = map;
+        foreach (var resident in new[] { wild, other })
+            resident.jobs.StartJob(JobMaker.MakeJob(JobDefOf.Wait, 2200), JobCondition.InterruptForced);
+        var position = wild.Position;
+        var center = GenRadial.RadialCellsAround(position, JobDriver_GuSearchSurface.SearchRadius, false)
+            .First(cell => GuSurfaceEcology.SearchGround(map, cell) && cell.GetFirstPawn(map) == null
+                && cell.DistanceToSquared(position) >= 4 && cell.DistanceToSquared(position) < cell.DistanceToSquared(other.Position)
+                && map.reachability.CanReach(cell, wild, PathEndMode.Touch, TraverseMode.PassDoors));
+        var distant = map.AllCells.First(cell => GuSurfaceEcology.SearchGround(map, cell) && cell.GetFirstPawn(map) == null
+            && cell.DistanceToSquared(position) > 100 && cell.DistanceToSquared(other.Position) > 100);
+        var jobDef = DefDatabase<JobDef>.GetNamed("GU_SearchSurface");
+        void SearchAt(IntVec3 cell, bool ordered)
+        {
+            scout.jobs.EndCurrentJob(JobCondition.InterruptForced);
+            scout.Position = cell;
+            scout.Notify_Teleported();
+            var option = new FloatMenuOptionProvider_GuSearchSurface().GetOptions(new FloatMenuContext(new List<Pawn> { scout },
+                cell.ToVector3Shifted(), map)).SingleOrDefault(entry => entry.Label == "Search for wild Gu");
+            Check(option != null, "An ordinary terrain right-click exposes Search for wild Gu");
+            if (ordered) option.action();
+            else scout.jobs.StartJob(JobMaker.MakeJob(jobDef, cell), JobCondition.InterruptForced);
+            TickUntil(() => scout.CurJobDef == jobDef, 20, "The surface search job started");
+            TickUntil(() => scout.CurJobDef != jobDef, 400, "The surface search job finished");
+        }
+
+        Find.CameraDriver.JumpToCurrentMapLoc(distant);
+        long revision = habitat.Cohort.Revision;
+        int recordCount = IndividualRegistry.Records.Count;
+        Check(GuSurfaceEcology.FindWildGu(scout, distant, JobDriver_GuSearchSurface.SearchRadius) == null,
+            "Detection excludes living Gu outside the search radius");
+        SearchAt(distant, ordered: true);
+        Check(SurfaceCameraTarget() == distant && LiveMessages().Any(message => message.text == "You found no signs of wild Gu here."),
+            "An unsuccessful player search reported the result without moving the camera");
+        SearchAt(center, ordered: false);
+        Check(SurfaceCameraTarget() == distant && GuSurfaceEcology.FindWildGu(scout, center, JobDriver_GuSearchSurface.SearchRadius) == wild,
+            "The same detection is available to autonomous searches without changing the player's camera");
+
+        SearchAt(center, ordered: true);
+        var arrows = (List<UnityEngine.Vector3>)AccessTools.Field(typeof(TargetHighlighter), "arrowPositions").GetValue(null);
+        map.GetComponent<GuFxMapComponent>().MapComponentUpdate();
+        Check(SurfaceCameraTarget() == position && arrows.Contains(new LocalTargetInfo(wild).CenterVector3)
+            && LiveMessages().Any(message => message.text.Contains($"discovered a wild {wild.LabelShort}")),
+            "The player order moved the native camera to the actual Gu and queued its native target highlight");
+        Check(wild.Position == position && IndividualRegistry.Records.Count == recordCount && habitat.Cohort.Revision == revision,
+            "Search preserved the exact Pawn, its position, registry count and cohort revision");
     }
 
     private static void GenMapParent(Settlement parent) =>

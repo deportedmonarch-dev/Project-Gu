@@ -13,10 +13,10 @@ namespace ProjectGu
     public sealed class GuSurfaceEcology : GameComponent, IGuPopulationSourceDirectory
     {
         internal const string SourceKind = "surface";
-        private const string Proximity = "surface-proximity";
-        private const string Search = "surface-search";
+        internal const string AmbientTrigger = "surface-ambient";
         private const int SampleTicks = 250;
-        private const int EncounterTicks = 2500;
+        private const int ManifestationTicks = 2500;
+        private const int HabitatSamples = 128;
         private const int Capacity = 4;
         private const int Threshold = 1;
         internal const int TicksPerDay = 60000;
@@ -114,12 +114,10 @@ namespace ProjectGu
                     var residents = Residents(key, species.defName);
                     if (residents.Length > 1 || residents.Any(record => !Countable(record, map))) continue;
                     locality.Advance(now, map, key, residents.Length);
-                    if (now % EncounterTicks != 0 || residents.Any(record => record.ContainerKind != GuContainerKind.WorldSite)) continue;
-                    var colonists = map.mapPawns.FreeColonistsSpawned;
-                    if (colonists.Count == 0) continue;
-                    // Rotate the witness so a colonist exploring away from the base can also make the discovery.
-                    var actor = colonists[(now / EncounterTicks + map.uniqueID) % colonists.Count];
-                    TryDiscover(actor, actor.Position, deliberate: false, out _, species);
+                    if (now % ManifestationTicks != 0) continue;
+                    var resident = residents.SingleOrDefault();
+                    if (resident != null ? resident.ContainerKind == GuContainerKind.WorldSite : locality.Cohort.MatureCount > 0)
+                        TryManifest(map, key, sites[key], locality, resident, now);
                 }
             }
         }
@@ -127,81 +125,77 @@ namespace ProjectGu
         private static bool UniqueMap(Map map, string key) =>
             !Find.Maps.Any(other => other != map && other.Tile.Valid && Key(other) == key);
 
-        private static bool Witness(Pawn actor, Map map) => actor is { IsColonistPlayerControlled: true, Spawned: true, Downed: false }
-            && actor.Map == map;
-
         internal static bool SearchGround(Map map, IntVec3 cell) => Eligible(map) && HabitatCell(map, cell);
 
         private static bool HabitatCell(Map map, IntVec3 cell) => cell.InBounds(map) && !cell.Fogged(map) && cell.Standable(map)
-            && !cell.Roofed(map) && cell.GetTerrain(map).fertility > 0f && Suitability(map.BiomeAt(cell)) > 0;
+            && !cell.Roofed(map) && cell.GetTerrain(map) is { natural: true, fertility: > 0f, dangerous: false }
+            && Suitability(map.BiomeAt(cell)) > 0;
 
-        internal bool TryDiscover(Pawn actor, IntVec3 center, bool deliberate, out string reason, GuSpeciesDef target = null)
+        internal static bool AmbientHabitat(Map map, IntVec3 cell) => HabitatCell(map, cell)
+            && cell.GetRoom(map)?.PsychologicallyOutdoors == true && !map.reservationManager.IsReserved(cell);
+
+        // Detection only reads live projections. Callers decide when to search and how to present the result.
+        internal static Pawn_GuWildProjection FindWildGu(Pawn actor, IntVec3 center, float radius, GuSpeciesDef target = null)
         {
-            reason = "There is no suitable wild Gu habitat here.";
-            Map map = actor?.Map;
-            if (!Eligible(map) || !Witness(actor, map) || !center.InBounds(map)
-                || deliberate && (!HabitatCell(map, center) || actor.Position.DistanceToSquared(center) > 2)) return false;
-            string key = Key(map);
-            if (!UniqueMap(map, key)) return false;
-            if (target != null)
-                return IsSurfaceSpecies(target) && TryDiscoverSpecies(actor, center, deliberate, key, target, out reason);
-
-            reason = "You found no signs of wild Gu here.";
-            foreach (var species in SurfaceSpecies)
-                if (TryDiscoverSpecies(actor, center, deliberate, key, species, out _)) return true;
-            return false;
+            if (actor is not { Spawned: true, Downed: false } || Registry is not { } registry || !center.InBounds(actor.Map))
+                return null;
+            var map = actor.Map;
+            foreach (var cell in GenRadial.RadialCellsAround(center, radius, true))
+            {
+                if (!cell.InBounds(map) || cell.Fogged(map)) continue;
+                foreach (var thing in cell.GetThingList(map))
+                {
+                    if (thing is Pawn_GuWildProjection { Spawned: true, Dead: false, Faction: null } wild
+                        && registry.Resolve(wild) is { IsActionable: true, IsLiving: true, Condition: GuCondition.Active } record
+                        && record.Refinement?.CultivatorId == null && (target == null || record.Species == target)
+                        && actor.CanReach(wild, PathEndMode.Touch, actor.NormalMaxDanger()))
+                        return wild;
+                }
+            }
+            return null;
         }
 
-        private bool TryDiscoverSpecies(Pawn actor, IntVec3 center, bool deliberate, string key, GuSpeciesDef species, out string reason)
+        private static IntVec3 FindHabitat(Map map, int seed)
         {
-            reason = "There is no available encounter for this Gu.";
-            Map map = actor.Map;
-            var locality = GetOrInitialize(map, key, species);
-            if (locality?.Cohort == null || sites[key].ActiveEncounter != null) return false;
-            var residents = Residents(key, species.defName);
-            var returning = residents.Length == 1 && residents[0].ContainerKind == GuContainerKind.WorldSite ? residents[0] : null;
-            reason = $"There is already a wild {species.label} in this locality.";
-            if (residents.Length != 0 && (returning == null || !Countable(returning, map))) return false;
-            reason = $"You found no signs of {species.label} here.";
-            if (returning == null && locality.Cohort.MatureCount < 1) return false;
-            string trigger = deliberate ? Search : Proximity;
-            int radius = deliberate ? 6 : 19;
-            sites[key].ActiveEncounter = locality;
-            locality.Witness = actor;
-            locality.Origin = center;
-            locality.Trigger = trigger;
+            Rand.PushState(seed);
             try
             {
-                var source = new Source(key, sites[key]);
-                // An ambient appearance starts away from its witness. A deliberate search may reveal one much closer.
-                var cells = GenRadial.RadialCellsAround(center, radius, false);
-                foreach (var cell in deliberate ? cells : cells.Reverse())
+                for (int i = 0; i < HabitatSamples; i++)
                 {
-                    if (!source.PlacementReady(map, cell, trigger) || !GuIndividualRegistry.CanPlaceDormant(map, cell, null)
-                        || map.reservationManager.IsReserved(cell)) continue;
-                    if (returning != null)
-                    {
-                        if (!Registry.TryRecoverSurfaceResident(returning, map, cell,
-                            () => source.PlacementReady(map, cell, trigger) && Countable(returning, map), out reason)) return false;
-                    }
-                    else
-                    {
-                        var request = new GuSourceRequest($"{SourceKind}/{key}/{species.defName}/{locality.Cohort.Revision}", SourceKind,
-                            key, source.CurrentCredential, species.defName, 1, GuCohortStage.Mature, trigger, null, locality.Cohort.Revision);
-                        if (Registry.TryMaterializeFromSource(source, request, map, cell, out _, out reason) != GuSourceOutcome.Committed)
-                            return false;
-                    }
-                    Messages.Message($"{actor.LabelShort} discovered a wild {species.label}.", new TargetInfo(cell, map),
-                        MessageTypeDefOf.NeutralEvent, false);
-                    reason = null;
-                    return true;
+                    var cell = CellFinder.RandomCell(map);
+                    if (AmbientHabitat(map, cell) && GuIndividualRegistry.CanPlaceDormant(map, cell, null))
+                        return cell;
                 }
-                return false;
+                return IntVec3.Invalid;
+            }
+            finally { Rand.PopState(); }
+        }
+
+        private static void TryManifest(Map map, string key, Site site, Locality locality, GuRecord returning, int now)
+        {
+            if (site.ActiveManifestation != null) return;
+            var cell = FindHabitat(map, Gen.HashCombineInt(locality.Seed, now));
+            if (!cell.IsValid) return;
+
+            site.ActiveManifestation = new Manifestation(map, cell, locality);
+            try
+            {
+                var source = new Source(key, site);
+                if (returning != null)
+                {
+                    Registry.TryRecoverSurfaceResident(returning, map, cell,
+                        () => source.PlacementReady(map, cell, AmbientTrigger) && Countable(returning, map), out _);
+                    return;
+                }
+
+                var cohort = locality.Cohort;
+                string eventKey = $"{SourceKind}/{key}/{cohort.SpeciesDefName}/{cohort.Revision}";
+                if (GuIndividualRegistry.TryPrepareSourceRequest(source, cohort.SpeciesDefName, AmbientTrigger, null, eventKey, out var request))
+                    Registry.TryMaterializeFromSource(source, request, map, cell, out _, out _);
             }
             finally
             {
-                locality.Witness = null;
-                sites[key].ActiveEncounter = null;
+                site.ActiveManifestation = null;
             }
         }
 
@@ -211,12 +205,14 @@ namespace ProjectGu
                 into.Add(new Source(sourceId, site));
         }
 
+        private sealed record Manifestation(Map Map, IntVec3 Cell, Locality Locality);
+
         private sealed class Site : IExposable
         {
             public Site() { }
 
             public Dictionary<string, Locality> Populations = new();
-            public Locality ActiveEncounter;
+            public Manifestation ActiveManifestation;
 
             public void ExposeData()
             {
@@ -234,10 +230,6 @@ namespace ProjectGu
             public int ReplacementTicks = -1;
             private int lastMapId = -1;
             private int lastSample = -1;
-
-            internal Pawn Witness;
-            internal IntVec3 Origin;
-            internal string Trigger;
 
             internal void Advance(int now, Map map, string key, int residents)
             {
@@ -281,23 +273,19 @@ namespace ProjectGu
             public string OwnerKind => SourceKind;
             public string SourceId => key;
             public object Binding => site;
-            private Locality Encounter => site.ActiveEncounter;
-            public string CurrentCredential => Encounter?.Witness?.Map?.GetUniqueLoadID();
-            public bool HasUniqueIdentity => Encounter?.Witness?.Map is { } map && UniqueMap(map, key);
+            private Manifestation Active => site.ActiveManifestation;
+            public string CurrentCredential => Active?.Map.GetUniqueLoadID();
+            public bool HasUniqueIdentity => Active?.Map is { } map && Eligible(map) && Key(map) == key && UniqueMap(map, key);
             public bool RequiresDevelopmentMode(string trigger) => false;
             public GuPopulationRecord CohortFor(string species) => site.Populations.GetValueOrDefault(species)?.Cohort;
             public string RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, IGuSourceAsset asset) =>
-                IsSurfaceSpecies(species) && species.defName == Encounter?.Cohort?.SpeciesDefName && rank == 1 && stage == GuCohortStage.Mature && asset == null
-                && trigger is Search or Proximity && trigger == Encounter.Trigger && HasUniqueIdentity
-                && Eligible(Encounter.Witness.Map) && Key(Encounter.Witness.Map) == key && Residents(key, species.defName).Length == 0
-                    ? null : "No qualifying surface encounter can issue this Gu.";
-            public string PlacementRefusal => "The Gu needs reachable, visible natural ground near the discoverer.";
-            public bool PlacementReady(Map map, IntVec3 cell, string trigger) => Encounter != null && Eligible(map) && Key(map) == key
-                && trigger == Encounter.Trigger && Witness(Encounter.Witness, map) && HabitatCell(map, cell)
-                && (trigger == Search ? Encounter.Origin.DistanceToSquared(cell) <= 36
-                    && Encounter.Witness.Position.DistanceToSquared(Encounter.Origin) <= 2
-                    : Encounter.Witness.Position.DistanceToSquared(cell) is >= 49 and <= 361)
-                && Encounter.Witness.CanReach(cell, PathEndMode.OnCell, Encounter.Witness.NormalMaxDanger());
+                IsSurfaceSpecies(species) && Active?.Locality == site.Populations.GetValueOrDefault(species.defName)
+                && rank == 1 && stage == GuCohortStage.Mature && asset == null && trigger == AmbientTrigger
+                && HasUniqueIdentity && Residents(key, species.defName).Length == 0
+                    ? null : "No qualifying surface manifestation can issue this Gu.";
+            public string PlacementRefusal => "The Gu needs open, suitable natural habitat.";
+            public bool PlacementReady(Map map, IntVec3 cell, string trigger) => trigger == AmbientTrigger
+                && Active is { } active && active.Map == map && active.Cell == cell && HasUniqueIdentity && AmbientHabitat(map, cell);
         }
     }
 }

@@ -141,6 +141,8 @@ Promote to persistent significance on completed capture, ownership/transfer, ref
 
 ## Natural discovery and representations
 
+The owner directive after White Boar acceptance governs the current surface implementation. Ordinary wild residents manifest autonomously in eligible loaded surface settlements, and deliberate surface search detects physical Gu. The table also records proposed encounter mechanics for future slices. [Current surface rules](ALPHA-6-SLICE-1B-1.md#ambient-surface-ecology)
+
 | Experience | Trigger and affordance | Accounting and active form |
 | --- | --- | --- |
 | Visible wild Gu | A capped encounter opportunity in suitable, known habitat when an eligible colonist first approaches or revisits after a cooldown. The creature acts normally within a modest allowed range. | A registry-created Pawn when movement, hunting, evasive AI, combat or capture requires native systems. Actor proximity and path checks make a Pawn discoverable in ordinary play. |

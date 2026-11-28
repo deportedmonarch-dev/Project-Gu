@@ -4,11 +4,35 @@ White Boar Gu and Black Boar Gu share the Rank 1 rules. Each has its own wild po
 
 ## Shared rules
 
-The surface forest rules give each species up to three initial adults, rolled from the same biome suitability table using a seed that includes the species. At one or fewer residents plus unmanifested adults, the cohort starts a recovery cycle. Each replacement takes 3–9 eligible days, continuing until the population reaches four. A locality can have one active resident of each species. Proximity and **Search for wild Gu** use the same placement and reachability rules for both.
+The surface forest rules give each species up to three initial adults, rolled from the same biome suitability table using a seed that includes the species. At one or fewer residents plus unmanifested adults, the cohort starts a recovery cycle. Each replacement takes 3–9 eligible days, continuing until that species' population reaches four.
 
 The shared diet is 100 raw pork or one whole pig or wild boar corpse per five days. After nourishment runs out, withering begins at two days and starvation becomes terminal at ten. Refinement, aperture storage, feeding and the bodily channel use the existing workers.
 
 Each new cultivation session commits a one-day cooldown and costs no essence upfront. Each of its ten pulses takes 500 ticks and pays one essence on success. Each attainment grows by one step out of 150 and caps independently. Full development of either strength gives +40% melee damage, +50% carrying capacity, +20% mining speed and +15% construction speed. The Cultivation page shows each attained strength with its own progress and current bonuses below it.
+
+## Ambient surface ecology
+
+Total wild population is the sum of unmanifested cohort adults and living registered residents. Each eligible loaded locality can have one physical resident per species, so Black Boar and White Boar can wander at the same time while additional adults remain in their separate cohorts. A living Gu retained at its world site after map removal still counts. On map regeneration it can resume wandering under the same ID and debit. Capture or death removes it from wild occupancy.
+
+The ecology runs on the loaded game's tick after native map generation has set up terrain and fog. It makes one bounded placement attempt every 2,500 ticks when a species has stock and a vacant resident slot or has a world-site resident to restore. It samples up to 128 cells across the settlement for unfogged outdoor natural terrain in a suitable biome. Registry placement also requires an unreserved, standable cell without a building, item or other pawn. Manifestation needs no colonist, produces no discovery announcement and has no camera effect. New source receipts use `surface-ambient`. Prior receipts retain their original provenance, event keys and debit history. The registry developer spawn action remains available.
+
+**Search for wild Gu** checks for a reachable, unfogged, registered wild Pawn within six cells of the chosen ground. Success in a player-ordered job centers the RimWorld camera on the Pawn's actual cell and highlights the moving target for three seconds. Unsuccessful player orders report that no signs were found. Detection only reads the live map, so repeated and autonomous searches leave the habitat and resident unchanged. Autonomous searches have no camera or highlight effect.
+
+Slice 3 still needs a policy for how long common residents stay physical and when they can return to the cohort. The current cap leaves surplus adults unavailable to search while the slot is occupied. Placement uses RimWorld's unfogged-cell safety check and retries later when its sample finds no suitable space. Searching is a short-radius detection job. Concealment, ecological clues and more advanced investigation are later work.
+
+### Ambient correction verification
+
+`scripts/verify.ps1` passed structural checks, game-linked compilation and the managed suite. The native campaigns ran in isolated read-only RimWorld 1.7.5021 rev1365 copies with Core and Harmony. Their 111 production file hashes match.
+
+| Native coverage | Passing campaign |
+| --- | --- |
+| `Slice1A` autonomous placement, search, Black Boar capture, recruitment and fresh-process reload | `b4a5f15e8d224224b018353d8f82f3ae` |
+| `WhiteBoar` independent stock and debits, capture, cultivation, attainment and fresh-process reload | `12654bb19abc46d4b964c0e62ce6a6b2` |
+| `Bodily` Black Boar channel, interrupted-session persistence and bodily attainment | `f7730b3fc8cf4532938aac6695346658` |
+| `Slice3B5B` source faults and custody, `Slice0Wildlife` matched native wildlife, `Alpha3` Liquor Worm and `Alpha4A` aperture | `b515e973f0274da6b75c99b4bb528bbe` |
+| `Alpha2` Moonblade and in-flight fresh-process reload | `3cf02a0a85814603877ebd5d3dbbf6bb` |
+
+The surface fixture let both Boar species appear and wander on a generated settlement with no colonists, checked their placement cells and separate debits, and verified that the camera and discovery messages stayed quiet. The search job found the existing Black Boar at its exact position, submitted its native highlight, and preserved its position, registry count and cohort revision. An out-of-radius search reported failure. An autonomous job left the camera where it was. The fixture also checked depletion while White Boar remained, and restoration of the original resident after map regeneration. Recovery checks shortened an already scheduled interval in the disposable fixture, then used the native tick path to verify one replacement at a time through capacity four. Camera position and highlight submission were checked headlessly.
 
 ## Framework corrections
 
