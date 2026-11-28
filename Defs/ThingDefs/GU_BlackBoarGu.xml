@@ -30,11 +30,9 @@
     <lifeStages>
       <li>
         <bodyGraphicData>
-          <!-- Stock RimWorld insect placeholder, to be replaced with ProjectGU/Gu/BlackBoarGu/Wild. -->
-          <texPath>Things/Pawn/Animal/Megascarab/Megascarab</texPath>
+          <texPath>ProjectGU/Gu/BlackBoarGu/Wild</texPath>
           <graphicClass>Graphic_Multi</graphicClass>
           <drawSize>0.70</drawSize>
-          <color>(0.46,0.46,0.46)</color>
         </bodyGraphicData>
         <dessicatedBodyGraphicData>
           <texPath>Things/Pawn/Animal/Megascarab/Dessicated_Megascarab</texPath>
