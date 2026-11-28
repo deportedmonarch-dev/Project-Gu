@@ -52,7 +52,7 @@ public sealed partial class LiveLifecycleChecks
         var moon = registry.ApertureOccupants(aperture).Single(record => record != liquor);
         TravelTo(disciple, Home);
         Current.Game.CurrentMap = Home;
-        var boar = AcquireSurfaceBoar(disciple, aperture, moon);
+        var boar = AcquireSurfaceGu(disciple, aperture, moon);
         Check(liquorSession is { Active: false } && Ledger.ChannelFor(liquor.Id) == liquorSession,
             "Travelling to the surface suspended the Liquor Worm session without ending it");
         Check(GuAbilityService.GrantsFor(disciple).Any(grant => grant.Gu == boar && grant.Ability == BoarCultivation)
@@ -204,7 +204,7 @@ public sealed partial class LiveLifecycleChecks
             $"A fully developed strength refuses further sessions ({full})");
 
         // A second Black Boar Gu adds nothing past full.
-        var second = AcquireSurfaceBoar(disciple, aperture, boar);
+        var second = AcquireSurfaceGu(disciple, aperture, boar);
         float essence = aperture.Essence;
         bool refused = !GuChannelService.CanChannel(disciple, second.Id, BoarCultivation, out _, out _, out string twice);
         Check(second != boar && refused && twice.Contains("fully developed")
@@ -291,14 +291,14 @@ public sealed partial class LiveLifecycleChecks
     }
 
     // ---------------------------------------------------------------------------------------------------------------
-    private static GuRecord AcquireSurfaceBoar(Pawn disciple, Hediff_Aperture aperture, GuRecord makeRoom, GuAbilityDef ability = null, Action<GuRecord> afterCapture = null)
+    private static GuRecord AcquireSurfaceGu(Pawn disciple, Hediff_Aperture aperture, GuRecord makeRoom, GuAbilityDef ability = null, Action<GuRecord> afterCapture = null)
     {
         var registry = IndividualRegistry;
         ability ??= BoarCultivation;
         var species = DefDatabase<GuSpeciesDef>.AllDefsListForReading.Single(def => def.abilities.Contains(ability));
         Map map = disciple.Map;
         var ecology = GuSurfaceEcology.Instance;
-        Check(!Prefs.DevMode && map.Biome.defName == "TemperateForest", "The disciple is in the real surface habitat with Development Mode off");
+        Check(!Prefs.DevMode && GuSurfaceEcology.IsForest(map.Biome), "The disciple is in the real surface habitat with Development Mode off");
         TickUntil(() => ecology.LocalityAt(map, species.defName) != null, 500, "The surface locality is initialized");
         var locality = ecology.LocalityAt(map, species.defName);
         GuRecord Resident() => registry.Records.SingleOrDefault(record => record.SpeciesDefName == species.defName
@@ -310,27 +310,27 @@ public sealed partial class LiveLifecycleChecks
             locality.ReplacementTicks = 250;
         }
         TickUntil(() => Resident() != null, 7500, $"Ambient ecology manifested a registered {species.label}");
-        var boar = Resident();
-        var receipt = boar.CreationEvidence;
+        var gu = Resident();
+        var receipt = gu.CreationEvidence;
         int remaining = locality.Cohort.MatureCount;
-        Check(boar.SpeciesDefName == species.defName && receipt.Trigger == GuSurfaceEcology.AmbientTrigger && boar.CohortDebitCommitted
+        Check(gu.SpeciesDefName == species.defName && receipt.Trigger == GuSurfaceEcology.AmbientTrigger && gu.CohortDebitCommitted
             && receipt.RevisionAfter == receipt.RevisionBefore + 1 && registry.SurfaceEvidenceIntact(receipt.SourceId, locality.Cohort),
             "The ambient resident has a committed, conserved surface cohort debit");
-        var wild = (Pawn_GuWildProjection)registry.ProjectionOf(boar);
+        var wild = (Pawn_GuWildProjection)registry.ProjectionOf(gu);
         PositionBeside(disciple, wild);
         Order(disciple, wild, $"Capture {species.label} (unrefined)");
-        TickUntil(() => registry.ProjectionOf(boar) is Thing_GuDormantProjection, 2400, $"Captured the registered {species.label}");
-        var dormant = (Thing_GuDormantProjection)registry.ProjectionOf(boar);
-        Check(dormant.GuId == boar.Id && boar.Refinement == null && boar.SurfaceResidencyEnded
-            && locality.Cohort.MatureCount == remaining && !GuChannelService.CanChannel(disciple, boar.Id, ability, out _, out _, out _),
+        TickUntil(() => registry.ProjectionOf(gu) is Thing_GuDormantProjection, 2400, $"Captured the registered {species.label}");
+        var dormant = (Thing_GuDormantProjection)registry.ProjectionOf(gu);
+        Check(dormant.GuId == gu.Id && gu.Refinement == null && gu.SurfaceResidencyEnded
+            && locality.Cohort.MatureCount == remaining && !GuAbilityService.GrantsFor(disciple).Any(grant => grant.Gu == gu),
             "Capture preserved identity and ended residence without a second debit or an ability grant");
-        afterCapture?.Invoke(boar);
+        afterCapture?.Invoke(gu);
         Order(disciple, dormant, $"Pick up {dormant.Label}");
         TickUntil(() => dormant.holdingOwner == disciple.inventory.GetDirectlyHeldThings(), 2400, $"Picked up the captured {species.label}");
         SetEssence(aperture, aperture.MaxEssence);
         var view = new ApertureView();
         view.Refresh(disciple);
-        var entry = view.Gu.SingleOrDefault(candidate => candidate.Record == boar);
+        var entry = view.Gu.SingleOrDefault(candidate => candidate.Record == gu);
         var enforce = entry?.Actions.SingleOrDefault(candidate => candidate.Kind == GuApertureActionKind.EnforceWill);
         Check(enforce is { Available: true }, $"Will-enforcement is offered for the captured {species.label} (entry {entry != null}; actions: "
             + string.Join(" | ", entry?.Actions.Select(candidate => $"{candidate.Kind} {candidate.Label} [{candidate.DisabledReason}]") ?? Enumerable.Empty<string>()) + ")");
@@ -339,28 +339,28 @@ public sealed partial class LiveLifecycleChecks
         {
             if (aperture.Essence < aperture.MaxEssence * 0.5f) SetEssence(aperture, aperture.MaxEssence);
             if (Find.TickManager.TicksGame % 500 == 0) SustainColonists();
-            if (boar.Refinement == null && disciple.CurJobDef?.defName != "GU_RefineMortalGu" && disciple.Awake() && !disciple.Downed)
+            if (gu.Refinement == null && disciple.CurJobDef?.defName != "GU_RefineMortalGu" && disciple.Awake() && !disciple.Downed)
             {
                 view.Refresh(disciple);
-                view.Gu.SingleOrDefault(candidate => candidate.Record == boar)?.Actions
+                view.Gu.SingleOrDefault(candidate => candidate.Record == gu)?.Actions
                     .SingleOrDefault(candidate => candidate.Kind == GuApertureActionKind.ResumeWill)?.Execute(out _);
             }
-            return boar.Refinement != null;
+            return gu.Refinement != null;
         }, 60_000);
-        Check(boar.Refinement?.CultivatorId == Cultivators.FindCultivator(disciple).CultivatorId
-            && !GuChannelService.CanChannel(disciple, boar.Id, ability, out _, out _, out _),
+        Check(gu.Refinement?.CultivatorId == Cultivators.FindCultivator(disciple).CultivatorId
+            && !GuAbilityService.GrantsFor(disciple).Any(grant => grant.Gu == gu),
             $"Refined the {species.label} in inventory (job {disciple.CurJobDef?.defName}, downed {disciple.Downed}, awake {disciple.Awake()}, map {disciple.Map}, process "
-            + $"{boar.RefinementProcess?.CompletedWorkTicks}/{boar.RefinementProcess?.TotalWorkTicks}, condition {boar.Condition}, placement {boar.Placement}, essence {aperture.Essence:0.#})");
+            + $"{gu.RefinementProcess?.CompletedWorkTicks}/{gu.RefinementProcess?.TotalWorkTicks}, condition {gu.Condition}, placement {gu.Placement}, essence {aperture.Essence:0.#})");
         // A Rank 1 aperture holds two Gu: the player withdraws one to make room.
         if (makeRoom != null) Check(IndividualRegistry.TryWithdrawDormant(makeRoom.Id, makeRoom.CustodyRevision, disciple, aperture, out _, out string roomFailure),
             roomFailure ?? $"Withdrew {makeRoom.Species?.label} to make room");
         view.Refresh(disciple);
-        var store = view.Gu.Single(candidate => candidate.Record == boar).Actions.SingleOrDefault(candidate => candidate.Kind == GuApertureActionKind.Store);
+        var store = view.Gu.Single(candidate => candidate.Record == gu).Actions.SingleOrDefault(candidate => candidate.Kind == GuApertureActionKind.Store);
         Check(store != null && store.Execute(out _), $"Stored the {species.label} ({store?.DisabledReason})");
-        Check(registry.ApertureOccupants(aperture).Contains(boar) && boar.ContainerId == aperture.ApertureId
-            && dormant.Destroyed && registry.ProjectionOf(boar) == null && boar.CreationEvidence == receipt,
+        Check(registry.ApertureOccupants(aperture).Contains(gu) && gu.ContainerId == aperture.ApertureId
+            && dormant.Destroyed && registry.ProjectionOf(gu) == null && gu.CreationEvidence == receipt,
             "The same refined individual is stored in the disciple's aperture and the dormant projection is retired");
-        return boar;
+        return gu;
     }
 
     private static (BodilyState, Pawn, Hediff_Aperture, GuRecord) LoadBodilyState(string otherStoredId = null)

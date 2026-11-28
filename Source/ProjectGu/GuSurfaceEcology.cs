@@ -4,12 +4,15 @@ using System.Linq;
 using ProjectGu.Domain;
 using ProjectGu.Underground;
 using RimWorld;
+using RimWorld.Planet;
 using Verse;
 using Verse.AI;
 
 namespace ProjectGu
 {
-    /// <summary>Surface forest cohorts are owned by the game, with one cohort per species at each locality.</summary>
+    public enum GuSurfaceHabitat { None, Forest, Rocky }
+
+    /// <summary>Surface cohorts are owned by the game, with one cohort per species at each locality.</summary>
     public sealed class GuSurfaceEcology : GameComponent, IGuPopulationSourceDirectory
     {
         internal const string SourceKind = "surface";
@@ -23,10 +26,7 @@ namespace ProjectGu
         private Dictionary<string, Site> sites = new();
         private Dictionary<string, Locality> legacyLocalities;
         private static IEnumerable<GuSpeciesDef> SurfaceSpecies =>
-            DefDatabase<GuSpeciesDef>.AllDefsListForReading.Where(IsSurfaceSpecies);
-
-        private static bool IsSurfaceSpecies(GuSpeciesDef species) =>
-            species is { surfaceForestPopulation: true, wildPopulationEnabled: true };
+            DefDatabase<GuSpeciesDef>.AllDefsListForReading.Where(species => species.HasSurfacePopulation);
 
         public GuSurfaceEcology(Game game) { }
 
@@ -56,9 +56,28 @@ namespace ProjectGu
             _ => 0
         };
 
-        private static string Key(Map map) => $"{map.Tile.Layer.LayerID}/{map.Tile.tileId}/0";
+        internal static bool IsForest(BiomeDef biome) => biome?.defName is "TemperateForest" or "BorealForest" or "TropicalRainforest";
 
-        private static bool Eligible(Map map) => GuPocketProbeComponent.IsSurfaceSettlement(map) && Suitability(map.Biome) > 0;
+        internal static int Suitability(GuSurfaceHabitat habitat, BiomeDef biome, Hilliness hilliness, bool hasExposedRock) => habitat switch
+        {
+            GuSurfaceHabitat.Forest => Suitability(biome),
+            GuSurfaceHabitat.Rocky when hilliness is Hilliness.LargeHills or Hilliness.Mountainous or Hilliness.Impassable => 3,
+            GuSurfaceHabitat.Rocky when hilliness == Hilliness.SmallHills => 2,
+            GuSurfaceHabitat.Rocky when hasExposedRock && IsForest(biome) => 1,
+            _ => 0
+        };
+
+        internal static int Suitability(Map map, GuSpeciesDef species)
+        {
+            if (species.surfaceHabitat == GuSurfaceHabitat.Forest) return Suitability(map.Biome);
+            var hilliness = Find.WorldGrid[map.Tile].hilliness;
+            bool hasExposedRock = hilliness == Hilliness.Flat && IsForest(map.Biome)
+                && Find.World.NaturalRockTypesIn(map.Tile).Any(rock => map.listerThings.ThingsOfDef(rock)
+                    .Any(formation => GenAdj.CardinalDirections.Any(offset => OpenNaturalGround(map, formation.Position + offset))));
+            return Suitability(species.surfaceHabitat, map.Biome, hilliness, hasExposedRock);
+        }
+
+        private static string Key(Map map) => $"{map.Tile.Layer.LayerID}/{map.Tile.tileId}/0";
 
         private Site GetSite(string key)
         {
@@ -67,14 +86,14 @@ namespace ProjectGu
             return site;
         }
 
-        private Locality GetOrInitialize(Map map, string key, GuSpeciesDef species)
+        private Locality GetOrInitialize(string key, GuSpeciesDef species, int suitability)
         {
             var populations = GetSite(key).Populations;
             if (populations.TryGetValue(species.defName, out var locality)) return locality;
             int seed = GenText.StableStringHash($"{Find.World.info.seedString}/{key}/{species.defName}/1");
             int initial = 0;
             for (int i = 0; i < 3; i++)
-                if (Rand.ValueSeeded(Gen.HashCombineInt(seed, i)) < Suitability(map.Biome) * 0.25f) initial++;
+                if (Rand.ValueSeeded(Gen.HashCombineInt(seed, i)) < suitability * 0.25f) initial++;
             var cohort = new GuPopulationRecord(species.defName, initial, 0, -1);
             if (!Registry.SurfaceEvidenceIntact(key, cohort)) return null;
             locality = new Locality { Cohort = cohort, Seed = seed };
@@ -104,12 +123,14 @@ namespace ProjectGu
             if (now % SampleTicks != 0 || Registry == null || Registry.CustodyTransitionInProgress) return;
             foreach (var map in Find.Maps)
             {
-                if (!Eligible(map)) continue;
+                if (!GuPocketProbeComponent.IsSurfaceSettlement(map)) continue;
                 string key = Key(map);
                 if (!UniqueMap(map, key)) continue;
                 foreach (var species in SurfaceSpecies)
                 {
-                    var locality = GetOrInitialize(map, key, species);
+                    int suitability = Suitability(map, species);
+                    if (suitability == 0) continue;
+                    var locality = GetOrInitialize(key, species, suitability);
                     if (locality?.Cohort == null) continue;
                     var residents = Residents(key, species.defName);
                     if (residents.Length > 1 || residents.Any(record => !Countable(record, map))) continue;
@@ -117,7 +138,7 @@ namespace ProjectGu
                     if (now % ManifestationTicks != 0) continue;
                     var resident = residents.SingleOrDefault();
                     if (resident != null ? resident.ContainerKind == GuContainerKind.WorldSite : locality.Cohort.MatureCount > 0)
-                        TryManifest(map, key, sites[key], locality, resident, now);
+                        TryManifest(map, key, sites[key], locality, species, resident, now);
                 }
             }
         }
@@ -125,14 +146,26 @@ namespace ProjectGu
         private static bool UniqueMap(Map map, string key) =>
             !Find.Maps.Any(other => other != map && other.Tile.Valid && Key(other) == key);
 
-        internal static bool SearchGround(Map map, IntVec3 cell) => Eligible(map) && HabitatCell(map, cell);
+        internal static bool SearchGround(Map map, IntVec3 cell) => GuPocketProbeComponent.IsSurfaceSettlement(map)
+            && OpenNaturalGround(map, cell) && !cell.Fogged(map) && SurfaceSpecies.Any(species => Suitability(map, species) > 0
+                && (species.surfaceHabitat == GuSurfaceHabitat.Rocky || ForestGround(map, cell)));
 
-        private static bool HabitatCell(Map map, IntVec3 cell) => cell.InBounds(map) && !cell.Fogged(map) && cell.Standable(map)
-            && !cell.Roofed(map) && cell.GetTerrain(map) is { natural: true, fertility: > 0f, dangerous: false }
-            && Suitability(map.BiomeAt(cell)) > 0;
+        private static bool OpenNaturalGround(Map map, IntVec3 cell) => cell.InBounds(map) && cell.Standable(map)
+            && !cell.Roofed(map) && cell.GetTerrain(map) is { natural: true, dangerous: false, IsWater: false };
 
-        internal static bool AmbientHabitat(Map map, IntVec3 cell) => HabitatCell(map, cell)
-            && cell.GetRoom(map)?.PsychologicallyOutdoors == true && !map.reservationManager.IsReserved(cell);
+        private static bool ForestGround(Map map, IntVec3 cell) => cell.GetTerrain(map).fertility > 0f && Suitability(map.BiomeAt(cell)) > 0;
+
+        internal static bool AmbientHabitat(Map map, IntVec3 cell, GuSurfaceHabitat habitat = GuSurfaceHabitat.Forest) =>
+            OpenNaturalGround(map, cell) && !cell.Fogged(map) && cell.GetRoom(map)?.PsychologicallyOutdoors == true && !map.reservationManager.IsReserved(cell)
+            && (habitat == GuSurfaceHabitat.Forest ? ForestGround(map, cell) : habitat == GuSurfaceHabitat.Rocky && NearExposedRock(map, cell));
+
+        private static bool NearExposedRock(Map map, IntVec3 cell)
+        {
+            foreach (var nearby in GenRadial.RadialCellsAround(cell, 5f, false))
+                if (nearby.InBounds(map) && nearby.GetEdifice(map)?.def.building is { isNaturalRock: true, isResourceRock: false }
+                    && !nearby.Fogged(map) && GenSight.LineOfSight(cell, nearby, map, true)) return true;
+            return false;
+        }
 
         // Detection only reads live projections. Callers decide when to search and how to present the result.
         internal static Pawn_GuWildProjection FindWildGu(Pawn actor, IntVec3 center, float radius, GuSpeciesDef target = null)
@@ -155,7 +188,7 @@ namespace ProjectGu
             return null;
         }
 
-        private static IntVec3 FindHabitat(Map map, int seed)
+        private static IntVec3 FindHabitat(Map map, GuSurfaceHabitat habitat, int seed)
         {
             Rand.PushState(seed);
             try
@@ -163,7 +196,7 @@ namespace ProjectGu
                 for (int i = 0; i < HabitatSamples; i++)
                 {
                     var cell = CellFinder.RandomCell(map);
-                    if (AmbientHabitat(map, cell) && GuIndividualRegistry.CanPlaceDormant(map, cell, null))
+                    if (AmbientHabitat(map, cell, habitat) && GuIndividualRegistry.CanPlaceDormant(map, cell, null))
                         return cell;
                 }
                 return IntVec3.Invalid;
@@ -171,13 +204,13 @@ namespace ProjectGu
             finally { Rand.PopState(); }
         }
 
-        private static void TryManifest(Map map, string key, Site site, Locality locality, GuRecord returning, int now)
+        private static void TryManifest(Map map, string key, Site site, Locality locality, GuSpeciesDef species, GuRecord returning, int now)
         {
             if (site.ActiveManifestation != null) return;
-            var cell = FindHabitat(map, Gen.HashCombineInt(locality.Seed, now));
+            var cell = FindHabitat(map, species.surfaceHabitat, Gen.HashCombineInt(locality.Seed, now));
             if (!cell.IsValid) return;
 
-            site.ActiveManifestation = new Manifestation(map, cell, locality);
+            site.ActiveManifestation = new Manifestation(map, cell, locality, species);
             try
             {
                 var source = new Source(key, site);
@@ -205,7 +238,7 @@ namespace ProjectGu
                 into.Add(new Source(sourceId, site));
         }
 
-        private sealed record Manifestation(Map Map, IntVec3 Cell, Locality Locality);
+        private sealed record Manifestation(Map Map, IntVec3 Cell, Locality Locality, GuSpeciesDef Species);
 
         private sealed class Site : IExposable
         {
@@ -275,17 +308,19 @@ namespace ProjectGu
             public object Binding => site;
             private Manifestation Active => site.ActiveManifestation;
             public string CurrentCredential => Active?.Map.GetUniqueLoadID();
-            public bool HasUniqueIdentity => Active?.Map is { } map && Eligible(map) && Key(map) == key && UniqueMap(map, key);
+            public bool HasUniqueIdentity => Active is { } active && GuPocketProbeComponent.IsSurfaceSettlement(active.Map)
+                && Suitability(active.Map, active.Species) > 0 && Key(active.Map) == key && UniqueMap(active.Map, key);
             public bool RequiresDevelopmentMode(string trigger) => false;
             public GuPopulationRecord CohortFor(string species) => site.Populations.GetValueOrDefault(species)?.Cohort;
             public string RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, IGuSourceAsset asset) =>
-                IsSurfaceSpecies(species) && Active?.Locality == site.Populations.GetValueOrDefault(species.defName)
+                species?.HasSurfacePopulation == true && Active?.Species == species && Active.Locality == site.Populations.GetValueOrDefault(species.defName)
                 && rank == 1 && stage == GuCohortStage.Mature && asset == null && trigger == AmbientTrigger
                 && HasUniqueIdentity && Residents(key, species.defName).Length == 0
                     ? null : "No qualifying surface manifestation can issue this Gu.";
             public string PlacementRefusal => "The Gu needs open, suitable natural habitat.";
             public bool PlacementReady(Map map, IntVec3 cell, string trigger) => trigger == AmbientTrigger
-                && Active is { } active && active.Map == map && active.Cell == cell && HasUniqueIdentity && AmbientHabitat(map, cell);
+                && Active is { } active && active.Map == map && active.Cell == cell && HasUniqueIdentity
+                && AmbientHabitat(map, cell, active.Species.surfaceHabitat);
         }
     }
 }

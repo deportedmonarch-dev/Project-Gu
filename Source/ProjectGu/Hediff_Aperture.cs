@@ -78,6 +78,7 @@ namespace ProjectGu
         public override void PostRemoved()
         {
             base.PostRemoved();
+            Combat.Hediff_GuSustainedEffect.Invalidate(this);
             Current.Game?.GetComponent<GuIndividualRegistry>()?.EnqueueApertureEvent(this, GuUnresolvedCause.ApertureMissing, "The aperture Hediff was removed.");
         }
 

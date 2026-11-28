@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="GU_WildProjectionRace">
+    <defName>GU_WildStoneSkinGu</defName>
+    <label>wild Stone Skin Gu</label>
+    <description>A flat, broad insect with a shell like grey stone. It crawls on the ground and evades pursuers.</description>
+    <statBases>
+      <MoveSpeed>2.65</MoveSpeed>
+    </statBases>
+    <tools Inherit="False">
+      <li>
+        <label>mandibles</label>
+        <capacities><li>Bite</li></capacities>
+        <power>5</power>
+        <cooldownTime>2</cooldownTime>
+        <linkedBodyPartsGroup>Mouth</linkedBodyPartsGroup>
+      </li>
+    </tools>
+    <race>
+      <body>BeetleLike</body>
+      <canFlyIntoMap>false</canFlyIntoMap>
+      <canLeaveMapFlying>false</canLeaveMapFlying>
+    </race>
+  </ThingDef>
+  <PawnKindDef ParentName="GU_WildProjectionKind">
+    <defName>GU_WildStoneSkinGu</defName>
+    <label>wild Stone Skin Gu</label>
+    <race>GU_WildStoneSkinGu</race>
+    <combatPower>1</combatPower>
+    <lifeStages>
+      <li>
+        <bodyGraphicData>
+          <texPath>ProjectGU/Gu/StoneSkinGu/Wild</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.65</drawSize>
+        </bodyGraphicData>
+        <dessicatedBodyGraphicData>
+          <texPath>ProjectGU/Gu/StoneSkinGu/Wild</texPath>
+          <graphicClass>Graphic_Multi</graphicClass>
+          <drawSize>0.65</drawSize>
+          <color>(125,115,105)</color>
+        </dessicatedBodyGraphicData>
+      </li>
+    </lifeStages>
+  </PawnKindDef>
+  <ThingDef ParentName="ResourceBase">
+    <defName>GU_DormantStoneSkinGu</defName>
+    <label>dormant Stone Skin Gu</label>
+    <description>A captured Stone Skin Gu. It remains unrefined until a Gu Master subdues its will.</description>
+    <thingClass>ProjectGu.Thing_GuDormantProjection</thingClass>
+    <notifyMapRemoved>true</notifyMapRemoved>
+    <comps><li Class="ProjectGu.CompProperties_GuManifestation" /></comps>
+    <stackLimit>1</stackLimit>
+    <tickerType>Never</tickerType>
+    <alwaysHaulable>true</alwaysHaulable>
+    <thingCategories><li>GU_DormantGu</li></thingCategories>
+    <tradeability>None</tradeability>
+    <graphicData>
+      <texPath>ProjectGU/Gu/StoneSkinGu/Dormant</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>0.72</drawSize>
+    </graphicData>
+    <statBases>
+      <Mass>0.15</Mass>
+    </statBases>
+  </ThingDef>
+</Defs>

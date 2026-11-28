@@ -51,6 +51,8 @@ namespace ProjectGu.Combat
         /// <summary>When set, the ability is a self-use timed channel instead of a targeted launch.</summary>
         public GuChannelProperties channel;
         public bool IsChannel => channel != null;
+        public GuSustainedProperties sustained;
+        public bool IsSustained => sustained != null;
 
         [Unsaved] private GuAbilityWorker worker;
         [Unsaved] private Texture2D icon;
@@ -87,7 +89,14 @@ namespace ProjectGu.Combat
             if (!float.IsFinite(minRange) || minRange < 0f || minRange >= range) yield return $"{defName}: minRange must be at least 0 and below range";
             if (channel != null)
                 foreach (string error in channel.ConfigErrors(defName)) yield return error;
-            if (channel == null && !targetPawns && !targetLocations) yield return $"{defName}: the ability must target pawns, locations or both";
+            if (sustained != null)
+            {
+                if (channel != null || warmupTicks != 0 || workerClass != typeof(GuAbilityWorker_Sustained))
+                    yield return $"{defName}: a sustained effect needs the sustained worker, no channel and zero warmup";
+                foreach (string error in sustained.ConfigErrors(defName)) yield return error;
+            }
+            else if (workerClass == typeof(GuAbilityWorker_Sustained)) yield return $"{defName}: the sustained worker needs sustained properties";
+            if (channel == null && sustained == null && !targetPawns && !targetLocations) yield return $"{defName}: the ability must target pawns, locations or both";
             if (channel == null && workerClass == typeof(GuAbilityWorker_Projectile)
                 && (projectileDef?.projectile == null || !typeof(Projectile_GuAbility).IsAssignableFrom(projectileDef.thingClass)))
                 yield return $"{defName}: the projectile worker requires a projectileDef whose thingClass derives from ProjectGu.Combat.Projectile_GuAbility";

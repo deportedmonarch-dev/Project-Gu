@@ -137,6 +137,7 @@ namespace ProjectGu
                 staged.InitializeBinding(record);
                 BindProjection(record, staged);
                 committed = true;
+                Combat.Hediff_GuSustainedEffect.Invalidate(aperture, record.Id);
                 withdrawn = staged;
                 reason = null;
                 return true;

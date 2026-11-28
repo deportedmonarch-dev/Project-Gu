@@ -37,6 +37,8 @@ namespace ProjectGu.Combat
         // Channel sessions, at most one per Gu individual.
         private Dictionary<string, GuChannelSession> channels = new(StringComparer.OrdinalIgnoreCase);
         private List<GuChannelSession> channelValues;
+        // The native hediff owns the saved lease. This index contains only active or staged leases.
+        private readonly List<Hediff_GuSustainedEffect> sustained = new();
 
         public GuCombatLedger(Game game) { }
 
@@ -68,8 +70,40 @@ namespace ProjectGu.Combat
             if (cast == null || string.IsNullOrEmpty(cast.CastId) || inFlight.ContainsKey(cast.CastId))
                 throw new InvalidOperationException("A Gu cast must be committed once with a unique cast ID.");
             inFlight.Add(cast.CastId, cast);
-            if (cooldownTicks > 0) cooldownUntil[cast.GuId] = cast.LaunchTick + cooldownTicks;
+            NoteCommitment(cast.GuId, cast.LaunchTick, cooldownTicks);
+        }
+
+        internal void NoteCommitment(string guId, int tick, int cooldownTicks)
+        {
+            if (cooldownTicks > 0) cooldownUntil[guId] = tick + cooldownTicks;
             committedTotal++;
+        }
+
+        internal void Track(Hediff_GuSustainedEffect effect) => sustained.Add(effect);
+
+        internal void Untrack(Hediff_GuSustainedEffect effect) => sustained.Remove(effect);
+
+        internal bool SustainedActivationInProgress { get; set; }
+
+        internal void ValidateLoadedEffects()
+        {
+            for (int i = sustained.Count - 1; i >= 0; i--)
+                if (!sustained[i].ValidAfterLoad()) sustained[i].Stop();
+        }
+
+        internal void MaintainSustained(int now)
+        {
+            for (int i = sustained.Count - 1; i >= 0; i--)
+            {
+                var effect = sustained[i];
+                try { effect.Maintain(now); }
+                catch (Exception exception)
+                {
+                    try { effect.Stop(); }
+                    catch (Exception cleanup) { Log.Error($"[Project GU] Sustained Gu cleanup failed. {cleanup}"); }
+                    Log.Error($"[Project GU] Sustained Gu upkeep failed. {exception}");
+                }
+            }
         }
 
         /// <summary>

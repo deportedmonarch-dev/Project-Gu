@@ -76,6 +76,7 @@ namespace ProjectGu.Combat
             int remaining = ledger.CooldownRemaining(record.Id, Find.TickManager.TicksGame);
             reason = $"{ability.LabelCap} is recovering ({remaining.ToStringSecondsFromTicks()}).";
             if (remaining > 0) return false;
+            if (ability.IsSustained && !GuAbilityWorker_Sustained.CanActivate(caster, ability, out reason)) return false;
             reason = $"Not enough primeval essence ({aperture.Essence:0.0} of {ability.essenceCost:0.0}).";
             if (!aperture.CanSpendEssence(ability.essenceCost)) return false;
             grant = new GuAbilityGrant(caster, aperture, record, ability);
@@ -89,6 +90,8 @@ namespace ProjectGu.Combat
         /// <summary>Orders the cast job. Nothing is spent until the job's launch toil commits.</summary>
         public static bool TryOrderCast(Pawn caster, string guId, GuAbilityDef ability, LocalTargetInfo target, out string reason)
         {
+            reason = "Use the technique's toggle to activate it.";
+            if (ability?.IsSustained == true) return false;
             if (!CanCast(caster, guId, ability, out _, out reason) || !ValidateTarget(caster, ability, target, out reason)) return false;
             reason = "The cast job is unavailable.";
             if (CastJob is not { } jobDef || !caster.IsColonistPlayerControlled) return false;
@@ -152,7 +155,8 @@ namespace ProjectGu.Combat
                 LaunchTick = Find.TickManager.TicksGame,
                 TargetDescription = target.HasThing ? target.Thing.GetUniqueLoadID() : target.Cell.ToString()
             };
-            GuCombatLedger.Instance.Commit(cast, ability.cooldownTicks);
+            if (ability.IsSustained) GuCombatLedger.Instance.NoteCommitment(cast.GuId, cast.LaunchTick, ability.cooldownTicks);
+            else GuCombatLedger.Instance.Commit(cast, ability.cooldownTicks);
             GuAbilityPresentation.Launched(context, projectile, target);
             reason = null;
             return true;

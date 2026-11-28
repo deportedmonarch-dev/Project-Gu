@@ -40,7 +40,7 @@ public sealed partial class LiveLifecycleChecks
         var blackBody = registry.ProjectionOf(blackWild);
         long blackRevision = blackLocality.Cohort.Revision;
         int whiteOccupied = Occupied(whiteLocality);
-        var white = AcquireSurfaceBoar(pawn, aperture, registry.Resolve(state.LiquorId), WhiteCultivation, captured =>
+        var white = AcquireSurfaceGu(pawn, aperture, registry.Resolve(state.LiquorId), WhiteCultivation, captured =>
         {
             Check(registry.ProjectionOf(blackWild) == blackBody && blackLocality.Cohort.Revision == blackRevision
                 && Occupied(whiteLocality) == whiteOccupied - 1 && captured.CreationEvidence.SourceId == blackWild.CreationEvidence.SourceId,
@@ -131,7 +131,7 @@ public sealed partial class LiveLifecycleChecks
             "The interface has both registered techniques and reads both distinct bodily attainments");
         AssertCombinedBoarStats(pawn);
 
-        var duplicate = AcquireSurfaceBoar(pawn, aperture, white, WhiteCultivation);
+        var duplicate = AcquireSurfaceGu(pawn, aperture, white, WhiteCultivation);
         Check(duplicate.Id != white.Id && !GuChannelService.CanChannel(pawn, duplicate.Id, WhiteCultivation, out _, out _, out string capped)
             && capped.Contains("fully developed") && !GuChannelService.TryOrderChannel(pawn, duplicate.Id, WhiteCultivation, out _),
             "A second stored White Boar cannot bypass the species cap");

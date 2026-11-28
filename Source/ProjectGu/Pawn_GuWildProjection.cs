@@ -19,7 +19,7 @@ namespace ProjectGu
         private int curiosityUntil;
         private int nextEvadeTick;
         private GuSpeciesDef Species => Current.Game?.GetComponent<GuIndividualRegistry>()?.Resolve(this)?.Species;
-        internal bool UsesSurfaceEncounter => Species?.surfaceForestPopulation == true;
+        internal bool UsesSurfaceEncounter => Species?.HasSurfacePopulation == true;
 
         public string GuId => this.GuTag()?.GuId;
         public int GuRevision => this.GuTag()?.GuRevision ?? 0;
@@ -99,7 +99,7 @@ namespace ProjectGu
             if (releaseSuppressed) return;
             base.TickInterval(delta);
             if (Spawned && Faction == null && !Downed && !InMentalState && this.IsHashIntervalTick(250, delta)
-                && Species is { surfaceForestPopulation: true } species)
+                && Species is { HasSurfacePopulation: true, wildCuriosityChancePerHour: > 0f } species)
                 ObserveCuriosity(species);
         }
 

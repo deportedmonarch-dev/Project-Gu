@@ -42,6 +42,12 @@ namespace ProjectGu
                 return false;
             }
 
+            if (Combat.GuCombatLedger.Instance?.SustainedActivationInProgress == true)
+            {
+                Messages.Message("Wait for the Gu technique to finish activating before saving.", MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+
             registry?.ApplyPendingEvents();
             game?.GetComponent<GuWorldComponent>()?.ApplyNativeCultivatorObservations();
             return true;

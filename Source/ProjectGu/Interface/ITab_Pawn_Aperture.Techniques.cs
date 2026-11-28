@@ -99,6 +99,13 @@ namespace ProjectGu.Interface
         /// <summary>Current numbers from the ability Def and its projectile; nothing here is a copy.</summary>
         internal static IEnumerable<(string, string)> Numbers(GuAbilityDef ability)
         {
+            if (ability.sustained is { } sustained)
+            {
+                yield return ("Activation cost", $"{ability.essenceCost:0.##} primeval essence, including the first interval");
+                yield return ("Upkeep", $"{sustained.essencePerInterval:0.##} primeval essence every {sustained.intervalTicks} ticks");
+                yield return ("Target", "Self");
+                yield break;
+            }
             if (ability.IsChannel)
             {
                 var props = ability.channel;

@@ -15,6 +15,7 @@ namespace ProjectGu.Combat
         private readonly Pawn caster;
         private readonly string guId;
         private readonly GuAbilityDef ability;
+        private readonly Hediff_GuSustainedEffect displayedEffect;
 
         internal Pawn Caster => caster;
         internal string GuId => guId;
@@ -28,6 +29,18 @@ namespace ProjectGu.Combat
             icon = ability.Icon;
             string speciesLabel = grant.Gu.Species?.label ?? grant.Gu.SpeciesDefName;
             defaultLabel = distinguishIndividual ? $"{ability.LabelCap} ({grant.Gu.Id.Substring(0, 4)})" : ability.LabelCap.ToString();
+            if (ability.IsSustained)
+            {
+                var effect = Hediff_GuSustainedEffect.Of(caster, ability.sustained.condition);
+                if (effect?.GuId == guId && effect.Ability == ability && effect.IsProtecting) displayedEffect = effect;
+                defaultLabel += displayedEffect != null ? " (active)" : " (inactive)";
+                defaultDesc = $"{ability.description}\n\nActivation: {ability.essenceCost:0.##} primeval essence (includes the first interval)"
+                    + $"\nUpkeep: {ability.sustained.essencePerInterval:0.##} primeval essence every {ability.sustained.intervalTicks} ticks"
+                    + $"\nAperture essence: {grant.Aperture.Essence:0.##}/{grant.Aperture.MaxEssence:0.##}"
+                    + (displayedEffect != null ? "\n\nClick to deactivate." : "\n\nClick to activate.");
+                if (displayedEffect == null && !GuAbilityService.CanCast(caster, guId, ability, out _, out string activationReason)) Disable(activationReason);
+                return;
+            }
             if (ability.IsChannel)
             {
                 ConfigureChannel(grant);
@@ -58,6 +71,13 @@ namespace ProjectGu.Combat
         public override void ProcessInput(Event ev)
         {
             base.ProcessInput(ev);
+            if (ability.IsSustained)
+            {
+                if (displayedEffect != null) displayedEffect.Stop();
+                else if (!GuAbilityWorker_Sustained.TryActivate(caster, guId, ability, out string failure))
+                    Messages.Message(failure, MessageTypeDefOf.RejectInput, false);
+                return;
+            }
             if (ability.IsChannel)
             {
                 if (!GuChannelService.TryOrderChannel(caster, guId, ability, out string channelReason))

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ProjectGu.Domain.GuSpeciesDef>
+    <defName>GU_StoneSkinGu</defName>
+    <label>Stone Skin Gu</label>
+    <description>A rank-one defensive Gu that forms naturally in rocky terrain or recruits into established wild populations. Its reference value is 200 primeval stones.</description>
+    <minRank>1</minRank>
+    <maxRank>1</maxRank>
+    <wildPopulationEnabled>true</wildPopulationEnabled>
+    <surfaceHabitat>Rocky</surfaceHabitat>
+    <wildProjectionKind>GU_WildStoneSkinGu</wildProjectionKind>
+    <dormantProjectionDef>GU_DormantStoneSkinGu</dormantProjectionDef>
+    <habitatTags><li>surface</li><li>rocky</li></habitatTags>
+    <role>Defense</role>
+    <abilities><li>GU_StoneSkin</li></abilities>
+    <feeding>
+      <status>Simulated</status>
+      <note>Feeds on one natural stone chunk every five days.</note>
+      <foods>
+        <li><thingDef>ChunkSandstone</thingDef><daysPerMeal>5</daysPerMeal></li>
+        <li><thingDef>ChunkGranite</thingDef><daysPerMeal>5</daysPerMeal></li>
+        <li><thingDef>ChunkLimestone</thingDef><daysPerMeal>5</daysPerMeal></li>
+        <li><thingDef>ChunkSlate</thingDef><daysPerMeal>5</daysPerMeal></li>
+        <li><thingDef>ChunkMarble</thingDef><daysPerMeal>5</daysPerMeal></li>
+      </foods>
+      <maxDays>5</maxDays>
+      <requireFullMealSpace>true</requireFullMealSpace>
+      <hungryBelowDays>0.04</hungryBelowDays>
+      <initialDays>5</initialDays>
+      <legacyGraceDays>5</legacyGraceDays>
+      <impairAfterStarvingDays>2</impairAfterStarvingDays>
+      <terminalAfterStarvingDays>10</terminalAfterStarvingDays>
+    </feeding>
+  </ProjectGu.Domain.GuSpeciesDef>
+</Defs>

@@ -271,7 +271,7 @@ public sealed partial class LiveLifecycleChecks
     private static void ExerciseSurfaceReplacement(Pawn scout, Map original)
     {
         var tile = Find.WorldGrid.Surface.Tiles.First(candidate => candidate.PrimaryBiome.defName == "Desert"
-            && candidate.hilliness < Hilliness.Mountainous && TileFinder.IsValidTileForNewSettlement(candidate.tile));
+            && candidate.hilliness == Hilliness.Flat && TileFinder.IsValidTileForNewSettlement(candidate.tile));
         var settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
         settlement.Tile = tile.tile;
         settlement.SetFaction(Faction.OfPlayer);
@@ -284,7 +284,8 @@ public sealed partial class LiveLifecycleChecks
         scout.DeSpawn();
         GenSpawn.Spawn(scout, map.Center, map);
         TickUntil(() => false, 2600);
-        Check(GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") == null && !GuSurfaceEcology.SearchGround(map, scout.Position)
+        Check(GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") == null
+            && GuSurfaceEcology.Instance.LocalityAt(map, "GU_StoneSkinGu") == null && !GuSurfaceEcology.SearchGround(map, scout.Position)
             && !map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu")
             && GuSurfaceEcology.Suitability(BiomeDef.Named("Tundra")) == 0, "Desert rejects initialization, ambient encounters and searching. Tundra is also hard-ineligible");
 

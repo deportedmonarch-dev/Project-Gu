@@ -208,6 +208,9 @@ public sealed partial class LiveLifecycleChecks
         SetEssence(aperture, Math.Min(aperture.MaxEssence, 15f));
         watch.Expected = aperture.Essence;
         disciple.drafter.Drafted = true;
+        // The previous target may have wandered behind cover during the cancellation checks.
+        DespawnTarget(target);
+        target = SpawnTarget(cave, disciple.Position, 7, 10);
         var drafted = CastAndResolve(disciple, record, target, watch, "drafted");
         Check(drafted.Cast.Outcome == GuCastOutcome.HitThing, "A drafted Gu Master can use Moonblade");
         DespawnTarget(target);

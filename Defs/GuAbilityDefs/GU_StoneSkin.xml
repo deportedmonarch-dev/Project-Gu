@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ProjectGu.Combat.GuAbilityDef>
+    <defName>GU_StoneSkin</defName>
+    <label>Stone Skin</label>
+    <description>Temporarily hardens the Gu Master's skin. Sharp armor +30 percentage points, blunt armor +25 percentage points. Heat armor and movement speed are unaffected.</description>
+    <category>Defense</category>
+    <workerClass>ProjectGu.Combat.GuAbilityWorker_Sustained</workerClass>
+    <essenceCost>2</essenceCost>
+    <warmupTicks>0</warmupTicks>
+    <iconPath>ProjectGU/Gu/StoneSkinGu/Dormant</iconPath>
+    <effectNotes>
+      <li>Sharp armor +30 percentage points and blunt armor +25 percentage points while active.</li>
+      <li>Toggle on for 2 primeval essence, then pay 1 every 250 ticks. The first interval is included.</li>
+    </effectNotes>
+    <limitations>
+      <li>Ends on deactivation, missed upkeep, incapacitation or loss of the granting Gu or aperture.</li>
+    </limitations>
+    <sustained>
+      <condition>GU_StoneSkinProtection</condition>
+      <intervalTicks>250</intervalTicks>
+      <essencePerInterval>1</essencePerInterval>
+      <manifestationFx>GU_StoneSkinOverlay</manifestationFx>
+    </sustained>
+  </ProjectGu.Combat.GuAbilityDef>
+  <ProjectGu.Presentation.GuFxProfileDef>
+    <defName>GU_StoneSkinOverlay</defName>
+    <texPath>ProjectGU/Gu/StoneSkinGu/Protection</texPath>
+    <color>(0.80, 0.82, 0.85, 0.50)</color>
+    <drawSize>(0.75, 0.60)</drawSize>
+    <forwardOffset>-0.16</forwardOffset>
+    <orientToHeading>false</orientToHeading>
+  </ProjectGu.Presentation.GuFxProfileDef>
+</Defs>

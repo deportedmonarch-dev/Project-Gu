@@ -224,6 +224,8 @@ namespace ProjectGu
             readRecords = null;
             readEvidence = null;
             readDrafts = null;
+            // Exact ability authorization needs both the registry and the published cultivator store.
+            game.GetComponent<Combat.GuCombatLedger>()?.ValidateLoadedEffects();
             if (store.Evidence.Count > 0)
                 Log.Warning($"[Project GU] Cultivator identity retained {store.Evidence.Count} unresolved evidence entries.");
         }
