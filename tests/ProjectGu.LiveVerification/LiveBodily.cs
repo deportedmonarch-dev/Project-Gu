@@ -301,9 +301,12 @@ public sealed partial class LiveLifecycleChecks
         Check(!Prefs.DevMode && GuSurfaceEcology.IsForest(map.Biome), "The disciple is in the real surface habitat with Development Mode off");
         TickUntil(() => ecology.LocalityAt(map, species.defName) != null, 500, "The surface locality is initialized");
         var locality = ecology.LocalityAt(map, species.defName);
-        GuRecord Resident() => registry.Records.SingleOrDefault(record => record.SpeciesDefName == species.defName
+        IEnumerable<GuRecord> Residents() => registry.Records.Where(record => record.SpeciesDefName == species.defName
             && record.CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind && record.IsLiving && !record.SurfaceResidencyEnded
             && registry.ProjectionOf(record) is Pawn_GuWildProjection projection && projection.Map == map);
+        GuRecord Resident() => Residents().FirstOrDefault();
+        if (Resident() == null && locality.NextManifestationTick > Now)
+            locality.NextManifestationTick = Now;
         if (Resident() == null && locality.Cohort.MatureCount == 0)
         {
             TickUntil(() => locality.ReplacementTicks >= 0, 500, "The empty surface cohort schedules native recruitment");
@@ -312,17 +315,18 @@ public sealed partial class LiveLifecycleChecks
         TickUntil(() => Resident() != null, 7500, $"Ambient ecology manifested a registered {species.label}");
         var gu = Resident();
         var receipt = gu.CreationEvidence;
-        int remaining = locality.Cohort.MatureCount;
         Check(gu.SpeciesDefName == species.defName && receipt.Trigger == GuSurfaceEcology.AmbientTrigger && gu.CohortDebitCommitted
             && receipt.RevisionAfter == receipt.RevisionBefore + 1 && registry.SurfaceEvidenceIntact(receipt.SourceId, locality.Cohort),
             "The ambient resident has a committed, conserved surface cohort debit");
         var wild = (Pawn_GuWildProjection)registry.ProjectionOf(gu);
         PositionBeside(disciple, wild);
+        map.fogGrid.Unfog(wild.Position);
+        int occupancy = locality.Cohort.MatureCount + Residents().Count();
         Order(disciple, wild, $"Capture {species.label} (unrefined)");
         TickUntil(() => registry.ProjectionOf(gu) is Thing_GuDormantProjection, 2400, $"Captured the registered {species.label}");
         var dormant = (Thing_GuDormantProjection)registry.ProjectionOf(gu);
         Check(dormant.GuId == gu.Id && gu.Refinement == null && gu.SurfaceResidencyEnded
-            && locality.Cohort.MatureCount == remaining && !GuAbilityService.GrantsFor(disciple).Any(grant => grant.Gu == gu),
+            && locality.Cohort.MatureCount + Residents().Count() == occupancy - 1 && !GuAbilityService.GrantsFor(disciple).Any(grant => grant.Gu == gu),
             "Capture preserved identity and ended residence without a second debit or an ability grant");
         afterCapture?.Invoke(gu);
         Order(disciple, dormant, $"Pick up {dormant.Label}");

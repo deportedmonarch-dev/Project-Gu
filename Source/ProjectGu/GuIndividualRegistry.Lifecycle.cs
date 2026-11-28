@@ -293,7 +293,8 @@ namespace ProjectGu
                 || record.ContainerKind != GuContainerKind.WorldSite || record.CustodyRevision != expectedRevision
                 || expectedRevision == int.MaxValue) return false;
             reason = "Choose an open cell in the Gu's recorded native locality.";
-            if (record.LastKnown?.IsAt(map) != true || !CanPlaceDormant(map, cell, null)) return false;
+            if (record.LastKnown?.IsAt(map) != true || !(surfaceReady == null ? CanPlaceDormant(map, cell, null)
+                    : CanPlaceSurfaceWild(map, cell, null))) return false;
             var species = record.Species;
             bool dormant = record.Condition == GuCondition.Dormant;
             var adult = dormant ? null : FirstAdultProjectionStage(species?.wildProjectionKind);
@@ -334,7 +335,7 @@ namespace ProjectGu
                 if (!record.IsActionable || record.CustodyRevision != expectedRevision || record.LastKnown?.IsAt(map) != true
                     || !IsOnCell(staged, map, cell) || MapTeardownInProgress || pending.Any(item => item.Teardown?.Map == map)) return false;
                 if (surfaceReady != null && (!surfaceReady() || map.reservationManager.IsReserved(cell)
-                    || !CanPlaceDormant(map, cell, staged as Pawn))) return false;
+                    || !CanPlaceSurfaceWild(map, cell, staged as Pawn))) return false;
                 record.CommitManifestation(dormant ? GuManifestationKind.Thing : GuManifestationKind.Pawn, staged.GetUniqueLoadID());
                 staged.GuTag()?.Bind(record);
                 BindProjection(record, staged);

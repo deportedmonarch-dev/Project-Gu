@@ -22,6 +22,9 @@ namespace ProjectGu
         private const int HabitatSamples = 128;
         private const int Capacity = 4;
         private const int Threshold = 1;
+        internal const int SpeciesManifestationLimit = 2;
+        internal const int DefaultManifestationBudget = 6;
+        internal const int MaximumManifestationBudget = 32;
         internal const int TicksPerDay = 60000;
         private Dictionary<string, Site> sites = new();
         private Dictionary<string, Locality> legacyLocalities;
@@ -149,13 +152,17 @@ namespace ProjectGu
             int now = Find.TickManager.TicksGame;
             if (now % SampleTicks != 0 || Registry == null || Registry.CustodyTransitionInProgress || Registry.MapTeardownInProgress) return;
             EnsureSchedule(now);
+            var speciesList = SurfaceSpecies.ToArray();
+            bool manifestationTurn = now % ManifestationTicks == 0;
+            int first = speciesList.Length == 0 ? 0 : now / ManifestationTicks % speciesList.Length;
             foreach (var map in Find.Maps)
             {
                 if (!GuPocketProbeComponent.IsSurfaceSettlement(map)) continue;
                 string key = Key(map);
                 if (!UniqueMap(map, key)) continue;
-                foreach (var species in SurfaceSpecies)
+                for (int offset = 0; offset < speciesList.Length; offset++)
                 {
+                    var species = speciesList[(first + offset) % speciesList.Length];
                     int suitability = Suitability(map, species, out bool exposedRock);
                     var locality = GetOrInitialize(key, species, suitability);
                     if (locality?.Cohort == null) continue;
@@ -163,14 +170,35 @@ namespace ProjectGu
                     ObserveLoaded(map, key, locality, species, suitability, exposedRock, residents, now);
                     foreach (var candidate in residents)
                         Registry.TryReturnSurfaceResident(candidate.Id, candidate.CustodyRevision, map, out _);
-                    if (suitability == 0 || residents.Length > 1 || residents.Any(record => !Countable(record, map.Tile, map))
-                        || now % ManifestationTicks != 0 || now < locality.NextManifestationTick) continue;
-                    var resident = residents.SingleOrDefault();
-                    if (resident != null ? IsWorldResident(resident) && resident.LastKnown?.IsAt(map) == true : locality.Cohort.MatureCount > 0)
+                    if (!manifestationTurn || suitability == 0 || residents.Length > Capacity
+                        || residents.Any(record => !Countable(record, map.Tile, map))) continue;
+                    var resident = residents.FirstOrDefault(record => IsWorldResident(record) && record.LastKnown?.IsAt(map) == true);
+                    bool hasRoom = HasManifestationRoom(map, species.defName);
+                    if (resident != null ? hasRoom || HasRetention(resident, now)
+                        : hasRoom && locality.Cohort.MatureCount > 0 && now >= locality.NextManifestationTick)
                         TryManifest(map, key, sites[key], locality, species, resident, now);
                 }
             }
             ServiceSchedule(now);
+        }
+
+        private static bool HasRetention(GuRecord record, int now) => record.EncounterProtected(now,
+            Math.Clamp(ProjectGuMod.Settings?.encounterQuietDays ?? 1, 1, 600) * TicksPerDay,
+            Math.Clamp(ProjectGuMod.Settings?.encounterHistoryDays ?? 60, 1, 600) * TicksPerDay);
+
+        private static bool HasManifestationRoom(Map map, string species)
+        {
+            int budget = Math.Clamp(ProjectGuMod.Settings?.localityManifestationBudget ?? DefaultManifestationBudget,
+                1, MaximumManifestationBudget);
+            int total = 0, sameSpecies = 0;
+            foreach (var pawn in map.mapPawns.AllPawnsSpawned)
+            {
+                if (pawn is not Pawn_GuWildProjection wild || wild.ReleaseSuppressed
+                    || Registry.FindRecord(wild.GuId) is not { Species: { HasSurfacePopulation: true } } record
+                    || Registry.ProjectionOf(record) != wild || !GuIndividualRegistry.IsAuthorized(record, wild)) continue;
+                if (++total >= budget || record.SpeciesDefName == species && ++sameSpecies >= SpeciesManifestationLimit) return false;
+            }
+            return true;
         }
 
         private static bool UniqueMap(Map map, string key) =>
@@ -186,14 +214,14 @@ namespace ProjectGu
         private static bool ForestGround(Map map, IntVec3 cell) => cell.GetTerrain(map).fertility > 0f && Suitability(map.BiomeAt(cell)) > 0;
 
         internal static bool AmbientHabitat(Map map, IntVec3 cell, GuSurfaceHabitat habitat = GuSurfaceHabitat.Forest) =>
-            OpenNaturalGround(map, cell) && !cell.Fogged(map) && cell.GetRoom(map)?.PsychologicallyOutdoors == true && !map.reservationManager.IsReserved(cell)
+            OpenNaturalGround(map, cell) && cell.GetRoom(map)?.PsychologicallyOutdoors == true && !map.reservationManager.IsReserved(cell)
             && (habitat == GuSurfaceHabitat.Forest ? ForestGround(map, cell) : habitat == GuSurfaceHabitat.Rocky && NearExposedRock(map, cell));
 
         private static bool NearExposedRock(Map map, IntVec3 cell)
         {
             foreach (var nearby in GenRadial.RadialCellsAround(cell, 5f, false))
                 if (nearby.InBounds(map) && nearby.GetEdifice(map)?.def.building is { isNaturalRock: true, isResourceRock: false }
-                    && !nearby.Fogged(map) && GenSight.LineOfSight(cell, nearby, map, true)) return true;
+                    && GenSight.LineOfSight(cell, nearby, map, true)) return true;
             return false;
         }
 
@@ -226,7 +254,7 @@ namespace ProjectGu
                 for (int i = 0; i < HabitatSamples; i++)
                 {
                     var cell = CellFinder.RandomCell(map);
-                    if (AmbientHabitat(map, cell, habitat) && GuIndividualRegistry.CanPlaceDormant(map, cell, null))
+                    if (AmbientHabitat(map, cell, habitat) && GuIndividualRegistry.CanPlaceSurfaceWild(map, cell, null))
                         return cell;
                 }
                 return IntVec3.Invalid;
@@ -247,7 +275,8 @@ namespace ProjectGu
                 if (returning != null)
                 {
                     Registry.TryRecoverSurfaceResident(returning, map, cell,
-                        () => source.PlacementReady(map, cell, AmbientTrigger) && Countable(returning, map.Tile, map), out _);
+                        () => source.PlacementReady(map, cell, AmbientTrigger) && Countable(returning, map.Tile, map)
+                            && (HasManifestationRoom(map, species.defName) || HasRetention(returning, now)), out _);
                     return;
                 }
 
@@ -295,11 +324,17 @@ namespace ProjectGu
                 && Suitability(active.Map, active.Species) > 0 && Key(active.Map) == key && UniqueMap(active.Map, key);
             public bool RequiresDevelopmentMode(string trigger) => false;
             public GuPopulationRecord CohortFor(string species) => site.Populations.GetValueOrDefault(species)?.Cohort;
-            public string RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, IGuSourceAsset asset) =>
-                species?.HasSurfacePopulation == true && Active?.Species == species && Active.Locality == site.Populations.GetValueOrDefault(species.defName)
-                && rank == 1 && stage == GuCohortStage.Mature && asset == null && trigger == AmbientTrigger
-                && HasUniqueIdentity && Residents(key, species.defName).Length == 0
-                    ? null : "No qualifying surface manifestation can issue this Gu.";
+            public string RefuseIssue(GuSpeciesDef species, int rank, GuCohortStage stage, string trigger, IGuSourceAsset asset)
+            {
+                const string refusal = "No qualifying surface manifestation can issue this Gu.";
+                if (species?.HasSurfacePopulation != true || Active?.Species != species
+                    || Active.Locality != site.Populations.GetValueOrDefault(species.defName) || rank != 1
+                    || stage != GuCohortStage.Mature || asset != null || trigger != AmbientTrigger
+                    || !HasUniqueIdentity || !HasManifestationRoom(Active.Map, species.defName)) return refusal;
+                var residents = Residents(key, species.defName);
+                return Active.Locality.Cohort.TotalCount + residents.Length <= Capacity
+                    && residents.All(resident => Countable(resident, Active.Map.Tile, Active.Map)) ? null : refusal;
+            }
             public string PlacementRefusal => "The Gu needs open, suitable natural habitat.";
             public bool PlacementReady(Map map, IntVec3 cell, string trigger) => trigger == AmbientTrigger
                 && Active is { } active && active.Map == map && active.Cell == cell && HasUniqueIdentity

@@ -30,7 +30,7 @@ namespace ProjectGu
         }
 
         private readonly Queue<PendingEvent> pending = new();
-        private int sweepCursor;
+        private readonly Queue<GuRecord> livingSweep = new();
         private readonly Dictionary<Map, MapTeardownCapture> mapTeardowns = new();
         // Transient: Things being destroyed only because their holder is being torn down, with the holder's location.
         private readonly Dictionary<Thing, GuLocation> holderTeardown = new();
@@ -38,6 +38,7 @@ namespace ProjectGu
         private readonly Dictionary<Pawn, GuLocation> corpseLocations = new();
 
         internal int PendingEventCount => pending.Count;
+        internal int ReconciliationQueueCount => livingSweep.Count;
         internal bool MapTeardownInProgress => mapTeardowns.Count != 0;
 
         private bool CapturedByTeardown(GuRecord record) =>
@@ -369,16 +370,19 @@ namespace ProjectGu
         /// <summary>Checks up to <paramref name="budget"/> living records and repairs indexes or recovers unresolved ones.</summary>
         internal void Sweep(int budget)
         {
-            if (!ready || CustodyTransitionInProgress || records.Count == 0) return;
+            if (!ready || CustodyTransitionInProgress || MapTeardownInProgress) return;
             int tick = Find.TickManager.TicksGame;
-            int count = System.Math.Min(budget, records.Count);
+            int count = System.Math.Min(budget, livingSweep.Count);
             for (int step = 0; step < count; step++)
             {
-                if (sweepCursor >= records.Count) sweepCursor = 0;
-                var record = records[sweepCursor++];
-                if (record == null || record.IsQuarantined || !record.IsLiving || record.Id == null) continue;
-                if (record.Placement == GuPlacementKind.Manifested) SweepManifested(record, tick);
-                else SweepContained(record, tick);
+                var record = livingSweep.Dequeue();
+                if (!record.IsLiving || record.Id == null || byId.GetValueOrDefault(record.Id) != record) continue;
+                if (!record.IsQuarantined)
+                {
+                    if (record.Placement == GuPlacementKind.Manifested) SweepManifested(record, tick);
+                    else SweepContained(record, tick);
+                }
+                if (record.IsLiving) livingSweep.Enqueue(record);
             }
         }
 

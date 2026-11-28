@@ -103,6 +103,7 @@ namespace ProjectGu
             rogues.Clear();
             byCreationEvent.Clear();
             byEndEvent.Clear();
+            livingSweep.Clear();
             records.RemoveAll(record => record == null);
             int tick = Find.TickManager?.TicksGame ?? 0;
 
@@ -118,6 +119,8 @@ namespace ProjectGu
                     foreach (var record in group) record.Quarantine("Multiple records claim this Gu ID.");
                 byId[group.Key] = group.First();
             }
+            foreach (var record in byId.Values)
+                if (record.IsLiving) livingSweep.Enqueue(record);
             foreach (var group in records.Where(record => !record.IsQuarantined && record.Existence == GuExistence.Living
                     && record.Placement == GuPlacementKind.Manifested)
                 .GroupBy(record => record.ProjectionId, StringComparer.Ordinal).Where(group => group.Count() > 1))

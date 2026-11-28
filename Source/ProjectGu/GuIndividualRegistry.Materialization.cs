@@ -458,7 +458,9 @@ namespace ProjectGu
             if ((refusal = source.RefuseIssue(tx.Species, request.Rank, request.Stage, request.Trigger, tx.Asset)) != null) return false;
             if (tx.Asset != null && (refusal = tx.Asset.Refusal()) != null) return false;
             if ((refusal = ScopeEvidenceRefusal(request.OwnerKind, request.SourceId, request.SpeciesDefName, tx.Cohort)) != null) return false;
-            return CanPlaceDormant(tx.Map, tx.Cell, staged) && !tx.Map.reservationManager.IsReserved(tx.Cell)
+            bool open = request.OwnerKind == GuSurfaceEcology.SourceKind ? CanPlaceSurfaceWild(tx.Map, tx.Cell, staged)
+                : CanPlaceDormant(tx.Map, tx.Cell, staged);
+            return open && !tx.Map.reservationManager.IsReserved(tx.Cell)
                 && source.PlacementReady(tx.Map, tx.Cell, request.Trigger);
         }
 
@@ -489,7 +491,7 @@ namespace ProjectGu
         private bool TryRecordSourceCreation(GuRecord record, string floorKey, long revisionAfter)
         {
             if (byCreationEvent.TryGetValue(record.CreationEventKey, out var claim) && claim != record) return false;
-            if (!byId.ContainsKey(record.Id)) records.Add(record);
+            if (!byId.ContainsKey(record.Id)) AppendRecord(record);
             byId[record.Id] = record;
             byCreationEvent[record.CreationEventKey] = record;
             IndexSurfaceRecord(record);
@@ -571,7 +573,7 @@ namespace ProjectGu
             // The key already belongs to another record: it is blocked by that owner, and a second claimant here would make the
             // next load quarantine the legitimate owner as a duplicate. Keep only the rogue shell evidence.
             if (byCreationEvent.TryGetValue(key, out var owner) && owner != null && owner != claim) return;
-            if (!byId.ContainsKey(claim.Id)) records.Add(claim);
+            if (!byId.ContainsKey(claim.Id)) AppendRecord(claim);
             byId[claim.Id] = claim;
             byCreationEvent[key] = claim;
         }
@@ -587,7 +589,7 @@ namespace ProjectGu
             if (!TryRecordSourceCreation(record, tx.FloorKey, tx.Preimage.Revision + 1))
             {
                 // Another record claims the key: index this counted individual and freeze the event as ambiguous, as a load would.
-                if (!byId.ContainsKey(record.Id)) records.Add(record);
+                if (!byId.ContainsKey(record.Id)) AppendRecord(record);
                 byId[record.Id] = record;
                 IndexSurfaceRecord(record);
                 if (byCreationEvent.TryGetValue(record.CreationEventKey, out var other)) other?.Quarantine("Multiple individuals claim this creation event.");

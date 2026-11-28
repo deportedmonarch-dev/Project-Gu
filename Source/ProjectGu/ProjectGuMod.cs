@@ -11,6 +11,7 @@ namespace ProjectGu
         public bool ambientSpirits = true;
         public int encounterQuietDays = 1;
         public int encounterHistoryDays = 60;
+        public int localityManifestationBudget = GuSurfaceEcology.DefaultManifestationBudget;
 
         public override void ExposeData()
         {
@@ -19,6 +20,7 @@ namespace ProjectGu
             Scribe_Values.Look(ref ambientSpirits, "ambientSpirits", true);
             Scribe_Values.Look(ref encounterQuietDays, "encounterQuietDays", 1);
             Scribe_Values.Look(ref encounterHistoryDays, "encounterHistoryDays", 60);
+            Scribe_Values.Look(ref localityManifestationBudget, "localityManifestationBudget", GuSurfaceEcology.DefaultManifestationBudget);
         }
     }
 
@@ -27,6 +29,7 @@ namespace ProjectGu
         internal static ProjectGuSettings Settings { get; private set; }
         private string quietDaysInput;
         private string historyDaysInput;
+        private string manifestationBudgetInput;
 
         public ProjectGuMod(ModContentPack content) : base(content)
         {
@@ -46,6 +49,8 @@ namespace ProjectGu
                 "Draw the softly glowing Hope Gu that drift around spirit springs. Their number follows the spring's real Hope Gu population; they are scenery only and cannot be selected or captured. Encounters, populations and awakening are identical either way.");
             list.TextFieldNumericLabeled("Wild Gu out-of-sight days", ref Settings.encounterQuietDays, ref quietDaysInput, 1, 600);
             list.TextFieldNumericLabeled("Wild Gu historical significance days", ref Settings.encounterHistoryDays, ref historyDaysInput, 1, 600);
+            list.TextFieldNumericLabeled("Wild Gu manifestations per locality", ref Settings.localityManifestationBudget,
+                ref manifestationBudgetInput, 1, GuSurfaceEcology.MaximumManifestationBudget);
             list.End();
             if (before && !Settings.cosmeticEffects && Current.Game != null)
                 foreach (var map in Find.Maps) map.GetComponent<GuFxMapComponent>()?.Clear();

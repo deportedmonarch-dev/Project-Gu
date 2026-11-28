@@ -46,6 +46,8 @@ public sealed partial class LiveLifecycleChecks
         var caught = SurfaceGu().Single();
         var wild = (Pawn_GuWildProjection)IndividualRegistry.ProjectionOf(caught);
         var receipt = caught.CreationEvidence;
+        int Occupied() => habitat.Cohort.MatureCount + SurfaceGu().Count(record => record.IsLiving && !record.SurfaceResidencyEnded
+            && record.CreationEvidence.SourceId == receipt.SourceId);
         Check(receipt.Trigger == GuSurfaceEcology.AmbientTrigger && receipt.Rank == 1 && caught.CohortDebitCommitted
             && receipt.RevisionAfter == receipt.RevisionBefore + 1 && habitat.Cohort.MatureCount + 1 == Math.Max(1, initial),
             "Ambient manifestation exchanged one mature unit for one registered individual");
@@ -63,19 +65,22 @@ public sealed partial class LiveLifecycleChecks
         Report("Ambient manifestation, wandering, abstract feeding, fixed age and native exclusion controls passed.");
 
         PositionBeside(mortal, wild);
+        home.fogGrid.Unfog(wild.Position);
+        int beforeCapture = Occupied();
         Order(mortal, wild, "Capture Black Boar Gu (unrefined)");
         TickUntil(() => IndividualRegistry.ProjectionOf(caught) is Thing_GuDormantProjection, 1200,
             "The mortal captured the same individual through the ordinary float menu");
         var dormant = (Thing_GuDormantProjection)IndividualRegistry.ProjectionOf(caught);
-        Check(caught.Refinement == null && caught.SurfaceResidencyEnded && dormant.GuId == caught.Id && habitat.Cohort.MatureCount == Math.Max(1, initial) - 1,
+        Check(caught.Refinement == null && caught.SurfaceResidencyEnded && dormant.GuId == caught.Id && Occupied() == beforeCapture - 1,
             "Capture preserved identity, ended residence and left the cohort debit intact");
 
         // For initial stock above the threshold, remove the remaining unit needed to trigger recovery via direct damage.
-        if (habitat.Cohort.MatureCount > 1)
+        if (Occupied() > 1)
         {
             Check(habitat.ReplacementTicks < 0, "Stock above the minimum has not latched recovery");
-            TickUntil(() => SurfaceGu().Count == 2, 3100, "A second encounter consumes another unit after the capture");
-            var victim = SurfaceGu().Single(record => record.Id != caught.Id);
+            TickUntil(() => SurfaceGu().Any(record => record.IsLiving && !record.SurfaceResidencyEnded && record.Id != caught.Id), 3100,
+                "A second encounter consumes another unit independently of the capture");
+            var victim = SurfaceGu().First(record => record.IsLiving && !record.SurfaceResidencyEnded && record.Id != caught.Id);
             var victimPawn = (Pawn_GuWildProjection)IndividualRegistry.ProjectionOf(victim);
             victimPawn.TakeDamage(new DamageInfo(DamageDefOf.Cut, 400, 20, instigator: mortal));
             TickUntil(() => !victim.IsLiving, 500, "A direct attack can kill a wild Gu without duplicating its unit");
@@ -100,7 +105,7 @@ public sealed partial class LiveLifecycleChecks
 
         ExerciseSurfaceReplacement(mortal, home);
         Report($"Reached capacity four from an opening of {initial}. Desert rejection, deliberate search and map replacement passed.");
-        var resident = SurfaceGu().Single(record => record.IsLiving && !record.SurfaceResidencyEnded
+        var resident = SurfaceGu().First(record => record.IsLiving && !record.SurfaceResidencyEnded
             && IndividualRegistry.ProjectionOf(record)?.Map == home);
         PositionBeside(elder, dormant);
         Order(elder, dormant, $"Pick up {dormant.Label}");
@@ -308,7 +313,7 @@ public sealed partial class LiveLifecycleChecks
         var habitat = GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu");
         var whiteHabitat = GuSurfaceEcology.Instance.LocalityAt(map, "GU_WhiteBoarGu");
         Pawn_GuWildProjection Wild(string species) => map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>()
-            .SingleOrDefault(pawn => IndividualRegistry.Resolve(pawn)?.SpeciesDefName == species);
+            .FirstOrDefault(pawn => IndividualRegistry.Resolve(pawn)?.SpeciesDefName == species);
         foreach (var locality in new[] { habitat, whiteHabitat })
         {
             if (locality.Cohort.MatureCount == 0 && Wild(locality.Cohort.SpeciesDefName) == null)
@@ -367,7 +372,7 @@ public sealed partial class LiveLifecycleChecks
             var victimRecord = IndividualRegistry.Resolve(victim);
             victim.TakeDamage(new DamageInfo(DamageDefOf.Cut, 1000, 20));
             TickUntil(() => !victimRecord.IsLiving, 250, "Direct lethal damage ended the resident");
-            if (habitat.Cohort.MatureCount == 0) break;
+            if (habitat.Cohort.MatureCount == 0 && Wild(BlackSpecies) == null) break;
             TickUntil(() => Wild(BlackSpecies) != null, 5200, "Remaining stock supplied the vacant resident slot");
         }
         long depletedRevision = habitat.Cohort.Revision;

@@ -98,7 +98,7 @@ namespace ProjectGu
         {
             if (releaseSuppressed) return;
             base.TickInterval(delta);
-            if (Spawned && Faction == null && !Downed && !InMentalState && this.IsHashIntervalTick(250, delta)
+            if (Spawned && Faction == null && !Downed && !InMentalState && !Position.Fogged(Map) && this.IsHashIntervalTick(250, delta)
                 && Species is { HasSurfacePopulation: true, wildCuriosityChancePerHour: > 0f } species)
                 ObserveCuriosity(species);
         }

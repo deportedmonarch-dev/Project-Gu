@@ -150,8 +150,11 @@ namespace ProjectGu
             && pawn.carryTracker?.CarriedThing == null && pawn.equipment?.AllEquipmentListForReading.Count is not > 0
             && pawn.apparel?.WornApparel.Count is not > 0;
 
-        internal static bool CanPlaceDormant(Map map, IntVec3 cell, Pawn source) => map is { Disposed: false }
-            && Find.Maps.Contains(map) && cell.InBounds(map) && !cell.Fogged(map) && cell.Standable(map)
+        internal static bool CanPlaceDormant(Map map, IntVec3 cell, Pawn source) =>
+            CanPlaceSurfaceWild(map, cell, source) && !cell.Fogged(map);
+
+        internal static bool CanPlaceSurfaceWild(Map map, IntVec3 cell, Pawn source) => map is { Disposed: false }
+            && Find.Maps.Contains(map) && cell.InBounds(map) && cell.Standable(map)
             && cell.GetThingList(map).All(thing => thing == source || SharesCellWithGu(thing));
 
         /// <summary>

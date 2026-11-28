@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using ProjectGu;
 using ProjectGu.Domain;
+using Verse;
 
 internal static class RegionalEcologyChecks
 {
@@ -69,6 +70,62 @@ internal static class RegionalEcologyChecks
         Require(processed == rowCount && queue.Count == rowCount && queue.FirstTick == 4000, "Every due row was processed and rescheduled");
         Console.WriteLine($"PASS regional scheduler synthetic rows={rowCount} touches={3 * rowCount} processed={processed} pending={queue.Count}"
             + $" turns={turns} saturated={saturated} enqueue_ms={enqueueMs:F1} service_ms={timer.Elapsed.TotalMilliseconds:F1}");
+
+        VerifyReturnChurn();
+    }
+
+    private static void VerifyReturnChurn()
+    {
+        const int cycles = 16_000;
+        const int siteCount = 128;
+        var species = new GuSpeciesDef { defName = "SyntheticSurface" };
+        var cohorts = Enumerable.Range(0, siteCount).Select(_ => new GuPopulationRecord(species.defName, 4, 0, -1)).ToArray();
+        var tombstones = new List<GuRecord>(cycles);
+        var timer = Stopwatch.StartNew();
+        for (int i = 0; i < cycles; i++)
+        {
+            var cohort = cohorts[i % siteCount];
+            var site = $"0/{i % siteCount}/0";
+            var request = new GuSourceRequest($"surface/{site}/{cohort.Revision}", GuSurfaceEcology.SourceKind, site, "Map_synthetic",
+                species.defName, 1, GuCohortStage.Mature, GuSurfaceEcology.AmbientTrigger, null, cohort.Revision);
+            var record = GuRecord.PrepareFromSource(Guid.NewGuid().ToString("N"), species, request, i, "Pawn_synthetic");
+            Require(cohort.TryDebitForReceipt(request.EventKey), "Churn fixture pays one adult for each new ID");
+            record.CommitSourceDebit(cohort.Revision);
+            record.AddHistory(new(i, GuLifecycleEventKind.Recovered, "Fixture", null, null, GuLocation.FromTile(i % siteCount,
+                0, IntVec3.Zero, "Map_synthetic", null, i), "Synthetic recovery history superseded by an ecological return."));
+            var receipt = new GuPopulationReturnReceipt(site, "WorldObject_synthetic", record.CustodyRevision, cohort.Revision + 1, i + 1);
+            Require(cohort.TryCreditReturn(receipt.CreditKey(record.Id), cohort.Revision, 4, 0), "Churn fixture credits its exact adult");
+            record.CommitPopulationReturn(receipt);
+            tombstones.Add(record);
+        }
+        var cycleMs = timer.Elapsed.TotalMilliseconds;
+        Require(cohorts.All(cohort => cohort.MatureCount == 4 && cohort.ReceiptDebits == cycles / siteCount
+            && cohort.ReturnCredits == cycles / siteCount && cohort.EvidenceIntact), "Repeated issuance and return conserve every habitat's stock");
+
+        var sample = tombstones.Take(1024).ToList();
+        long bytesBefore = SerializedSize(sample);
+        timer.Restart();
+        Require(tombstones.All(record => record.Compact() && record.PopulationReturn.Matches(record)
+            && record.History.Count == 0 && record.ProjectionId == null), "Every compacted tombstone retains proof and clears old narrative and custody");
+        var compactMs = timer.Elapsed.TotalMilliseconds;
+        long bytesAfter = SerializedSize(sample);
+        Require(bytesAfter < bytesBefore && tombstones.Select(record => record.Id).Distinct().Count() == cycles,
+            "Compaction reduces saved size and retains all distinct replay IDs");
+        Console.WriteLine($"PASS managed return churn sites={siteCount} cycles={cycles} living=0 aggregates={tombstones.Count}"
+            + $" settle_ms={cycleMs:F1} compact_ms={compactMs:F1} saved_1024_before={bytesBefore} saved_1024_after={bytesAfter}");
+    }
+
+    private static long SerializedSize(List<GuRecord> records)
+    {
+        string path = Path.GetTempFileName();
+        try
+        {
+            Scribe.saver.InitSaving(path, "returnChurn");
+            Scribe_Collections.Look(ref records, "records", LookMode.Deep);
+            Scribe.saver.FinalizeSaving();
+            return new FileInfo(path).Length;
+        }
+        finally { File.Delete(path); }
     }
 
     private static void Require(bool condition, string message)

@@ -56,7 +56,7 @@ public sealed partial class LiveLifecycleChecks
             locality.ReplacementTicks = 250;
         }
         Pawn_GuWildProjection Wild(string name) => map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>()
-            .SingleOrDefault(wild => IndividualRegistry.Resolve(wild)?.SpeciesDefName == name);
+            .FirstOrDefault(wild => IndividualRegistry.Resolve(wild)?.SpeciesDefName == name);
         var sightings = new Dictionary<string, IntVec3>();
         TickUntil(() =>
         {
@@ -65,7 +65,7 @@ public sealed partial class LiveLifecycleChecks
             return sightings.Count == 3;
         }, 10000, "All three species manifested on the mountain settlement before any colonist arrived");
         var stoneWild = Wild(StoneSpecies);
-        Check(map.mapPawns.FreeColonistsSpawned.Count == 0 && localities.All(locality => locality.Cohort.ReceiptDebits == 1)
+        Check(map.mapPawns.FreeColonistsSpawned.Count == 0 && localities.All(locality => locality.Cohort.ReceiptDebits is >= 1 and <= 2)
             && GuSurfaceEcology.AmbientHabitat(map, sightings[StoneSpecies], habitat) && stoneWild.GetStatValue(StatDefOf.MoveSpeed) < 3f,
             "Stone Skin manifested beside exposed natural rock with its own debit and slow native Move Speed");
         var position = stoneWild.Position;

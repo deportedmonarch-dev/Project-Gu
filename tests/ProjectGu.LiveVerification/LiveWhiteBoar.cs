@@ -28,16 +28,20 @@ public sealed partial class LiveLifecycleChecks
         var whiteLocality = ecology.LocalityAt(pawn.Map, WhiteSpecies);
         Check(blackLocality != null && whiteLocality != null && blackLocality.Cohort != whiteLocality.Cohort,
             "The same eligible locality holds independent Rank 1 boar cohorts");
-        GuRecord Wild(string species) => registry.Records.SingleOrDefault(record => record.SpeciesDefName == species
+        IEnumerable<GuRecord> Residents(string species) => registry.Records.Where(record => record.SpeciesDefName == species
             && !record.SurfaceResidencyEnded && registry.ProjectionOf(record) is Pawn_GuWildProjection wild && wild.Map == pawn.Map);
-        int Occupied(GuSurfaceEcology.Locality locality) => locality.Cohort.MatureCount + (Wild(locality.Cohort.SpeciesDefName) == null ? 0 : 1);
+        GuRecord Wild(string species) => Residents(species).FirstOrDefault();
+        int Occupied(GuSurfaceEcology.Locality locality) => locality.Cohort.MatureCount + Residents(locality.Cohort.SpeciesDefName).Count();
         foreach (var locality in new[] { blackLocality, whiteLocality })
         {
             if (Occupied(locality) < 2 && locality.ReplacementTicks >= 0) locality.ReplacementTicks = 250;
+            if (Wild(locality.Cohort.SpeciesDefName) == null && locality.NextManifestationTick > Now)
+                locality.NextManifestationTick = Now;
         }
         TickUntil(() => Wild(BlackSpecies) != null && Wild(WhiteSpecies) != null, 7500, "Both species manifested in the same eligible locality");
         var blackWild = Wild(BlackSpecies);
         var blackBody = registry.ProjectionOf(blackWild);
+        blackLocality.NextManifestationTick = int.MaxValue; // Keep Black Boar demand stable while exercising White Boar's clock.
         long blackRevision = blackLocality.Cohort.Revision;
         int whiteOccupied = Occupied(whiteLocality);
         var white = AcquireSurfaceGu(pawn, aperture, registry.Resolve(state.LiquorId), WhiteCultivation, captured =>

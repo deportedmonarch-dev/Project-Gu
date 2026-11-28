@@ -131,7 +131,12 @@ namespace ProjectGu
         private void RestoreFailedReturn(GuRecord record, Pawn_GuWildProjection pawn, Map map, IntVec3 cell, Rot4 rotation)
         {
             if (pawn.Discarded || !CanRestoreDetached(pawn) || ProjectionOf(record) != pawn || Find.WorldPawns.IsBeingDiscarded(pawn)) return;
-            try { JobDriver_GuPocketProbeTravel.TryRestorePawn(pawn, map, cell, rotation); }
+            try
+            {
+                if (CanPlaceSurfaceWild(map, cell, null) && cell.Fogged(map) && !map.reservationManager.IsReserved(cell))
+                    GenSpawn.Spawn(pawn, cell, map, rotation);
+                else JobDriver_GuPocketProbeTravel.TryRestorePawn(pawn, map, cell, rotation);
+            }
             catch (Exception exception)
             {
                 Log.Warning($"[Project GU] Native return rollback failed for Gu {record.Id}. {exception}");

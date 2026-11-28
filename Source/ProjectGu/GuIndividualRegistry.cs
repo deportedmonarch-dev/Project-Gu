@@ -260,6 +260,12 @@ namespace ProjectGu
 
         // ---- Index maintenance (mutating; coordinator, load and reconciliation only) ----------------------------
 
+        private void AppendRecord(GuRecord record)
+        {
+            records.Add(record);
+            if (record.IsLiving) livingSweep.Enqueue(record);
+        }
+
         private void BindProjection(GuRecord record, Thing projection)
         {
             UnbindAll(record);
@@ -344,7 +350,7 @@ namespace ProjectGu
                     GuCondition.Active, GuManifestationKind.Pawn, projection.GetUniqueLoadID());
                 projection.InitializeBinding(record);
                 if (!CanRestoreDetached(projection) || !TryPlaceStagedWildPawn(projection, record, kind, map, cell)) return false;
-                records.Add(record);
+                AppendRecord(record);
                 byId[record.Id] = record;
                 committed = true;
                 BindProjection(record, projection);
