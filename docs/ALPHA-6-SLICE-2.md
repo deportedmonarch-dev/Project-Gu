@@ -34,6 +34,12 @@ The native campaign also passed Slice 1A surface gameplay and reload, the matche
 
 The Release payload was installed into Steam's RimWorld Mods folder while RimWorld was closed. All 121 installed production files matched the native test manifest. The SHA-256 for `ProjectGu.dll` is `52384FAF3287A5805D105AD8A1F5C5FF3917CFF58D0E11D26DDFAE972D527838`.
 
+## Owner acceptance
+
+The owner accepted Slice 2 core gameplay on the regional ecology baseline inherited by `e3a2167`. The owner supplied no case-by-case manual results. Unloaded recovery, migration, source receipts, native teardown, fresh-process persistence and the listed regression cases retain their automated verification status.
+
+Rendered acceptance of the integrated Black Boar, White Boar and Stone Skin sprites remains pending in the [owner artwork manifest](OWNER-GU-ARTWORK.md#gameplay-and-acceptance).
+
 ## Owner acceptance steps
 
 1. Use a disposable settlement with forest and nearby hills. Let Black Boar, White Boar and Stone Skin appear. Search compatible ground and check that each result points to an existing projection. Keep at least one wild resident and capture another. Check that the cohort totals and preserved IDs agree in the Development Mode log.
