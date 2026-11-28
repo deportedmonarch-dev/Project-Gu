@@ -39,6 +39,8 @@ The Steam installation was closed during deployment. All 120 installed productio
 
 ## Owner playtest
 
+The owner accepted Stone Skin Gu at `9499fb3` on RimWorld 1.7.5021 rev1365 within the scope tested. The owner reported overall acceptance without individual manual test results.
+
 1. In a rocky hill or mountain settlement, search outdoor ground near a natural rock face after giving wild Gu time to appear. Follow the detected Stone Skin Gu, capture it, pick it up, enforce its will, and store it in the refiner's aperture.
 2. When it is hungry, feed a natural chunk manually. Try automatic feeding with a different natural chunk in the refiner's inventory or colony storage.
 3. Select the Gu Master during work and toggle **Stone Skin** on. Check the **Health** tab and the pawn's armor stats. Draft the pawn, move or fight, and try another stored Gu while protected. Toggle Stone Skin off and check that the condition and armor bonuses are gone.
