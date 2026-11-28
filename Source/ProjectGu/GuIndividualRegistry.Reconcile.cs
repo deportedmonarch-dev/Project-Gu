@@ -215,9 +215,11 @@ namespace ProjectGu
                     && apertureOf.TryGetValue(record.Id, out var aperture) && IsBoundAperture(aperture, record)) continue;
                 // The host's remains left with the map, so its aperture Gu slipped out there (D2.7). The map is gone, so the
                 // escaped Gu is placed by its preservation policy at that location.
-                if (record.ContainerKind == GuContainerKind.MortalAperture) MarkEscaped(record, location, "The host's remains were removed with the map.", tick);
+                bool escaped = record.ContainerKind == GuContainerKind.MortalAperture;
+                if (escaped) MarkEscaped(record, location, "The host's remains were removed with the map.", tick);
                 Abandon(record, null, location, GuUnresolvedCause.MapRemoved, GuTerminalEvidence.MapRemoved, "MapRemoved",
                     "The map was removed with the aperture host's remains on it.", tick);
+                if (escaped && record.IsActionable) record.RecordEscapePlacement();
             }
         }
 

@@ -83,6 +83,7 @@ ApertureInterfaceChecks.Run(root);
 GuFeedingChecks.Run(root);
 Alpha5BChecks.Run(root);
 SourceTransactionChecks.Run(root);
+RegionalEcologyChecks.Run();
 
 void VerifyFlora(GuSpringCavernLayout layout, Dictionary<IntVec3, int> shore, int seed)
 {

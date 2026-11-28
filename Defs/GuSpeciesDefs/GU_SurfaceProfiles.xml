@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ProjectGu.Domain.GuSurfaceProfileDef>
+    <defName>GU_SurfaceForest</defName>
+    <rules>
+      <li>
+        <weight>3</weight>
+        <biomes><li>TemperateForest</li><li>BorealForest</li></biomes>
+      </li>
+      <li>
+        <weight>2</weight>
+        <biomes><li>TropicalRainforest</li></biomes>
+      </li>
+      <li>
+        <weight>1</weight>
+        <biomes><li>TemperateSwamp</li><li>TropicalSwamp</li><li>ColdBog</li><li>AridShrubland</li></biomes>
+      </li>
+    </rules>
+  </ProjectGu.Domain.GuSurfaceProfileDef>
+  <ProjectGu.Domain.GuSurfaceProfileDef>
+    <defName>GU_SurfaceRocky</defName>
+    <rules>
+      <li>
+        <weight>3</weight>
+        <hilliness><li>LargeHills</li><li>Mountainous</li><li>Impassable</li></hilliness>
+      </li>
+      <li>
+        <weight>2</weight>
+        <hilliness><li>SmallHills</li></hilliness>
+      </li>
+      <li>
+        <weight>1</weight>
+        <biomes><li>TemperateForest</li><li>BorealForest</li><li>TropicalRainforest</li></biomes>
+        <hilliness><li>Flat</li></hilliness>
+        <exposedRockRequired>true</exposedRockRequired>
+      </li>
+    </rules>
+  </ProjectGu.Domain.GuSurfaceProfileDef>
+</Defs>

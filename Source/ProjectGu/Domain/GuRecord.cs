@@ -329,8 +329,21 @@ namespace ProjectGu.Domain
         }
 
         internal bool SurfaceResidencyEnded { get; private set; }
+        private string introducedSurfaceSite;
+        internal string SurfaceResidence => !IsLiving || SurfaceResidencyEnded ? null : introducedSurfaceSite
+            ?? (CohortDebitCommitted && CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind ? CreationEvidence.SourceId : null);
+        private int escapeAdmissionRevision = -1;
+        internal bool HasEscapeEvidence => escapeAdmissionRevision == custodyRevision
+            && history?.Exists(entry => entry.Kind == GuLifecycleEventKind.Escaped) == true;
+        internal void RecordEscapePlacement() => escapeAdmissionRevision = custodyRevision;
 
         internal void EndSurfaceResidency() => SurfaceResidencyEnded = true;
+
+        internal void JoinSurfaceResidence(string site)
+        {
+            introducedSurfaceSite = site;
+            SurfaceResidencyEnded = false;
+        }
 
         internal void CommitManifestation(GuManifestationKind kind, string nativeId)
         {
@@ -523,6 +536,8 @@ namespace ProjectGu.Domain
             bool surfaceResidencyEnded = SurfaceResidencyEnded;
             Scribe_Values.Look(ref surfaceResidencyEnded, "surfaceResidencyEnded");
             SurfaceResidencyEnded = surfaceResidencyEnded;
+            Scribe_Values.Look(ref introducedSurfaceSite, "introducedSurfaceSite");
+            Scribe_Values.Look(ref escapeAdmissionRevision, "surfaceEscapeAdmissionRevision", -1);
             Scribe_Values.Look(ref version, "version");
             Scribe_Values.Look(ref id, "id");
             Scribe_Values.Look(ref speciesDefName, "speciesDefName");

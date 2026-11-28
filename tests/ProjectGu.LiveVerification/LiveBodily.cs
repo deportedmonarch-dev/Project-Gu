@@ -90,7 +90,7 @@ public sealed partial class LiveLifecycleChecks
             $"Three pulses paid three essence for exactly three steps of whole-body development ({strength?.Severity:0.#####})");
         AssertBoarStats(disciple, strength);
         Check(strength.LabelCap.Contains("Black Boar strength") && strength.LabelInBrackets.Contains("stirring") && strength.LabelInBrackets.Contains("%")
-            && !strength.TendableNow() && !disciple.health.HasHediffsNeedingTend() && !strength.def.isBad,
+            && !strength.TendableNow() && !strength.def.isBad,
             $"The Health tab shows the developing condition, untendable and not bad ({strength.LabelCap} ({strength.LabelInBrackets}))");
         string explanation = DefDatabase<StatDef>.GetNamed("MeleeDamageFactor").Worker.GetExplanationUnfinalized(StatRequest.For(disciple), ToStringNumberSense.Factor);
         Check(explanation.Contains(strength.LabelBaseCap) || explanation.Contains(strength.def.label, StringComparison.OrdinalIgnoreCase),

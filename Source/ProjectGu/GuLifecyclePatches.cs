@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using RimWorld;
 using RimWorld.Planet;
 using Verse;
 
@@ -26,6 +27,8 @@ namespace ProjectGu
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(MapDeiniter), nameof(MapDeiniter.Deinit))),
                     prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforeMapDeinit)),
                     finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterMapDeinit)));
+                harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(WorldObjectsHolder), nameof(WorldObjectsHolder.Remove))),
+                    postfix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterWorldObjectRemoval)));
                 harmony.Patch(Required(AccessTools.DeclaredMethod(typeof(Corpse), nameof(Corpse.Destroy))),
                     prefix: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(BeforeCorpseDestroy)),
                     finalizer: new HarmonyMethod(typeof(GuLifecyclePatches), nameof(AfterCorpseDestroy)));
@@ -56,12 +59,22 @@ namespace ProjectGu
         private static System.Reflection.MethodInfo Required(System.Reflection.MethodInfo method) =>
             method ?? throw new MissingMethodException("A native lifecycle method required by Project GU was not found.");
 
-        private static void BeforeMapDeinit(Map map) => Registry?.BeginMapTeardown(map);
+        private static void BeforeMapDeinit(Map map)
+        {
+            GuSurfaceEcology.Instance?.ObserveMapRetirement(map);
+            Registry?.BeginMapTeardown(map);
+        }
 
         private static Exception AfterMapDeinit(Map map, Exception __exception)
         {
             Registry?.EndMapTeardown(map);
             return __exception;
+        }
+
+        private static void AfterWorldObjectRemoval(WorldObject __0, bool __runOriginal)
+        {
+            if (__runOriginal && __0 is Settlement settlement)
+                GuSurfaceEcology.Instance?.ObserveDestroyedSettlement(settlement);
         }
 
         // Destroy clears the corpse contents before the finalizer runs, so the inner Pawn travels in __state.

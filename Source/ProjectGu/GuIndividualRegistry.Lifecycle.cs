@@ -207,9 +207,14 @@ namespace ProjectGu
         {
             UnbindAll(record);
             MarkEscaped(record, location, detail, tick);
-            if (TryManifestEscapedGu(record, location)) return;
+            if (TryManifestEscapedGu(record, location))
+            {
+                if (record.IsActionable) record.RecordEscapePlacement();
+                return;
+            }
             Abandon(record, null, location, GuUnresolvedCause.HostCorpseDestroyed, GuTerminalEvidence.HostCorpseDestroyed, "HostCorpseDestroyed",
                 "The Gu slipped out of the destroyed body where no live map could receive it.", tick);
+            if (record.IsActionable) record.RecordEscapePlacement();
         }
 
         private bool TryManifestEscapedGu(GuRecord record, GuLocation location)
@@ -282,8 +287,7 @@ namespace ProjectGu
             manifestation = null;
             reason = "The Gu is not held at an abstract world location, or the request is stale.";
             if (!(surfaceReady == null ? CanUseDevelopmentCustody : CanUseCustody) || Resolve(id) is not { } record
-                || surfaceReady != null && (record.SurfaceResidencyEnded || record.Condition != GuCondition.Active
-                    || record.CreationEvidence?.OwnerKind != GuSurfaceEcology.SourceKind || !surfaceReady())
+                || surfaceReady != null && (record.SurfaceResidence == null || record.Condition != GuCondition.Active || !surfaceReady())
                 || record.Placement != GuPlacementKind.Contained
                 || record.ContainerKind != GuContainerKind.WorldSite || record.CustodyRevision != expectedRevision
                 || expectedRevision == int.MaxValue) return false;

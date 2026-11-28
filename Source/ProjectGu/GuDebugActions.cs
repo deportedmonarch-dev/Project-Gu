@@ -211,6 +211,12 @@ namespace ProjectGu
                 + (registry.LastMigrationSummary == null ? "" : "\n\n" + registry.LastMigrationSummary));
         }
 
+        [DebugAction("Project GU", "Log regional and local Gu ecology", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        private static void LogSurfaceEcology()
+        {
+            if (Prefs.DevMode && GuSurfaceEcology.Instance is { } ecology) Log.Message(ecology.Diagnostics());
+        }
+
         // ---- Phase 2 lifecycle and operator recovery (Development Mode only) ----------------------------------
 
         private static GuIndividualRegistry LifecycleRegistry => Prefs.DevMode ? Current.Game?.GetComponent<GuIndividualRegistry>() : null;

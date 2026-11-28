@@ -23,9 +23,11 @@ namespace ProjectGu.Domain
         public int minRank = 1;
         public int maxRank = 1;
         public bool wildPopulationEnabled;
-        // Opts into the shared surface forest habitat, recovery and ground encounter behavior.
+        // Opts into the shared surface habitat, recovery and ground encounter behavior.
         public GuSurfaceHabitat surfaceHabitat;
+        public GuSurfaceProfileDef surfaceProfile;
         internal bool HasSurfacePopulation => wildPopulationEnabled && surfaceHabitat != GuSurfaceHabitat.None;
+        public List<GuSurfaceSource> surfaceRecoverySources = new() { GuSurfaceSource.NaturalReplenishment, GuSurfaceSource.Migration };
         public PawnKindDef wildProjectionKind;
         public ThingDef dormantProjectionDef;
         public float wildCuriosityChancePerHour;
@@ -90,6 +92,10 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: refinementBaseWorkTicks must be between 1 and 600000";
             if (surfaceHabitat != GuSurfaceHabitat.None && (!wildPopulationEnabled || minRank != 1 || wildProjectionKind == null || dormantProjectionDef == null))
                 yield return $"{defName}: surface populations need enabled Rank 1 wild and dormant projections";
+            if (surfaceRecoverySources != null && (surfaceRecoverySources.Distinct().Count() != surfaceRecoverySources.Count
+                || surfaceRecoverySources.Any(source => source is not (GuSurfaceSource.NaturalReplenishment or GuSurfaceSource.Migration or GuSurfaceSource.NaturalFormation))
+                || surfaceRecoverySources.Contains(GuSurfaceSource.NaturalFormation) && surfaceHabitat != GuSurfaceHabitat.Rocky))
+                yield return $"{defName}: invalid surface source order or missing local formation habitat rule";
             if (!float.IsFinite(wildCuriosityChancePerHour) || wildCuriosityChancePerHour is < 0f or > 1f)
                 yield return $"{defName}: wildCuriosityChancePerHour must be between 0 and 1";
             if (!float.IsFinite(refinementEssenceCost) || refinementEssenceCost <= 0f)

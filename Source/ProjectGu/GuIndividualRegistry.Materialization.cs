@@ -27,6 +27,8 @@ namespace ProjectGu
 
         private void RebuildCreationEventBindings(IEnumerable<GuRecord> source)
         {
+            surfaceReceipts.Clear();
+            surfaceResidents.Clear();
             committedRevisionFloor.Clear();
             foreach (var claims in source.Where(record => !string.IsNullOrWhiteSpace(record.CreationEventKey))
                 .GroupBy(record => record.CreationEventKey, StringComparer.Ordinal))
@@ -42,8 +44,11 @@ namespace ProjectGu
             }
             // A malformed receipt quarantines its own record and does not move the floor.
             foreach (var record in source)
+            {
+                IndexSurfaceRecord(record);
                 if (record.CohortDebitCommitted && record.CreationEvidence is { } receipt && receipt.ShapeError(record) == null)
                     RaiseCommittedFloor(FloorKey(receipt.OwnerKind, receipt.SourceId, record.SpeciesDefName), receipt.RevisionAfter);
+            }
         }
 
         private void RaiseCommittedFloor(string key, long revision)
@@ -98,6 +103,8 @@ namespace ProjectGu
         {
             if (!cohort.EvidenceIntact)
                 return "The source cohort's debit evidence was changed outside its owner (substituted or edited). The scope is frozen until repaired.";
+            if (ownerKind == GuSurfaceEcology.SourceKind)
+                return SurfaceReceiptsMatch(sourceId, species, cohort) ? null : "The surface cohort's committed debit evidence does not match the registry.";
             var receipts = records.Where(record => record != null && record.CohortDebitCommitted && record.CreationEvidence is { } receipt
                     && string.Equals(receipt.OwnerKind, ownerKind, StringComparison.Ordinal)
                     && string.Equals(receipt.SourceId, sourceId, StringComparison.Ordinal)
@@ -481,6 +488,7 @@ namespace ProjectGu
             if (!byId.ContainsKey(record.Id)) records.Add(record);
             byId[record.Id] = record;
             byCreationEvent[record.CreationEventKey] = record;
+            IndexSurfaceRecord(record);
             RaiseCommittedFloor(floorKey, revisionAfter);
             return true;
         }
@@ -488,6 +496,7 @@ namespace ProjectGu
         private void UnrecordSourceCreation(SourceTransaction tx)
         {
             var record = tx.Record;
+            UnindexSurfaceRecord(record, tx.Request.SourceId, tx.Request.OwnerKind);
             UnbindAll(record);
             ForgetRecoveryHint(record, tx.Staged);
             records.Remove(record);
@@ -576,6 +585,7 @@ namespace ProjectGu
                 // Another record claims the key: index this counted individual and freeze the event as ambiguous, as a load would.
                 if (!byId.ContainsKey(record.Id)) records.Add(record);
                 byId[record.Id] = record;
+                IndexSurfaceRecord(record);
                 if (byCreationEvent.TryGetValue(record.CreationEventKey, out var other)) other?.Quarantine("Multiple individuals claim this creation event.");
                 record.Quarantine("Multiple individuals claim this creation event.");
                 byCreationEvent[record.CreationEventKey] = null;

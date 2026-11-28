@@ -270,8 +270,12 @@ public sealed partial class LiveLifecycleChecks
 
     private static void ExerciseSurfaceReplacement(Pawn scout, Map original)
     {
-        var tile = Find.WorldGrid.Surface.Tiles.First(candidate => candidate.PrimaryBiome.defName == "Desert"
-            && candidate.hilliness == Hilliness.Flat && TileFinder.IsValidTileForNewSettlement(candidate.tile));
+        var species = DefDatabase<GuSpeciesDef>.GetNamed(BlackSpecies);
+        var tile = Find.WorldGrid.Surface.Tiles.First(candidate => candidate.PrimaryBiome.defName == "TemperateForest"
+            && candidate.hilliness == Hilliness.Flat && TileFinder.IsValidTileForNewSettlement(candidate.tile)
+            && !Find.WorldObjects.AnyWorldObjectAt(candidate.tile) && GuSurfaceEcology.DonorWitness(candidate.tile, species,
+                GuSurfaceEcology.RegionOf(candidate.tile)) != null);
+        tile.PrimaryBiome = BiomeDef.Named("Desert");
         var settlement = (Settlement)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.Settlement);
         settlement.Tile = tile.tile;
         settlement.SetFaction(Faction.OfPlayer);
@@ -284,10 +288,11 @@ public sealed partial class LiveLifecycleChecks
         scout.DeSpawn();
         GenSpawn.Spawn(scout, map.Center, map);
         TickUntil(() => false, 2600);
-        Check(GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") == null
-            && GuSurfaceEcology.Instance.LocalityAt(map, "GU_StoneSkinGu") == null && !GuSurfaceEcology.SearchGround(map, scout.Position)
+        Check(GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") is { FoundingCount: 0, Established: false }
+            && GuSurfaceEcology.Instance.LocalityAt(map, "GU_StoneSkinGu") is { FoundingCount: 0, Established: false }
+            && !GuSurfaceEcology.SearchGround(map, scout.Position)
             && !map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>().Any(pawn => pawn.kindDef.defName == "GU_WildBlackBoarGu")
-            && GuSurfaceEcology.Suitability(BiomeDef.Named("Tundra")) == 0, "Desert rejects initialization, ambient encounters and searching. Tundra is also hard-ineligible");
+            && GuSurfaceEcology.Suitability(BiomeDef.Named("Tundra")) == 0, "Desert records absence and rejects ambient encounters and searching. Tundra is also hard-ineligible");
 
         // Change the disposable tile's fixture biome, then generate a fresh forest map at the same locality.
         scout.DeSpawn();
@@ -299,7 +304,7 @@ public sealed partial class LiveLifecycleChecks
         Current.Game.CurrentMap = original;
         var cameraBefore = SurfaceCameraTarget();
         int startTick = Now;
-        TickUntil(() => GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu") != null, 250);
+        TickUntil(() => GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu")?.HabitatWeight > 0, 250);
         var habitat = GuSurfaceEcology.Instance.LocalityAt(map, "GU_BlackBoarGu");
         var whiteHabitat = GuSurfaceEcology.Instance.LocalityAt(map, "GU_WhiteBoarGu");
         Pawn_GuWildProjection Wild(string species) => map.mapPawns.AllPawnsSpawned.OfType<Pawn_GuWildProjection>()
@@ -344,9 +349,11 @@ public sealed partial class LiveLifecycleChecks
         Current.Game.CurrentMap = original;
         Current.Game.DeinitAndRemoveMap(map, false);
         TickUntil(() => record.ContainerKind == GuContainerKind.WorldSite, 250, "Native teardown kept a living resident at its world locality");
-        int remaining = habitat.ReplacementTicks;
+        int due = habitat.ConsumedTick + habitat.ReplacementTicks;
+        long unloadedRevision = habitat.Cohort.Revision;
         TickUntil(() => false, 600);
-        Check(habitat.ReplacementTicks == remaining, "The unloaded locality did not bank any replacement time");
+        Check(habitat.Unloaded && habitat.Cohort.Revision == unloadedRevision
+            && habitat.ConsumedTick + habitat.ReplacementTicks == due, "The unloaded locality kept its outstanding deadline");
         GenMapParent(settlement);
         map = settlement.Map;
         TickUntil(() => IndividualRegistry.ProjectionOf(record) is Pawn_GuWildProjection { Spawned: true }, 5200,

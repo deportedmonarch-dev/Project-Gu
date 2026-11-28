@@ -108,6 +108,7 @@
     <maxRank>1</maxRank>
     <wildPopulationEnabled>true</wildPopulationEnabled>
     <surfaceHabitat>Forest</surfaceHabitat>
+    <surfaceProfile>GU_SurfaceForest</surfaceProfile>
     <wildCuriosityChancePerHour>0.001</wildCuriosityChancePerHour>
     <pathTags><li>strength</li></pathTags>
     <habitatTags><li>surface</li><li>forest</li></habitatTags>

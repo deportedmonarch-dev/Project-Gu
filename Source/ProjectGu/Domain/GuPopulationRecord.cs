@@ -135,13 +135,32 @@ namespace ProjectGu.Domain
 
         public void SetNextEcologyTick(int tick) { nextEcologyTick = tick; }
 
+        internal bool CanRecruitMature(int capacity, int livingResidents) =>
+            EvidenceIntact && revision < long.MaxValue && livingResidents >= 0 && TotalCount + livingResidents < capacity;
+
         internal bool TryRecruitMature(int capacity, int livingResidents)
         {
-            if (!EvidenceIntact || revision == long.MaxValue || livingResidents < 0
-                || TotalCount + livingResidents >= capacity) return false;
+            if (!CanRecruitMature(capacity, livingResidents)) return false;
             matureCount++;
             AdvanceRevision();
             Reseal(true);
+            return true;
+        }
+
+        internal bool TryTransferMatureTo(GuPopulationRecord recipient, long expectedDonor, long expectedRecipient,
+            int recipientCapacity, int livingResidents)
+        {
+            if (recipient == null || recipient == this || recipient.speciesDefName != speciesDefName
+                || revision != expectedDonor || recipient.revision != expectedRecipient || revision == long.MaxValue
+                || !EvidenceIntact || matureCount < 1 || !recipient.CanRecruitMature(recipientCapacity, livingResidents)) return false;
+
+            // Both preimages were validated. Publish the two changes without native callbacks or save boundaries.
+            matureCount--;
+            revision++;
+            recipient.matureCount++;
+            recipient.revision++;
+            Reseal(true);
+            recipient.Reseal(true);
             return true;
         }
 

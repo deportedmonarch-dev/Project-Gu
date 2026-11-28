@@ -86,7 +86,7 @@ namespace ProjectGu
                 }
 
                 record.ChangeCondition(GuCondition.Dormant);
-                if (record.CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind) record.EndSurfaceResidency();
+                if (record.SurfaceResidence != null) record.EndSurfaceResidency();
                 record.CommitManifestation(GuManifestationKind.Thing, staged.GetUniqueLoadID());
                 staged.InitializeBinding(record);
                 committed = true;

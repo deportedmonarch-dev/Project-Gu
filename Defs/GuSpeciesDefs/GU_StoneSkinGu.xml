@@ -8,6 +8,12 @@
     <maxRank>1</maxRank>
     <wildPopulationEnabled>true</wildPopulationEnabled>
     <surfaceHabitat>Rocky</surfaceHabitat>
+    <surfaceProfile>GU_SurfaceRocky</surfaceProfile>
+    <surfaceRecoverySources>
+      <li>NaturalReplenishment</li>
+      <li>Migration</li>
+      <li>NaturalFormation</li>
+    </surfaceRecoverySources>
     <wildProjectionKind>GU_WildStoneSkinGu</wildProjectionKind>
     <dormantProjectionDef>GU_DormantStoneSkinGu</dormantProjectionDef>
     <habitatTags><li>surface</li><li>rocky</li></habitatTags>

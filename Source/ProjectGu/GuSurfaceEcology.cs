@@ -13,7 +13,7 @@ namespace ProjectGu
     public enum GuSurfaceHabitat { None, Forest, Rocky }
 
     /// <summary>Surface cohorts are owned by the game, with one cohort per species at each locality.</summary>
-    public sealed class GuSurfaceEcology : GameComponent, IGuPopulationSourceDirectory
+    public sealed partial class GuSurfaceEcology : GameComponent, IGuPopulationSourceDirectory
     {
         internal const string SourceKind = "surface";
         internal const string AmbientTrigger = "surface-ambient";
@@ -36,9 +36,12 @@ namespace ProjectGu
         public override void ExposeData()
         {
             Scribe_Collections.Look(ref sites, "guSurfaceSites", LookMode.Value, LookMode.Deep);
+            Scribe_Collections.Look(ref regions, "guSurfaceRegions", LookMode.Value, LookMode.Deep);
             if (Scribe.mode != LoadSaveMode.Saving)
                 Scribe_Collections.Look(ref legacyLocalities, "guSurfaceLocalities", LookMode.Value, LookMode.Deep);
             sites ??= new();
+            regions ??= new();
+            if (Scribe.mode == LoadSaveMode.PostLoadInit) scheduleReady = false;
             if (Scribe.mode == LoadSaveMode.PostLoadInit && legacyLocalities != null)
             {
                 foreach (var (key, locality) in legacyLocalities)
@@ -67,17 +70,26 @@ namespace ProjectGu
             _ => 0
         };
 
-        internal static int Suitability(Map map, GuSpeciesDef species)
+        internal static int Suitability(Map map, GuSpeciesDef species) => Suitability(map, species, out _);
+
+        private static int Suitability(Map map, GuSpeciesDef species, out bool exposedRock)
         {
-            if (species.surfaceHabitat == GuSurfaceHabitat.Forest) return Suitability(map.Biome);
             var hilliness = Find.WorldGrid[map.Tile].hilliness;
-            bool hasExposedRock = hilliness == Hilliness.Flat && IsForest(map.Biome)
-                && Find.World.NaturalRockTypesIn(map.Tile).Any(rock => map.listerThings.ThingsOfDef(rock)
-                    .Any(formation => GenAdj.CardinalDirections.Any(offset => OpenNaturalGround(map, formation.Position + offset))));
-            return Suitability(species.surfaceHabitat, map.Biome, hilliness, hasExposedRock);
+            bool needsRock = species.surfaceProfile?.NeedsRockObservation(map.Biome, hilliness)
+                ?? (species.surfaceHabitat == GuSurfaceHabitat.Rocky && hilliness == Hilliness.Flat && IsForest(map.Biome));
+            exposedRock = needsRock && HasExposedRock(map);
+            return Weight(species, map.Biome, hilliness, exposedRock);
         }
 
-        private static string Key(Map map) => $"{map.Tile.Layer.LayerID}/{map.Tile.tileId}/0";
+        private static int Weight(GuSpeciesDef species, BiomeDef biome, Hilliness hilliness, bool exposedRock) =>
+            species.surfaceProfile?.Weight(biome, hilliness, exposedRock) ?? Suitability(species.surfaceHabitat, biome, hilliness, exposedRock);
+
+        private static bool HasExposedRock(Map map) => Find.World.NaturalRockTypesIn(map.Tile).Any(rock =>
+            map.listerThings.ThingsOfDef(rock).Any(formation => GenAdj.CardinalDirections.Any(offset =>
+                OpenNaturalGround(map, formation.Position + offset))));
+
+        private static string Key(Map map) => Key(map.Tile);
+        private static string Key(PlanetTile tile) => $"{tile.Layer.LayerID}/{tile.tileId}/0";
 
         private Site GetSite(string key)
         {
@@ -96,31 +108,36 @@ namespace ProjectGu
                 if (Rand.ValueSeeded(Gen.HashCombineInt(seed, i)) < suitability * 0.25f) initial++;
             var cohort = new GuPopulationRecord(species.defName, initial, 0, -1);
             if (!Registry.SurfaceEvidenceIntact(key, cohort)) return null;
-            locality = new Locality { Cohort = cohort, Seed = seed };
+            locality = new Locality { Cohort = cohort, Seed = seed, Established = initial > 0, FoundingCount = initial };
             populations.Add(species.defName, locality);
             return locality;
         }
 
-        private static bool ResidentOf(GuRecord record, string key) => record is { IsLiving: true, SurfaceResidencyEnded: false }
-            && record.CreationEvidence is { OwnerKind: SourceKind, SourceId: var source } && source == key;
+        private static GuRecord[] Residents(string key, string species) => Registry.SurfaceResidents(key, species, Capacity + 1);
 
-        private static GuRecord[] Residents(string key, string species) => Registry.Records
-            .Where(record => record.SpeciesDefName == species && ResidentOf(record, key)).Take(2).ToArray();
-
-        private static bool Countable(GuRecord record, Map map) => record.IsActionable && record.Condition == GuCondition.Active
-            && record.Refinement?.CultivatorId == null && (record.ContainerKind == GuContainerKind.WorldSite
-                ? record.LastKnown?.IsAt(map) == true
+        private static bool Countable(GuRecord record, PlanetTile tile, Map map) => record.IsActionable && record.Condition == GuCondition.Active
+            && record.Refinement?.CultivatorId == null && (IsWorldResident(record)
+                ? record.LastKnown?.Tile == tile.tileId && record.LastKnown.Layer == tile.Layer.LayerID
                 : Registry.ProjectionOf(record) is Pawn_GuWildProjection { Dead: false, Spawned: true, Faction: null } pawn
-                    && pawn.Map == map && Registry.Observe(record).Form == GuObservedForm.ActivePawn);
+                    && map != null && pawn.Map == map && Registry.Observe(record).Form == GuObservedForm.ActivePawn);
+
+        private static bool IsWorldResident(GuRecord record) =>
+            record.Placement == GuPlacementKind.Contained && record.ContainerKind == GuContainerKind.WorldSite;
 
         internal Locality LocalityAt(Map map, string species) =>
-            map?.Tile.Valid == true && sites.TryGetValue(Key(map), out var site)
-                ? site.Populations.GetValueOrDefault(species) : null;
+            map?.Tile.Valid == true ? LocalityAt(map.Tile, species) : null;
+
+        internal Locality LocalityAt(PlanetTile tile, string species) =>
+            tile.Valid && sites.TryGetValue(Key(tile), out var site) ? site.Populations.GetValueOrDefault(species) : null;
+
+        internal Locality RegionalPopulation(string region, string species) =>
+            region != null && regions.TryGetValue(region, out var entry) ? entry.Populations.GetValueOrDefault(species) : null;
 
         public override void GameComponentTick()
         {
             int now = Find.TickManager.TicksGame;
             if (now % SampleTicks != 0 || Registry == null || Registry.CustodyTransitionInProgress) return;
+            EnsureSchedule(now);
             foreach (var map in Find.Maps)
             {
                 if (!GuPocketProbeComponent.IsSurfaceSettlement(map)) continue;
@@ -128,19 +145,19 @@ namespace ProjectGu
                 if (!UniqueMap(map, key)) continue;
                 foreach (var species in SurfaceSpecies)
                 {
-                    int suitability = Suitability(map, species);
-                    if (suitability == 0) continue;
+                    int suitability = Suitability(map, species, out bool exposedRock);
                     var locality = GetOrInitialize(key, species, suitability);
                     if (locality?.Cohort == null) continue;
                     var residents = Residents(key, species.defName);
-                    if (residents.Length > 1 || residents.Any(record => !Countable(record, map))) continue;
-                    locality.Advance(now, map, key, residents.Length);
-                    if (now % ManifestationTicks != 0) continue;
+                    ObserveLoaded(map, key, locality, species, suitability, exposedRock, residents, now);
+                    if (suitability == 0 || residents.Length > 1 || residents.Any(record => !Countable(record, map.Tile, map))
+                        || now % ManifestationTicks != 0) continue;
                     var resident = residents.SingleOrDefault();
-                    if (resident != null ? resident.ContainerKind == GuContainerKind.WorldSite : locality.Cohort.MatureCount > 0)
+                    if (resident != null ? IsWorldResident(resident) : locality.Cohort.MatureCount > 0)
                         TryManifest(map, key, sites[key], locality, species, resident, now);
                 }
             }
+            ServiceSchedule(now);
         }
 
         private static bool UniqueMap(Map map, string key) =>
@@ -217,7 +234,7 @@ namespace ProjectGu
                 if (returning != null)
                 {
                     Registry.TryRecoverSurfaceResident(returning, map, cell,
-                        () => source.PlacementReady(map, cell, AmbientTrigger) && Countable(returning, map), out _);
+                        () => source.PlacementReady(map, cell, AmbientTrigger) && Countable(returning, map.Tile, map), out _);
                     return;
                 }
 
@@ -251,53 +268,6 @@ namespace ProjectGu
             {
                 Scribe_Collections.Look(ref Populations, "populations", LookMode.Value, LookMode.Deep);
                 Populations ??= new();
-            }
-        }
-
-        internal sealed class Locality : IExposable
-        {
-            public GuPopulationRecord Cohort;
-            public int Seed;
-            public int ReplacementOrdinal;
-            // -1 means the threshold has not latched. A running clock advances only on eligible, loaded maps.
-            public int ReplacementTicks = -1;
-            private int lastMapId = -1;
-            private int lastSample = -1;
-
-            internal void Advance(int now, Map map, string key, int residents)
-            {
-                int elapsed = lastMapId == map.uniqueID && lastSample == now - SampleTicks ? SampleTicks : 0;
-                lastMapId = map.uniqueID;
-                lastSample = now;
-                long occupied = Cohort.TotalCount + residents;
-                if (occupied >= Capacity)
-                {
-                    ReplacementTicks = -1;
-                    return;
-                }
-                if (ReplacementTicks < 0)
-                {
-                    if (occupied <= Threshold) ScheduleReplacement();
-                    return;
-                }
-                ReplacementTicks = Math.Max(0, ReplacementTicks - elapsed);
-                if (ReplacementTicks != 0 || !Registry.SurfaceEvidenceIntact(key, Cohort) || !Cohort.TryRecruitMature(Capacity, residents)) return;
-                if (occupied + 1 >= Capacity) ReplacementTicks = -1;
-                else ScheduleReplacement();
-            }
-
-            private void ScheduleReplacement()
-            {
-                int roll = Gen.HashCombineInt(Seed, ReplacementOrdinal++);
-                ReplacementTicks = Rand.RangeInclusiveSeeded(3 * TicksPerDay, 9 * TicksPerDay, roll);
-            }
-
-            public void ExposeData()
-            {
-                Scribe_Deep.Look(ref Cohort, "cohort");
-                Scribe_Values.Look(ref Seed, "seed");
-                Scribe_Values.Look(ref ReplacementOrdinal, "replacementOrdinal");
-                Scribe_Values.Look(ref ReplacementTicks, "replacementTicks", -1);
             }
         }
 
