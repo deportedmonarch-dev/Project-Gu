@@ -18,6 +18,26 @@ internal static class RegionalEcologyChecks
         Require(!donor.TryTransferMatureTo(competing, 0, 0, 4, 0) && !donor.TryTransferMatureTo(competing, 1, 0, 4, 0)
             && competing.MatureCount == 0 && competing.Revision == 0, "A competing or replayed request cannot spend the same unit");
 
+        var retention = new GuEncounterRetention();
+        retention.Observe(10, historical: true);
+        Require(retention.Protected(69, 60) && !retention.Protected(70, 60), "Historical significance expires at its deadline");
+        Require(retention.Renew("test:quest", 70, 90) && retention.Renew("test:quest", 80, 100)
+            && retention.Protected(99, 60) && !retention.Protected(100, 60), "Renewal extends the exact lease and expired references are pruned");
+        Require(retention.Renew("test:tracking", 100, 200), "A released or expired lease frees its slot");
+        retention.Release("test:tracking");
+        Require(!retention.Protected(101, 60), "An issuer can release active protection");
+
+        var returned = new GuPopulationRecord("SpeciesA", 3, 0, -1);
+        Require(!returned.TryCreditReturn("return", 0, 4, 1) && returned.Revision == 0 && returned.ReturnCredits == 0,
+            "A full return destination keeps its preimage");
+        Require(returned.TryCreditReturn("return", 0, 4, 0) && returned.MatureCount == 4 && returned.Revision == 1
+            && returned.ReturnCredits == 1 && returned.ReturnDigest == GuPopulationRecord.ChainDigest(GuPopulationRecord.DigestSeed, 1, "return")
+            && !returned.TryCreditReturn("return", 0, 4, 0), "Return credits exactly one adult with sealed evidence and rejects a stale revision");
+        var beforeIssue = returned.Preimage;
+        Require(returned.TryDebitForReceipt("new-specimen") && returned.EvidenceIntact && returned.ReceiptDebits == 1
+            && returned.TryRestoreUnpublishedDebit(beforeIssue) && returned.EvidenceIntact && returned.ReturnCredits == 1
+            && returned.Revision == 1 && returned.MatureCount == 4, "Aborting new issuance preserves earlier return evidence");
+
         const int rowCount = 50_000;
         var queue = new GuSurfaceEcology.DueSchedule();
         var rows = Enumerable.Range(0, rowCount).Select(index =>

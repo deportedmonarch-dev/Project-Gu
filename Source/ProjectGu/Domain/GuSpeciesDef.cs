@@ -26,6 +26,8 @@ namespace ProjectGu.Domain
         // Opts into the shared surface habitat, recovery and ground encounter behavior.
         public GuSurfaceHabitat surfaceHabitat;
         public GuSurfaceProfileDef surfaceProfile;
+        // Minimum quiet period for this species. -1 preserves the exact individual indefinitely.
+        public int wildIdentityRetentionDays;
         internal bool HasSurfacePopulation => wildPopulationEnabled && surfaceHabitat != GuSurfaceHabitat.None;
         public List<GuSurfaceSource> surfaceRecoverySources = new() { GuSurfaceSource.NaturalReplenishment, GuSurfaceSource.Migration };
         public PawnKindDef wildProjectionKind;
@@ -88,6 +90,8 @@ namespace ProjectGu.Domain
                 yield return $"{defName}: minRank must be between 1 and 9";
             if (maxRank < minRank || maxRank > 9)
                 yield return $"{defName}: maxRank must be between minRank and 9";
+            if (wildIdentityRetentionDays is < -1 or > 600)
+                yield return $"{defName}: wildIdentityRetentionDays must be -1 or between 0 and 600";
             if (refinementBaseWorkTicks is < 1 or > 600_000)
                 yield return $"{defName}: refinementBaseWorkTicks must be between 1 and 600000";
             if (surfaceHabitat != GuSurfaceHabitat.None && (!wildPopulationEnabled || minRank != 1 || wildProjectionKind == null || dormantProjectionDef == null))

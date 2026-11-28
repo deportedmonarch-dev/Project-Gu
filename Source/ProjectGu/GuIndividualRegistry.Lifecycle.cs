@@ -196,6 +196,7 @@ namespace ProjectGu
         {
             record.ReleaseRefinement();
             record.ChangeCondition(GuCondition.Active);
+            record.NoteEncounterInteraction(tick, historical: true);
             record.AddHistory(new(tick, GuLifecycleEventKind.Escaped, "HostBodyDestroyed", null, null, location, detail));
         }
 

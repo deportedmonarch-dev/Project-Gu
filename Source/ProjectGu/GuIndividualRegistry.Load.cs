@@ -60,7 +60,7 @@ namespace ProjectGu
         private static string RecordError(GuRecord record)
         {
             if (record.Version != GuRecord.CurrentVersion) return "Unsupported Gu record version.";
-            if (!record.IsLiving && record.Existence is not (GuExistence.Terminal or GuExistence.Retired))
+            if (!record.IsLiving && record.Existence is not (GuExistence.Terminal or GuExistence.Retired or GuExistence.Aggregated))
                 return "Unsupported Gu existence.";
             if (!Guid.TryParseExact(record.Id, "N", out _) || record.CustodyRevision < 1 || record.StateRevision < 1
                 || string.IsNullOrWhiteSpace(record.Origin) || string.IsNullOrWhiteSpace(record.OriginId) || record.CreatedTick < 0)
@@ -71,6 +71,8 @@ namespace ProjectGu
                 return "The saved cohort materialization has incomplete provenance or debit evidence.";
             // Alpha 6 receipts are additive. A record without one keeps the original spring rules above.
             if (record.CreationEvidence?.ShapeError(record) is { } receiptError) return receiptError;
+            if (record.Existence == GuExistence.Aggregated ? record.PopulationReturn?.Matches(record) != true : record.PopulationReturn != null)
+                return "The population return evidence contradicts the record.";
             if (record.Species is { } species && (record.Rank < species.minRank || record.Rank > species.maxRank))
                 return "The saved rank is outside the species range.";
             // A terminal or retired record is a tombstone. Compaction clears its placement fields.

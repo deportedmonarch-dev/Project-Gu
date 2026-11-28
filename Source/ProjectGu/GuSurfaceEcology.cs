@@ -150,8 +150,10 @@ namespace ProjectGu
                     if (locality?.Cohort == null) continue;
                     var residents = Residents(key, species.defName);
                     ObserveLoaded(map, key, locality, species, suitability, exposedRock, residents, now);
+                    foreach (var candidate in residents)
+                        Registry.TryReturnSurfaceResident(candidate.Id, candidate.CustodyRevision, map, out _);
                     if (suitability == 0 || residents.Length > 1 || residents.Any(record => !Countable(record, map.Tile, map))
-                        || now % ManifestationTicks != 0) continue;
+                        || now % ManifestationTicks != 0 || now < locality.NextManifestationTick) continue;
                     var resident = residents.SingleOrDefault();
                     if (resident != null ? IsWorldResident(resident) : locality.Cohort.MatureCount > 0)
                         TryManifest(map, key, sites[key], locality, species, resident, now);

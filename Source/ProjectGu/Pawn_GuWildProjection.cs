@@ -157,6 +157,14 @@ namespace ProjectGu
             base.Kill(dinfo, exactCulprit);
         }
 
+        public override void SetFaction(Faction newFaction, Pawn recruiter = null)
+        {
+            var previous = Faction;
+            base.SetFaction(newFaction, recruiter);
+            if (Faction != previous && Current.Game?.GetComponent<GuIndividualRegistry>()?.Resolve(this) is { } record)
+                record.NoteEncounterInteraction(Find.TickManager.TicksGame, historical: true);
+        }
+
         public override IEnumerable<Gizmo> GetGizmos() => releaseSuppressed ? Array.Empty<Gizmo>() : base.GetGizmos();
         public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
         {

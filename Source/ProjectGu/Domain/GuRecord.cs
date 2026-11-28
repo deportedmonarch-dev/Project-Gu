@@ -65,7 +65,7 @@ namespace ProjectGu.Domain
     /// species state and integrity are independent facets. Physical location of a manifestation is observed
     /// from the native graph and is not stored here.
     /// </summary>
-    public sealed class GuRecord : IExposable
+    public sealed partial class GuRecord : IExposable
     {
         internal const int CurrentVersion = 2;
         internal const string CohortOrigin = "cohort";
@@ -330,8 +330,10 @@ namespace ProjectGu.Domain
 
         internal bool SurfaceResidencyEnded { get; private set; }
         private string introducedSurfaceSite;
-        internal string SurfaceResidence => !IsLiving || SurfaceResidencyEnded ? null : introducedSurfaceSite
+        internal string SurfaceResidence => !IsLiving || SurfaceResidencyEnded ? null : SurfaceResidenceEvidence;
+        internal string SurfaceResidenceEvidence => introducedSurfaceSite
             ?? (CohortDebitCommitted && CreationEvidence?.OwnerKind == GuSurfaceEcology.SourceKind ? CreationEvidence.SourceId : null);
+        internal bool IsAdmittedSurfaceResident => introducedSurfaceSite != null;
         private int escapeAdmissionRevision = -1;
         internal bool HasEscapeEvidence => escapeAdmissionRevision == custodyRevision
             && history?.Exists(entry => entry.Kind == GuLifecycleEventKind.Escaped) == true;
@@ -405,6 +407,7 @@ namespace ProjectGu.Domain
                 || refinementProcess.CompletedWorkTicks != refinementProcess.TotalWorkTicks
                 || refinementProcess.CultivatorId != cultivatorId) return false;
             refinement = new GuRefinement { cultivatorId = cultivatorId, sinceTick = tick };
+            NoteEncounterInteraction(tick, historical: true);
             refinementProcess = null;
             stateRevision++;
             return true;
@@ -484,6 +487,7 @@ namespace ProjectGu.Domain
             legacyApertureLoadId = null;
             refinement = null;
             state?.Clear();
+            encounter = null;
             lastKnown = null;
             unresolvedDetail = null;
             legacyQuarantineReason = null;
@@ -515,7 +519,7 @@ namespace ProjectGu.Domain
         }
 
         internal string DebugDescription => $"Gu {id ?? "(missing ID)"} | {speciesDefName} rank {rank} | custody revision {custodyRevision} | state revision {stateRevision}"
-            + $"\n{existence} | {condition} | " + (placement == GuPlacementKind.Manifested
+            + $"\n{existence} | {condition} | " + (populationReturn != null ? $"returned to {populationReturn.Describe()}" : placement == GuPlacementKind.Manifested
                 ? $"manifested as {manifestation} ({projectionId})"
                 : $"contained in {containerKind} {containerId ?? "(unassigned)"} (anchor {anchorHint})")
             + (creationEventKey == null ? "" : $"\nOrigin habitat: {originId} ({originNativeId}) | Event: {creationEventKey} | Adult debited: {cohortDebitCommitted}")
@@ -533,6 +537,8 @@ namespace ProjectGu.Domain
 
         public void ExposeData()
         {
+            Scribe_Deep.Look(ref encounter, "encounterRetention");
+            Scribe_Deep.Look(ref populationReturn, "populationReturn");
             bool surfaceResidencyEnded = SurfaceResidencyEnded;
             Scribe_Values.Look(ref surfaceResidencyEnded, "surfaceResidencyEnded");
             SurfaceResidencyEnded = surfaceResidencyEnded;

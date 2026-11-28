@@ -38,6 +38,7 @@ namespace ProjectGu.Jobs
             yield return Toils_General.Do(() =>
             {
                 var wild = GuSurfaceEcology.FindWildGu(pawn, job.targetA.Cell, SearchRadius);
+                if (wild != null) Current.Game.GetComponent<GuIndividualRegistry>().NoteSurfaceSearchResult(wild);
                 if (!job.playerForced || !pawn.IsColonistPlayerControlled) return;
                 if (wild == null)
                 {

@@ -86,6 +86,7 @@ namespace ProjectGu
                 }
 
                 record.ChangeCondition(GuCondition.Dormant);
+                record.NoteEncounterInteraction(Find.TickManager.TicksGame, historical: true);
                 if (record.SurfaceResidence != null) record.EndSurfaceResidency();
                 record.CommitManifestation(GuManifestationKind.Thing, staged.GetUniqueLoadID());
                 staged.InitializeBinding(record);
@@ -138,6 +139,7 @@ namespace ProjectGu
         private static bool CanRetire(Pawn_GuWildProjection pawn) => pawn.GetType() == typeof(Pawn_GuWildProjection) && IsOutsideAnomalyLifecycle(pawn)
             && pawn.Faction == null && !pawn.Downed && !pawn.IsPrisoner && !pawn.IsSlave && pawn.GetLord() == null
             && !Find.WorldPawns.Contains(pawn) && !QuestUtility.IsQuestLodger(pawn) && pawn.questTags?.Count is not > 0
+            && Find.QuestManager?.IsReservedByAnyQuest(pawn) != true
             && pawn.relations?.RelatedToAnyoneOrAnyoneRelatedToMe != true && !Find.TaleManager.AnyTaleConcerns(pawn)
             && (pawn.ownership == null || (pawn.ownership.OwnedBed == null && pawn.ownership.AssignedGrave == null
                 && pawn.ownership.AssignedThrone == null && pawn.ownership.AssignedMeditationSpot == null

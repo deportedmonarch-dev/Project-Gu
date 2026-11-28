@@ -16,8 +16,12 @@ namespace ProjectGu
             {
                 var save = AccessTools.DeclaredMethod(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.SaveGame), new[] { typeof(string) })
                     ?? throw new MissingMethodException(nameof(GameDataSaveLoader), nameof(GameDataSaveLoader.SaveGame));
-                new Harmony("projectgu.livingcultivation.gucustody").Patch(save,
-                    prefix: new HarmonyMethod(typeof(GuCustodySaveGuard), nameof(BeforeSave)));
+                var safeSave = AccessTools.DeclaredMethod(typeof(SafeSaver), nameof(SafeSaver.Save),
+                    new[] { typeof(string), typeof(string), typeof(Action), typeof(bool) })
+                    ?? throw new MissingMethodException(nameof(SafeSaver), nameof(SafeSaver.Save));
+                var harmony = new Harmony("projectgu.livingcultivation.gucustody");
+                harmony.Patch(save, prefix: new HarmonyMethod(typeof(GuCustodySaveGuard), nameof(BeforeSave)));
+                harmony.Patch(safeSave, prefix: new HarmonyMethod(typeof(GuCustodySaveGuard), nameof(BeforeSafeSave)));
                 Installed = true;
             }
             catch (Exception exception)
@@ -25,6 +29,9 @@ namespace ProjectGu
                 Log.Error($"[Project GU] The Gu custody save guard could not be installed. {exception}");
             }
         }
+
+        // The native deep writer catches component exceptions and may finish writing. Game saves must stop before it starts.
+        private static bool BeforeSafeSave(string __1) => __1 != "savegame" || BeforeSave();
 
         private static bool BeforeSave()
         {

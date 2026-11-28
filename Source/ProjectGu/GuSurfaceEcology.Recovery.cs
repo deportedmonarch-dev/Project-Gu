@@ -80,6 +80,7 @@ namespace ProjectGu
 
         internal sealed class Locality : IExposable
         {
+            public int NextManifestationTick;
             public GuPopulationRecord Cohort;
             public int Seed;
             public int ReplacementOrdinal;
@@ -119,6 +120,7 @@ namespace ProjectGu
                 Scribe_Values.Look(ref FoundingCount, "foundingCount", -1);
                 Scribe_Values.Look(ref Blocked, "blocked");
                 Scribe_Values.Look(ref EvidenceTick, "evidenceTick", -1);
+                Scribe_Values.Look(ref NextManifestationTick, "nextManifestationTick");
                 Scribe_Values.Look(ref HabitatWeight, "habitatWeight");
                 Scribe_Values.Look(ref EvidenceProfile, "evidenceProfile");
                 Scribe_Values.Look(ref EvidenceProfileName, "evidenceProfileName");

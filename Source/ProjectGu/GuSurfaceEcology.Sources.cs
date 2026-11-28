@@ -156,6 +156,7 @@ namespace ProjectGu
             ObserveLoaded(map, key, row, species, weight, exposedRock, residents, now);
             if (row.Blocked is not (BlockedBy.None or BlockedBy.NoSource) || row.Cohort.TotalCount + residents.Length >= Capacity
                 || !Registry.TryJoinSurfaceResidence(record, revision, key)) return false;
+            if (source == GuSurfaceSource.Escape) record.NoteEncounterInteraction(now, historical: true);
             row.Established = true;
             row.Receipts.Add(new() { Source = source, Individual = id, CustodyRevision = revision, Tick = now,
                 RecipientRevision = row.Cohort.Revision });
@@ -173,6 +174,7 @@ namespace ProjectGu
                 int residents = address.Regional ? 0 : Residents(address.Owner, address.Species).Length;
                 output.AppendLine().Append($"{address.Owner} {address.Species} | anonymous {row.Cohort.TotalCount} | living members {residents}"
                     + $" | founding {row.FoundingCount} | established {row.Established} | revision {row.Cohort.Revision}"
+                    + $" | return credits {row.Cohort.ReturnCredits}"
                     + $" | {row.Blocked} | {row.EvidenceProfileName ?? row.EvidenceProfile.ToString()} weight {row.HabitatWeight}"
                     + $" exposed rock {row.ExposedRock} measured at {row.EvidenceTick}"
                     + $" | unloaded {row.Unloaded} | consumed {row.ConsumedTick} | discarded {row.DiscardedTicks}"

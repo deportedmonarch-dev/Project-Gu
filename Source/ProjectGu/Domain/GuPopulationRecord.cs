@@ -28,6 +28,8 @@ namespace ProjectGu.Domain
         private long receiptDebits;
         private long receiptDigest;
         private long seal;
+        private long returnCredits;
+        private long returnDigest;
 
         public string SpeciesDefName => speciesDefName;
         public int MatureCount => matureCount;
@@ -38,10 +40,14 @@ namespace ProjectGu.Domain
         internal int EvidenceVersion => evidenceVersion;
         internal long ReceiptDebits => receiptDebits;
         internal long ReceiptDigest => receiptDigest;
+        internal long ReturnCredits => returnCredits;
+        internal long ReturnDigest => returnDigest;
 
         /// <summary>False when a row with debit evidence was changed outside its own mutations (substitution or edit).</summary>
-        internal bool EvidenceIntact => evidenceVersion == 0 ? receiptDebits == 0 && receiptDigest == 0 && seal == 0
-            : evidenceVersion == CurrentEvidenceVersion && receiptDebits > 0 && seal == ComputeSeal();
+        internal bool EvidenceIntact => returnCredits >= 0 && (returnCredits != 0 || returnDigest == 0)
+            && (evidenceVersion == 0 ? receiptDebits == 0 && receiptDigest == 0 && returnCredits == 0 && seal == 0
+                : evidenceVersion == CurrentEvidenceVersion && receiptDebits >= 0 && (receiptDebits > 0 || returnCredits > 0)
+                    && seal == ComputeSeal());
 
         // Parameterless constructor is required by RimWorld's deep Scribe loading.
         public GuPopulationRecord() { }
@@ -77,11 +83,8 @@ namespace ProjectGu.Domain
             bool intact = SealMatches;
             matureCount--;
             revision++;
-            if (evidenceVersion == 0)
-            {
-                evidenceVersion = CurrentEvidenceVersion;
-                receiptDigest = DigestSeed;
-            }
+            evidenceVersion = CurrentEvidenceVersion;
+            if (receiptDebits == 0) receiptDigest = DigestSeed;
             receiptDebits++;
             receiptDigest = ChainDigest(receiptDigest, revision, eventKey);
             Reseal(intact);
@@ -138,6 +141,19 @@ namespace ProjectGu.Domain
         internal bool CanRecruitMature(int capacity, int livingResidents) =>
             EvidenceIntact && revision < long.MaxValue && livingResidents >= 0 && TotalCount + livingResidents < capacity;
 
+        internal bool TryCreditReturn(string eventKey, long expectedRevision, int capacity, int remainingResidents)
+        {
+            if (string.IsNullOrEmpty(eventKey) || revision != expectedRevision || returnCredits == long.MaxValue
+                || !CanRecruitMature(capacity, remainingResidents)) return false;
+            matureCount++;
+            revision++;
+            evidenceVersion = CurrentEvidenceVersion;
+            returnDigest = ChainDigest(returnCredits == 0 ? DigestSeed : returnDigest, revision, eventKey);
+            returnCredits++;
+            Reseal(true);
+            return true;
+        }
+
         internal bool TryRecruitMature(int capacity, int livingResidents)
         {
             if (!CanRecruitMature(capacity, livingResidents)) return false;
@@ -193,6 +209,11 @@ namespace ProjectGu.Domain
             hash = Mix(hash, unchecked((ulong)evidenceVersion));
             hash = Mix(hash, unchecked((ulong)receiptDebits));
             hash = Mix(hash, unchecked((ulong)receiptDigest));
+            if (returnCredits != 0)
+            {
+                hash = Mix(hash, unchecked((ulong)returnCredits));
+                hash = Mix(hash, unchecked((ulong)returnDigest));
+            }
             return unchecked((long)hash);
         }
 
@@ -215,6 +236,8 @@ namespace ProjectGu.Domain
             Scribe_Values.Look(ref receiptDebits, "receiptDebits", 0L);
             Scribe_Values.Look(ref receiptDigest, "receiptDigest", 0L);
             Scribe_Values.Look(ref seal, "evidenceSeal", 0L);
+            Scribe_Values.Look(ref returnCredits, "returnCredits", 0L);
+            Scribe_Values.Look(ref returnDigest, "returnDigest", 0L);
         }
     }
 }

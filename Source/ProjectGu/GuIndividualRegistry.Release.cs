@@ -56,6 +56,7 @@ namespace ProjectGu
                     if (!TryPlaceStagedWildPawn(prepared, record, kind, map, cell) || !DestinationReady(prepared)) return false;
 
                     record.ChangeCondition(GuCondition.Active);
+                    record.NoteEncounterInteraction(Find.TickManager.TicksGame, historical: true);
                     record.CommitManifestation(GuManifestationKind.Pawn, prepared.GetUniqueLoadID());
                     committed = true;
                     prepared.InitializeBinding(record);

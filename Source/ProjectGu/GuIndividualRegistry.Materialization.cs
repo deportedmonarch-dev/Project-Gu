@@ -28,6 +28,7 @@ namespace ProjectGu
         private void RebuildCreationEventBindings(IEnumerable<GuRecord> source)
         {
             surfaceReceipts.Clear();
+            surfaceReturns.Clear();
             surfaceResidents.Clear();
             committedRevisionFloor.Clear();
             foreach (var claims in source.Where(record => !string.IsNullOrWhiteSpace(record.CreationEventKey))
@@ -104,7 +105,8 @@ namespace ProjectGu
             if (!cohort.EvidenceIntact)
                 return "The source cohort's debit evidence was changed outside its owner (substituted or edited). The scope is frozen until repaired.";
             if (ownerKind == GuSurfaceEcology.SourceKind)
-                return SurfaceReceiptsMatch(sourceId, species, cohort) ? null : "The surface cohort's committed debit evidence does not match the registry.";
+                return SurfaceReceiptsMatch(sourceId, species, cohort) && SurfaceReturnsMatch(sourceId, species, cohort)
+                    ? null : "The surface cohort's committed debit or return evidence does not match the registry.";
             var receipts = records.Where(record => record != null && record.CohortDebitCommitted && record.CreationEvidence is { } receipt
                     && string.Equals(receipt.OwnerKind, ownerKind, StringComparison.Ordinal)
                     && string.Equals(receipt.SourceId, sourceId, StringComparison.Ordinal)
@@ -134,18 +136,20 @@ namespace ProjectGu
         /// </summary>
         private void ReconcileSourceEvidence()
         {
-            foreach (var scope in records.Where(record => record != null && record.CohortDebitCommitted && record.CreationEvidence != null)
-                .GroupBy(record => (record.CreationEvidence.OwnerKind, record.CreationEvidence.SourceId, record.SpeciesDefName)))
+            var scopes = records.Where(record => record.CohortDebitCommitted && record.CreationEvidence != null)
+                .Select(record => (record.CreationEvidence.OwnerKind, record.CreationEvidence.SourceId, record.SpeciesDefName))
+                .Concat(surfaceReturns.Keys.Select(key => (GuSurfaceEcology.SourceKind, key.Site, key.Species))).Distinct();
+            foreach (var (ownerKind, sourceId, species) in scopes)
             {
                 try
                 {
-                    if (ResolveSource(scope.Key.OwnerKind, scope.Key.SourceId, out _) is not { } source
-                        || source.CohortFor(scope.Key.SpeciesDefName) is not { } cohort) continue;
-                    if (ScopeEvidenceRefusal(scope.Key.OwnerKind, scope.Key.SourceId, scope.Key.SpeciesDefName, cohort) is { } refusal)
-                        SafeWarning($"[Project GU] Source {scope.Key.OwnerKind}:{scope.Key.SourceId}, {scope.Key.SpeciesDefName}: {refusal} "
+                    if (ResolveSource(ownerKind, sourceId, out _) is not { } source
+                        || source.CohortFor(species) is not { } cohort) continue;
+                    if (ScopeEvidenceRefusal(ownerKind, sourceId, species, cohort) is { } refusal)
+                        SafeWarning($"[Project GU] Source {ownerKind}:{sourceId}, {species}: {refusal} "
                             + "Counts and individuals were left unchanged.");
                 }
-                catch (Exception exception) { SafeWarning($"[Project GU] Could not reconcile source evidence for {scope.Key.SourceId}. {exception.Message}"); }
+                catch (Exception exception) { SafeWarning($"[Project GU] Could not reconcile source evidence for {sourceId}. {exception.Message}"); }
             }
         }
 
